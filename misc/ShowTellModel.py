@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import *
+import misc.utils as utils
 
 MAX_STEPS = 30
 
@@ -53,8 +54,23 @@ class ShowTellModel(nn.Module):
             if i == 0:
                 xt = self.img_embed(fc_feat)
             else:
-                it = seq[:, i-1].clone()
-                xt = self.embed(seq[:, i-1])
+                if i >= 2 and self.ss_prob > 0.0: # otherwiste no need to sample
+                    sample_prob = fc_feat.data.new(batch_size).uniform_(0, 1)
+                    sample_mask = sample_prob < self.ss_prob
+                    if sample_mask.sum() == 0:
+                        it = seq[:, i-1].clone()
+                    else:
+                        sample_ind = sample_mask.nonzero().view(-1)
+                        it = seq[:, i-1].data.clone()
+                        #prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
+                        #it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
+                        prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
+                        it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
+                        it = Variable(it)
+                else:
+                    it = seq[:, i-1].clone()
+                xt = self.embed(it)
+
             output, state = self.core(xt.unsqueeze(0), state)
             output = F.log_softmax(self.logit(output.squeeze(0)))
             outputs.append(output)
@@ -80,26 +96,26 @@ class ShowTellModel(nn.Module):
                 xt = self.img_embed(fc_feat)
             else:
                 if sample_max:
-                    sampleLogprobs, it = torch.max(logprobs, 1)
+                    sampleLogprobs, it = torch.max(logprobs.data, 1)
                     it = it.view(-1).long()
                 else:
                     if temperature == 1.0:
-                        prob_prev = torch.exp(logprobs).cpu() # fetch prev distribution: shape Nx(M+1)
+                        prob_prev = torch.exp(logprobs.data).cpu() # fetch prev distribution: shape Nx(M+1)
                     else:
                         # scale logprobs by temperature
-                        prob_prev = torch.exp(torch.div(logprobs, temperature)).cpu()
-                    it = torch.multinomial(prob_prev, 1)
+                        prob_prev = torch.exp(torch.div(logprobs.data, temperature)).cpu()
+                    it = torch.multinomial(prob_prev, 1).cuda()
                     sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
                     it = it.view(-1).long() # and flatten indices for downstream processing
 
                 xt = self.embed(Variable(it))
 
             if t >= 2:
-                seq.append(it.cpu())
-                seqLogprobs.append(sampleLogprobs.view(-1).cpu().float())
+                seq.append(it)
+                seqLogprobs.append(sampleLogprobs.view(-1))
 
             output, state = self.core(xt.unsqueeze(0), state)
-            logprobs = F.log_softmax(self.logit(output.squeeze(0))).data
+            logprobs = F.log_softmax(self.logit(output.squeeze(0)))
 
         return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
 

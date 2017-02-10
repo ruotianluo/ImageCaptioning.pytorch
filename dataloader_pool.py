@@ -5,7 +5,6 @@ from __future__ import print_function
 import json
 import h5py
 import os
-import tensorflow as tf
 import numpy as np
 import random
 import skimage

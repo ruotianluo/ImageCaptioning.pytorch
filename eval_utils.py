@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
+import json
+from json import encoder
 import sys
 import misc.utils as utils
 
@@ -70,7 +72,7 @@ def eval_split(model, crit, loader, eval_kwargs):
 
         # forward the model to get loss
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
-        tmp = [Variable(torch.from_numpy(_)).cuda() for _ in tmp]
+        tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
         fc_feats, att_feats, labels, masks = tmp
 
         loss = crit(model(fc_feats, att_feats, labels)[:, 1:], labels[:,1:], masks[:,1:])
@@ -81,7 +83,7 @@ def eval_split(model, crit, loader, eval_kwargs):
         if beam_size == 1:
             # forward the model to also get generated samples for each image
             tmp = [data['fc_feats'], data['att_feats']]
-            tmp = [Variable(torch.from_numpy(_)).cuda() for _ in tmp]
+            tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
             fc_feats, att_feats = tmp
 
             seq, _ = model.sample(fc_feats, att_feats, {})
