@@ -45,17 +45,17 @@ class ShowTellModel(nn.Module):
         else:
             return Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_())
 
-    def forward(self, fc_feat, att_feat, seq):
-        batch_size = fc_feat.size(0)
+    def forward(self, fc_feats, att_feats, seq):
+        batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
         outputs = []
 
         for i in range(seq.size(1)):
             if i == 0:
-                xt = self.img_embed(fc_feat)
+                xt = self.img_embed(fc_feats)
             else:
                 if i >= 2 and self.ss_prob > 0.0: # otherwiste no need to sample
-                    sample_prob = fc_feat.data.new(batch_size).uniform_(0, 1)
+                    sample_prob = fc_feats.data.new(batch_size).uniform_(0, 1)
                     sample_mask = sample_prob < self.ss_prob
                     if sample_mask.sum() == 0:
                         it = seq[:, i-1].clone()
@@ -80,22 +80,24 @@ class ShowTellModel(nn.Module):
     def sample_beam(self, fc_feat, att_feat, opt):
         return None
 
-    def sample(self, fc_feat, att_feat, opt):
+    def sample(self, fc_feats, att_feats, opt):
         sample_max = opt.get('sample_max', True)
         beam_size = opt.get('beam_size', 1)
-        temperature = opt.get('sample_temperature', 1.0)
+        temperature = opt.get('temperature', 1.0)
         if sample_max == True and beam_size > 1:
-            return self.sample_beam(fc_feat, att_feat, opt)
+            return self.sample_beam(fc_feats, att_feats, opt)
 
-        batch_size = fc_feat.size(0)
+        batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
         seq = []
         seqLogprobs = []
         for t in range(MAX_STEPS):
             if t == 0:
-                xt = self.img_embed(fc_feat)
+                xt = self.img_embed(fc_feats)
             else:
-                if sample_max:
+                if t == 1: # input <bos>
+                    it = fc_feats.data.new(batch_size).long().zero_()
+                elif sample_max:
                     sampleLogprobs, it = torch.max(logprobs.data, 1)
                     it = it.view(-1).long()
                 else:

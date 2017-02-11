@@ -62,14 +62,14 @@ def train(opt):
     optimizer = optim.Adam(model.parameters(), lr=opt.learning_rate)
 
     # Load the optimizer
-    if infos.get('state_dict', None):
-        optimizer.load_state_dict(infos['state_dict'])
+    if vars(opt).get('start_from', None) is not None:
+        optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
 
     while True:
         if update_lr_flag:
                 # Assign the learning rate
             if epoch > opt.learning_rate_decay_start and opt.learning_rate_decay_start >= 0:
-                frac = (epoch - opt.learning_rate_decay_start) / opt.learning_rate_decay_every
+                frac = (epoch - opt.learning_rate_decay_start) // opt.learning_rate_decay_every
                 decay_factor = opt.learning_rate_decay_rate  ** frac
                 opt.current_lr = opt.learning_rate * decay_factor
                 utils.set_lr(optimizer, opt.current_lr) # set the decayed rate
@@ -77,7 +77,7 @@ def train(opt):
                 opt.current_lr = opt.learning_rate
             # Assign the scheduled sampling prob
             if epoch > opt.scheduled_sampling_start and opt.scheduled_sampling_start >= 0:
-                frac = (epoch - opt.scheduled_sampling_start) / opt.scheduled_sampling_increase_every
+                frac = (epoch - opt.scheduled_sampling_start) // opt.scheduled_sampling_increase_every
                 opt.ss_prob = min(opt.scheduled_sampling_increase_prob  * frac, opt.scheduled_sampling_max_prob)
                 model.ss_prob = opt.ss_prob
             update_lr_flag = False
@@ -137,8 +137,10 @@ def train(opt):
                     best_val_score = current_score
                     best_flag = True
                 checkpoint_path = os.path.join(opt.checkpoint_path, 'model.pth')
-                torch.save(model, checkpoint_path)
+                torch.save(model.state_dict(), checkpoint_path)
                 print("model saved to {}".format(checkpoint_path))
+                optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer.pth')
+                torch.save(optimizer.state_dict(), optimizer_path)
 
                 # Dump miscalleous informations
                 infos['iter'] = iteration
@@ -151,13 +153,12 @@ def train(opt):
                 infos['lr_history'] = lr_history
                 infos['ss_prob_history'] = ss_prob_history
                 infos['vocab'] = loader.get_vocab()
-                infos['state_dict'] = optimizer.state_dict()
                 with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'.pkl'), 'wb') as f:
                     cPickle.dump(infos, f)
 
                 if best_flag:
                     checkpoint_path = os.path.join(opt.checkpoint_path, 'model-best.ckpt')
-                    torch.save(model, checkpoint_path)
+                    torch.save(model.state_dict(), checkpoint_path)
                     print("model saved to {}".format(checkpoint_path))
                     with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'-best.pkl'), 'wb') as f:
                         cPickle.dump(infos, f)

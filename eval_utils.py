@@ -75,7 +75,7 @@ def eval_split(model, crit, loader, eval_kwargs):
         tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
         fc_feats, att_feats, labels, masks = tmp
 
-        loss = crit(model(fc_feats, att_feats, labels)[:, 1:], labels[:,1:], masks[:,1:])
+        loss = crit(model(fc_feats, att_feats, labels)[:, 1:], labels[:,1:], masks[:,1:]).data[0]
 
         loss_sum = loss_sum + loss
         loss_evals = loss_evals + 1
@@ -112,7 +112,7 @@ def eval_split(model, crit, loader, eval_kwargs):
         for i in range(n - ix1):
             predictions.pop()
         if verbose:
-            print('evaluating validation preformance... %d/%d (%f)' %(ix0 - 1, ix1, loss.data[0]))
+            print('evaluating validation preformance... %d/%d (%f)' %(ix0 - 1, ix1, loss))
 
         if data['bounds']['wrapped']:
             break
