@@ -6,8 +6,8 @@ There's something difference compared to neuraltalk2.
 - Use resnet101; the same way as in self-critical (the preprocessing code may have bug, haven't tested yet)
 
 # TODO:
-- eval code
-- beam search
+- eval code for arbitrary images
+- Other models
 
 # Requirements
 Python 2.7 (may work for python 3), pytorch
