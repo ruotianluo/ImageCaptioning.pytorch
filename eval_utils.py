@@ -8,6 +8,10 @@ from torch.autograd import Variable
 
 import json
 from json import encoder
+import random
+import string
+import time
+import os
 import sys
 import misc.utils as utils
 
@@ -24,19 +28,25 @@ def language_eval(dataset, preds):
 
     encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
+    random.seed(time.time())
+    tmp_name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(6))
+
     coco = COCO(annFile)
     valids = coco.getImgIds()
 
     # filter results to only those in MSCOCO validation set (will be about a third)
     preds_filt = [p for p in preds if p['image_id'] in valids]
     print('using %d/%d predictions' % (len(preds_filt), len(preds)))
-    json.dump(preds_filt, open('tmp.json', 'w')) # serialize to temporary json file. Sigh, COCO API...
+    json.dump(preds_filt, open(tmp_name+'.json', 'w')) # serialize to temporary json file. Sigh, COCO API...
 
-    resFile = 'tmp.json'
+    resFile = tmp_name+'.json'
     cocoRes = coco.loadRes(resFile)
     cocoEval = COCOEvalCap(coco, cocoRes)
     cocoEval.params['image_id'] = cocoRes.getImgIds()
     cocoEval.evaluate()
+
+    # delete the temp file
+    os.system('rm '+tmp_name+'.json')
 
     # create output dictionary
     out = {}
