@@ -19,6 +19,7 @@ class DataLoaderRaw():
         self.folder_path = opt.get('folder_path', '')
 
         self.batch_size = opt.get('batch_size', 1)
+        self.seq_per_img = 1
 
         # load the json file which contains additional information about the dataset
         print('DataLoaderRaw loading images from folder: ', self.folder_path)

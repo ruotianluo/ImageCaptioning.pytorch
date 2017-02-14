@@ -32,7 +32,7 @@ class DataLoader():
     def __init__(self, opt):
         self.opt = opt
         self.batch_size = self.opt.batch_size
-        self.seq_per_img = 1
+        self.seq_per_img = opt.seq_per_img
 
         # load the json file which contains additional information about the dataset
         print('DataLoader loading json file: ', opt.input_json)
@@ -94,13 +94,14 @@ class DataLoader():
         import atexit
         atexit.register(cleanup)
 
-    def get_batch(self, split, batch_size=None):
+    def get_batch(self, split, batch_size=None, seq_per_img=None):
         batch_size = batch_size or self.batch_size
+        seq_per_img = seq_per_img or self.seq_per_img
 
-        fc_batch = np.ndarray((batch_size * self.seq_per_img,) + self.h5_fc_file['fc'].shape[1:], dtype = 'float32')
-        att_batch = np.ndarray((batch_size * self.seq_per_img,) + self.h5_att_file['att'].shape[1:], dtype = 'float32')
-        label_batch = np.zeros([batch_size * self.seq_per_img, self.seq_length + 2], dtype = 'int')
-        mask_batch = np.zeros([batch_size * self.seq_per_img, self.seq_length + 2], dtype = 'float32')
+        fc_batch = np.ndarray((batch_size * seq_per_img,) + self.h5_fc_file['fc'].shape[1:], dtype = 'float32')
+        att_batch = np.ndarray((batch_size * seq_per_img,) + self.h5_att_file['att'].shape[1:], dtype = 'float32')
+        label_batch = np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'int')
+        mask_batch = np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'float32')
 
         wrapped = False
 
@@ -112,17 +113,30 @@ class DataLoader():
             t_start = time.time()
             # fetch image
             #tmp_fc, tmp_att, tmp_label, ix, tmp_wrapped = self._prefetch_process[split].get()
-            fc_batch[i * self.seq_per_img:(i+1) * self.seq_per_img], \
-                att_batch[i * self.seq_per_img:(i+1) * self.seq_per_img], \
-                label_batch[i * self.seq_per_img : (i + 1) * self.seq_per_img, 1 : self.seq_length + 1], \
+            fc_batch[i * seq_per_img:(i+1) * seq_per_img], \
+                att_batch[i * seq_per_img:(i+1) * seq_per_img], \
                 ix, tmp_wrapped = self._prefetch_process[split].get()
+
+            # fetch the sequence labels
+            ix1 = self.label_start_ix[ix] - 1 #label_start_ix starts from 1
+            ix2 = self.label_end_ix[ix] - 1
+            ncap = ix2 - ix1 + 1 # number of captions available for this image
+            assert ncap > 0, 'an image does not have any label. this can be handled but right now isn\'t'
+
+            if ncap < seq_per_img:
+                # we need to subsample (with replacement)
+                seq = np.zeros([seq_per_img, self.seq_length], dtype = 'int')
+                for q in range(seq_per_img):
+                    ixl = random.randint(ix1,ix2)
+                    seq[q, :] = self.dataloader.h5_label_file['labels'][ixl, :self.seq_length]
+            else:
+                ixl = random.randint(ix1, ix2 - seq_per_img + 1)
+                seq = self.h5_label_file['labels'][ixl: ixl + seq_per_img, :self.seq_length]
+            
+            label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = seq
 
             if tmp_wrapped:
                 wrapped = True
-
-            #fc_batch[i * self.seq_per_img:(i+1) * self.seq_per_img] = tmp_fc
-            #att_batch[i * self.seq_per_img:(i+1) * self.seq_per_img] = tmp_att
-            #label_batch[i * self.seq_per_img : (i + 1) * self.seq_per_img, 1 : self.seq_length + 1] = tmp_label
 
             # Used for reward evaluation
             gts.append(self.h5_label_file['labels'][self.label_start_ix[ix] - 1: self.label_end_ix[ix] - 1])
@@ -162,14 +176,15 @@ class BlobFetcher():
         self.split = split
         self.dataloader = dataloader
 
-        self.pool = Pool(128)
+        self.pool = Pool(4)
         self.fifo = []
 
     # Add more in the queue
     def reset(self):
-        self.cur_idx = self.dataloader.iterators[self.split]
+        if len(self.fifo) == 0:
+            self.cur_idx = self.dataloader.iterators[self.split]
         split_ix = self.dataloader.split_ix[self.split]
-        for i in xrange(1024):
+        for i in xrange(512 - len(self.fifo)):
             ix = split_ix[self.cur_idx]
             if self.cur_idx + 1 >= len(split_ix):
                 self.cur_idx = 0
@@ -203,35 +218,19 @@ class BlobFetcher():
         if ix == self.dataloader.split_ix[self.split][-1]:
             wrapped = True
 
-        # fetch the sequence labels
-        ix1 = self.dataloader.label_start_ix[ix] - 1 #label_start_ix starts from 1
-        ix2 = self.dataloader.label_end_ix[ix] - 1
-        ncap = ix2 - ix1 + 1 # number of captions available for this image
-        assert ncap > 0, 'an image does not have any label. this can be handled but right now isn\'t'
-
-        if ncap < self.dataloader.seq_per_img:
-            # we need to subsample (with replacement)
-            seq = np.zeros([self.dataloader.seq_per_img, self.dataloader.seq_length], dtype = 'int')
-            for q in range(self.dataloader.seq_per_img):
-                ixl = random.randint(ix1,ix2)
-                seq[q, :] = self.dataloader.h5_label_file['labels'][ixl, :self.dataloader.seq_length]
-        else:
-            ixl = random.randint(ix1, ix2 - self.dataloader.seq_per_img + 1)
-            seq = self.dataloader.h5_label_file['labels'][ixl: ixl + self.dataloader.seq_per_img, :self.dataloader.seq_length]
         return (self.dataloader.h5_fc_file['fc'][ix, :].astype('float32'),
             self.dataloader.h5_att_file['att'][ix, :, :, :].astype('float32'),
-            seq,
             ix,
             wrapped)
 
     def get(self):
-        if len(self.fifo) == 0:
+        if len(self.fifo) < 400:
             self.reset()
 
         ix, wrapped = self._get_next_minibatch_inds()
         tmp = self.fifo.pop(0).get()
 
-        assert tmp[3] == ix, "ix not equal"
-        assert tmp[4] == wrapped, "wrapped not equal"
+        assert tmp[2] == ix, "ix not equal"
+        assert tmp[3] == wrapped, "wrapped not equal"
 
         return tmp

@@ -25,7 +25,7 @@ class ShowTellModel(nn.Module):
         self.ss_prob = 0.0 # Schedule sampling probability
 
         self.img_embed = nn.Linear(self.fc_feat_size, self.input_encoding_size)
-        self.core = getattr(nn, self.rnn_type.upper())(self.input_encoding_size, self.rnn_size, self.num_layers, bias=False)
+        self.core = getattr(nn, self.rnn_type.upper())(self.input_encoding_size, self.rnn_size, self.num_layers, bias=False, dropout=self.drop_prob_lm)
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
 
@@ -75,9 +75,9 @@ class ShowTellModel(nn.Module):
             output = F.log_softmax(self.logit(output.squeeze(0)))
             outputs.append(output)
 
-        return torch.cat([_.unsqueeze(1) for _ in outputs], 1).contiguous()
+        return torch.cat([_.unsqueeze(1) for _ in outputs[1:]], 1).contiguous()
 
-    def sample_beam(self, fc_feats, att_feats, opt):
+    def sample_beam(self, fc_feats, att_feats, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
@@ -165,7 +165,7 @@ class ShowTellModel(nn.Module):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def sample(self, fc_feats, att_feats, opt):
+    def sample(self, fc_feats, att_feats, opt={}):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)

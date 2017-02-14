@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
+import numpy as np
 import json
 from json import encoder
 import random
@@ -55,7 +56,7 @@ def language_eval(dataset, preds):
 
     return out
 
-def eval_split(model, crit, loader, eval_kwargs):
+def eval_split(model, crit, loader, eval_kwargs={}):
     verbose = eval_kwargs.get('verbose', True)
     val_images_use = eval_kwargs.get('val_images_use', -1)
     split = eval_kwargs.get('split', 'val')
@@ -73,25 +74,23 @@ def eval_split(model, crit, loader, eval_kwargs):
     loss_evals = 0
     predictions = []
     while True:
-        if beam_size > 1:
-            data = loader.get_batch(split, 1)
-            n = n + 1
-        else:
-            data = loader.get_batch(split)
-            n = n + loader.batch_size
+        data = loader.get_batch(split)
+        n = n + loader.batch_size
 
         # forward the model to get loss
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
         tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
         fc_feats, att_feats, labels, masks = tmp
 
-        loss = crit(model(fc_feats, att_feats, labels)[:, 1:], labels[:,1:], masks[:,1:]).data[0]
+        loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:]).data[0]
 
         loss_sum = loss_sum + loss
         loss_evals = loss_evals + 1
 
         # forward the model to also get generated samples for each image
-        tmp = [data['fc_feats'], data['att_feats']]
+        # Only leave one feature for each image, in case duplicate sample
+        tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
+            data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img]]
         tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
         fc_feats, att_feats = tmp
 
@@ -129,7 +128,7 @@ def eval_split(model, crit, loader, eval_kwargs):
 
 
 # Evaluation fun(ction)
-def eval_eval(model, crit, loader, eval_kwargs):
+def eval_eval(model, crit, loader, eval_kwargs={}):
     verbose = eval_kwargs.get('verbose', True)
     num_images = eval_kwargs.get('num_images', -1)
     split = eval_kwargs.get('split', 'test')
@@ -160,11 +159,14 @@ def eval_eval(model, crit, loader, eval_kwargs):
             tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
             fc_feats, att_feats, labels, masks = tmp
 
-            loss = crit(model(fc_feats, att_feats, labels)[:, 1:], labels[:,1:], masks[:,1:]).data[0]
+            loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:]).data[0]
             loss_sum = loss_sum + loss
             loss_evals = loss_evals + 1
 
-        tmp = [data['fc_feats'], data['att_feats']]
+        # forward the model to also get generated samples for each image
+        # Only leave one feature for each image, in case duplicate sample
+        tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
+            data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img]]
         tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
         fc_feats, att_feats = tmp
         # forward the model to also get generated samples for each image

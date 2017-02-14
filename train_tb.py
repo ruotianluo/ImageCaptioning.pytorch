@@ -96,18 +96,20 @@ def train(opt):
         data = loader.get_batch('train')
         print('Read data:', time.time() - start)
 
+        torch.cuda.synchronize()
         start = time.time()
 
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
-        tmp = [Variable(torch.from_numpy(_)).cuda() for _ in tmp]
+        tmp = [Variable(torch.from_numpy(_), requires_grad=False).cuda() for _ in tmp]
         fc_feats, att_feats, labels, masks = tmp
         
         optimizer.zero_grad()
-        loss = crit(model(fc_feats, att_feats, labels)[:, 1:], labels[:,1:], masks[:,1:])
+        loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:])
         loss.backward()
         utils.clip_gradient(optimizer, opt.grad_clip)
         optimizer.step()
         train_loss = loss.data[0]
+        torch.cuda.synchronize()
         end = time.time()
         print("iter {} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" \
             .format(iteration, epoch, train_loss, end - start))
