@@ -38,15 +38,16 @@ import skimage.io
 
 from torchvision import transforms as trn
 preprocess = trn.Compose([
+        #trn.ToPILImage(),
+        #trn.Scale(256),
         #trn.ToTensor(),
         trn.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-from resnet_utils import myResnet
-import resnet
+from misc.resnet_utils import myResnet
 
-resnet = resnet.resnet101()
-resnet.load_state_dict(torch.load('/home-nfs/rluo/rluo/model/pytorch-resnet/resnet101.pth'))
+resnet = models.resnet101()
+resnet.load_state_dict(torch.load('/home-nfs/rluo/rluo/model/resnet101-5d3b4d8f.pth'))
 my_resnet = myResnet(resnet)
 my_resnet.cuda()
 my_resnet.eval()
