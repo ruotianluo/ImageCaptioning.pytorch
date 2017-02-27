@@ -24,8 +24,12 @@ Great, first we need to some preprocessing. Head over to the `coco/` folder and 
 Once we have this, we're ready to invoke the `prepro_split.py` script, which will read all of this in and create a dataset (several hdf5 files and a json file). For example, for MS COCO we can run the prepro file as follows:
 
 ```bash
-$ python prepro_split.py --input_json .../dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk --images_root ...
+$ python scripts/prepro_split2.py --input_json .../dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk --images_root ...
 ```
+
+(prepro_split.py uses resnet in torchvision, prepro_split2.py uses the resnet
+converted from caffe
+[pytorch-resnet](https://github.com/ruotianluo/pytorch-resnet.git). )
 
 You need to download [dataset_coco.json](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip) from Karpathy's homepage.
 
