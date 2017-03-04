@@ -42,6 +42,9 @@ class LanguageModelCriterion(nn.Module):
         super(LanguageModelCriterion, self).__init__()
 
     def forward(self, input, target, mask):
+        # truncate to the same size
+        target = target[:, :input.size(1)]
+        mask =  mask[:, :input.size(1)]
         input = to_contiguous(input).view(-1, input.size(2))
         target = to_contiguous(target).view(-1, 1)
         mask = to_contiguous(mask).view(-1, 1)

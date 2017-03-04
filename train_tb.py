@@ -91,9 +91,11 @@ def train(opt):
                 model.ss_prob = opt.ss_prob
             update_lr_flag = False
                 
+        torch.cuda.synchronize()
         start = time.time()
         # Load data from train split (0)
         data = loader.get_batch('train')
+        torch.cuda.synchronize()
         print('Read data:', time.time() - start)
 
         torch.cuda.synchronize()
