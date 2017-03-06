@@ -2,7 +2,7 @@
 
 There's something difference compared to neuraltalk2.
 - Instead of using random split, we use [karpathy's split](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip).
-- Instead of including the convnet in the model, we use preprocessed features.
+- Instead of including the convnet in the model, we use preprocessed features. (finetuneable cnn version is in the branch **with_finetune**)
 - Use resnet101; the same way as in self-critical (the preprocessing code may have bug, haven't tested yet)
 
 # TODO:
