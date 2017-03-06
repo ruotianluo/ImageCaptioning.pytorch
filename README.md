@@ -2,11 +2,10 @@
 
 There's something difference compared to neuraltalk2.
 - Instead of using random split, we use [karpathy's split](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip).
-- Instead of including the convnet in the model, we use preprocessed features.
-- Use resnet101; the same way as in self-critical (the preprocessing code may have bug, haven't tested yet)
+- Put resnet in the loop, instead of preprocessing.
+- Use resnet101; the same way as in knowing when to look (resize and crop).
 
 # TODO:
-- eval code for arbitrary images
 - Other models
 
 # Requirements
@@ -24,26 +23,25 @@ Great, first we need to some preprocessing. Head over to the `coco/` folder and 
 Once we have this, we're ready to invoke the `prepro_split.py` script, which will read all of this in and create a dataset (several hdf5 files and a json file). For example, for MS COCO we can run the prepro file as follows:
 
 ```bash
-$ python scripts/prepro_split2.py --input_json .../dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk --images_root ...
+$ python scripts/prepro.py --input_json .../dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk.h5 --images_root ...
 ```
-
-(prepro_split.py uses resnet in torchvision, prepro_split2.py uses the resnet
-converted from caffe
-[pytorch-resnet](https://github.com/ruotianluo/pytorch-resnet.git). )
 
 You need to download [dataset_coco.json](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip) from Karpathy's homepage.
 
-This is telling the script to read in all the data (the images and the captions), allocate the images to different splits according to the split json file, extract the resnet101 features (both fc feature and last conv feature) of each image, and map all words that occur <= 5 times to a special `UNK` token. The resulting `json` and `h5` files are about 200GB and contain everything we want to know about the dataset.
+This is telling the script to read in all the data (the images and the captions), allocate the images to different splits according to the split json file, extract the resnet101 features (both fc feature and last conv feature) of each image, and map all words that occur <= 5 times to a special `UNK` token. The resulting `json` and `h5` files are about 30GB and contain everything we want to know about the dataset.
 
 **Warning**: the prepro script will fail with the default MSCOCO data because one of their images is corrupted. See [this issue](https://github.com/karpathy/neuraltalk2/issues/4) for the fix, it involves manually replacing one image in the dataset.
 
 **(Copy end.)**
 
 ```bash
-$ python train.py --input_json coco/cocotalk.json --input_json --input_fc_h5 data/cocotalk_fc.h5 --input_att_h5 data/cocotalk_att.h5 --input_label_h5 data/cocotalk_label.h5 --beam_size 1 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --val_images_use 5000
+$ python train.py --input_json coco/cocotalk.json --input_json --input_h5 data/cocotalk.h5 --beam_size 1 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --val_images_use 5000 --cnn_model resnet101 --cnn_weight resnet101.pth
 ```
 
 The train script will take over, and start dumping checkpoints into the folder specified by `checkpoint_path` (default = current folder). For more options, see `opts.py`.
+
+**You have to download pretrained resnet101 weights from [pytorch-resnet](https://github.com/ruotianluo/pytorch-resnet.git). Don't use default torchvision resnet weights.** 
+
 
 If you have tensorflow, you can run train.py instead of `train_tb.py`. `train_tb.py` saves learning curves by summary writer, and can be visualized using tensorboard.
 
@@ -60,7 +58,7 @@ Now place all your images of interest into a folder, e.g. `blah`, and run
 the eval script:
 
 ```bash
-$ python eval.py --model model.pth --infos_path infos_<id>.pkl --image_folder <image_folder> --num_images 10
+$ python eval.py --model_path model.pth --cnn_model_path model-cnn.pth --infos_path infos_<id>.pkl --image_folder <image_folder> --num_images 10
 ```
 
 This tells the `eval` script to run up to 10 images from the given folder. If you have a big GPU you can speed up the evaluation by increasing `batch_size` (default = 1). Use `-num_images -1` to process all images. The eval script will create an `vis.json` file inside the `vis` folder, which can then be visualized with the provided HTML interface:

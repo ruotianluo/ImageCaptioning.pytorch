@@ -56,7 +56,7 @@ def language_eval(dataset, preds):
 
     return out
 
-def eval_split(model, crit, loader, eval_kwargs={}):
+def eval_split(cnn_model, model, crit, loader, eval_kwargs={}):
     verbose = eval_kwargs.get('verbose', True)
     val_images_use = eval_kwargs.get('val_images_use', -1)
     split = eval_kwargs.get('split', 'val')
@@ -65,6 +65,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
     beam_size = eval_kwargs.get('beam_size', 1)
 
     # Make sure in the evaluation mode
+    cnn_model.eval()
     model.eval()
 
     loader.reset_iterator(split)
@@ -78,10 +79,16 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         n = n + loader.batch_size
 
         # forward the model to get loss
-        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
+        tmp = [data['images'], data['labels'], data['masks']]
         tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-        fc_feats, att_feats, labels, masks = tmp
+        images, labels, masks = tmp
 
+        att_feats = _att_feats = cnn_model(images)
+        fc_feats = _fc_feats = att_feats.mean(2).mean(3).squeeze(2).squeeze(2)
+
+        att_feats = att_feats.unsqueeze(1).expand(*((att_feats.size(0), loader.seq_per_img,) + att_feats.size()[1:])).contiguous().view(*((att_feats.size(0) * loader.seq_per_img,) + att_feats.size()[1:]))
+        fc_feats = fc_feats.unsqueeze(1).expand(*((fc_feats.size(0), loader.seq_per_img,) + fc_feats.size()[1:])).contiguous().view(*((fc_feats.size(0) * loader.seq_per_img,) + fc_feats.size()[1:]))
+        
         loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:]).data[0]
 
         loss_sum = loss_sum + loss
@@ -89,10 +96,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
         # forward the model to also get generated samples for each image
         # Only leave one feature for each image, in case duplicate sample
-        tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
-            data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img]]
-        tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-        fc_feats, att_feats = tmp
+        fc_feats, att_feats = _fc_feats, _att_feats
 
         seq, _ = model.sample(fc_feats, att_feats, {'beam_size': beam_size})
 
@@ -128,7 +132,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
 
 # Evaluation fun(ction)
-def eval_eval(model, crit, loader, eval_kwargs={}):
+def eval_eval(cnn_model, model, crit, loader, eval_kwargs={}):
     verbose = eval_kwargs.get('verbose', True)
     num_images = eval_kwargs.get('num_images', -1)
     split = eval_kwargs.get('split', 'test')
@@ -138,6 +142,7 @@ def eval_eval(model, crit, loader, eval_kwargs={}):
     batch_size = eval_kwargs.get('batch_size', 1)
 
     # Make sure in the evaluation mode
+    cnn_model.eval()
     model.eval()
     loader.reset_iterator(split)
 
@@ -153,11 +158,20 @@ def eval_eval(model, crit, loader, eval_kwargs={}):
 
         #evaluate loss if we have the labels
         loss = 0
+
+        # Get the image features first
+        tmp = [data['images'], data.get('labels', np.zeros(1)), data.get('masks', np.zeros(1))]
+        tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
+        images, labels, masks = tmp
+
+        att_feats = _att_feats = cnn_model(images)
+        fc_feats = _fc_feats = att_feats.mean(2).mean(3).squeeze(2).squeeze(2)
+
+        # forward the model to get loss
         if data.get('labels', None) is not None:
-            # forward the model to get loss
-            tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
-            tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-            fc_feats, att_feats, labels, masks = tmp
+
+            att_feats = att_feats.unsqueeze(1).expand(*((att_feats.size(0), loader.seq_per_img,) + att_feats.size()[1:])).contiguous().view(*((att_feats.size(0) * loader.seq_per_img,) + att_feats.size()[1:]))
+            fc_feats = fc_feats.unsqueeze(1).expand(*((fc_feats.size(0), loader.seq_per_img,) + fc_feats.size()[1:])).contiguous().view(*((fc_feats.size(0) * loader.seq_per_img,) + fc_feats.size()[1:]))
 
             loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:]).data[0]
             loss_sum = loss_sum + loss
@@ -165,10 +179,7 @@ def eval_eval(model, crit, loader, eval_kwargs={}):
 
         # forward the model to also get generated samples for each image
         # Only leave one feature for each image, in case duplicate sample
-        tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
-            data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img]]
-        tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-        fc_feats, att_feats = tmp
+        fc_feats, att_feats = _fc_feats, _att_feats
         # forward the model to also get generated samples for each image
         seq, _ = model.sample(fc_feats, att_feats, eval_kwargs)
         

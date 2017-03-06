@@ -6,6 +6,8 @@ import collections
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+import misc.resnet as resnet
+import os
 
 def repackage(h):
     """Wraps hidden states in new Variables, to detach them from their history."""
@@ -13,6 +15,24 @@ def repackage(h):
         return Variable(h.data)
     else:
         return tuple(repackage(v) for v in h)
+
+def build_cnn(opt):
+    net = getattr(resnet, opt.cnn_model)()
+    if vars(opt).get('start_from', None) is None and vars(opt).get('cnn_weight', '') != '':
+        net.load_state_dict(torch.load(opt.cnn_weight))
+    net = nn.Sequential(\
+        net.conv1,
+        net.bn1,
+        net.relu,
+        net.maxpool,
+        net.layer1,
+        net.layer2,
+        net.layer3,
+        net.layer4)
+    if vars(opt).get('start_from', None) is not None:
+        net.load_state_dict(torch.load(os.path.join(opt.start_from, 'model-cnn.pth')))
+    return net
+
 
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
 def decode_sequence(ix_to_word, seq):

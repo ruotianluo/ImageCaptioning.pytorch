@@ -7,9 +7,13 @@ import h5py
 import os
 import numpy as np
 import random
-import skimage
-import skimage.io
-import scipy.misc
+from scipy.misc import imread, imresize
+import torch
+from torchvision import transforms as trn
+preprocess = trn.Compose([
+        #trn.ToTensor(),
+        trn.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+])
 
 class DataLoaderRaw():
     
@@ -65,7 +69,7 @@ class DataLoaderRaw():
         batch_size = batch_size or self.batch_size
 
         # pick an index of the datapoint to load next
-        img_batch = np.ndarray([batch_size, 224,224,3], dtype = 'float32')
+        img_batch = np.ndarray([batch_size, 3, 224,224], dtype = 'float32')
         max_index = self.N
         wrapped = False
         infos = []
@@ -79,13 +83,14 @@ class DataLoaderRaw():
                 # wrap back around
             self.iterator = ri_next
 
-            img = skimage.io.imread(self.files[ri])
+            img = imread(self.files[ri])
+            img = imresize(img, (256,256))
 
             if len(img.shape) == 2:
                 img = img[:,:,np.newaxis]
                 img = img.concatenate((img, img, img), axis=2)
 
-            img_batch[i] = img[16:240, 16:240, :].astype('float32')/255.0
+            img_batch[i] = preprocess(torch.from_numpy(img[16:-16, 16:-16,:].transpose(2,0,1).astype('float32')/255.0)).numpy()
 
             info_struct = {}
             info_struct['id'] = self.ids[ri]

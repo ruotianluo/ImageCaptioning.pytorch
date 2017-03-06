@@ -11,7 +11,7 @@ from six.moves import cPickle
 
 import opts
 import models
-from dataloader_pool import *
+from dataloader import *
 from dataloaderraw import *
 import eval_utils
 import argparse
@@ -23,8 +23,10 @@ NUM_THREADS = 2 #int(os.environ['OMP_NUM_THREADS'])
 # Input arguments and options
 parser = argparse.ArgumentParser()
 # Input paths
-parser.add_argument('--model', type=str, default='',
+parser.add_argument('--model_path', type=str, default='',
                 help='path to model to evaluate')
+parser.add_argument('--cnn_model_path', type=str, default='',
+                help='path to cnn model to evaluate')
 parser.add_argument('--infos_path', type=str, default='',
                 help='path to infos to evaluate')
 # Basic options
@@ -54,11 +56,7 @@ parser.add_argument('--image_folder', type=str, default='',
 parser.add_argument('--image_root', type=str, default='', 
                 help='In case the image paths have to be preprended with a root path to an image folder')
 # For evaluation on MSCOCO images from some split:
-parser.add_argument('--input_fc_h5', type=str, default='',
-                help='path to the h5file containing the preprocessed dataset')
-parser.add_argument('--input_att_h5', type=str, default='',
-                help='path to the h5file containing the preprocessed dataset')
-parser.add_argument('--input_label_h5', type=str, default='',
+parser.add_argument('--input_h5', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_json', type=str, default='', 
                 help='path to the json file containing additional info and vocab. empty = fetch from model checkpoint.')
@@ -77,15 +75,13 @@ with open(opt.infos_path) as f:
     infos = cPickle.load(f)
 
 # override and collect parameters
-if len(opt.input_fc_h5) == 0:
-    opt.input_fc_h5 = infos['opt'].input_fc_h5
-    opt.input_att_h5 = infos['opt'].input_att_h5
-    opt.input_label_h5 = infos['opt'].input_label_h5
+if len(opt.input_h5) == 0:
+    opt.input_h5 = infos['opt'].input_h5
 if len(opt.input_json) == 0:
     opt.input_json = infos['opt'].input_json
 if opt.batch_size == 0:
     opt.batch_size = infos['opt'].batch_size
-ignore = ["id", "batch_size", "beam_size", "start_from"]
+ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval"]
 for k in vars(infos['opt']).keys():
     if k not in ignore:
         if k in vars(opt):
@@ -96,8 +92,12 @@ for k in vars(infos['opt']).keys():
 vocab = infos['vocab'] # ix -> word mapping
 
 # Setup the model
+cnn_model = utils.build_cnn(opt)
+cnn_model.load_state_dict(torch.load(opt.cnn_model_path))
+cnn_model.cuda()
+cnn_model.eval()
 model = models.setup(opt)
-model.load_state_dict(torch.load(opt.model))
+model.load_state_dict(torch.load(opt.model_path))
 model.cuda()
 model.eval()
 crit = utils.LanguageModelCriterion()
@@ -113,7 +113,7 @@ else:
 
 
 # Set sample options
-loss, split_predictions, lang_stats = eval_utils.eval_eval(model, crit, loader, 
+loss, split_predictions, lang_stats = eval_utils.eval_eval(cnn_model, model, crit, loader, 
     vars(opt))
 
 print('loss: ', loss)
