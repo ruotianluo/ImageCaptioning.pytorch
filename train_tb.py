@@ -24,8 +24,6 @@ import tensorflow as tf
 
 import os
 
-#from ipdb import set_trace
-
 def add_summary_value(writer, key, value, iteration):
     summary = tf.Summary(value=[tf.Summary.Value(tag=key, simple_value=value)])
     writer.add_summary(summary, iteration)
@@ -70,7 +68,10 @@ def train(opt):
     crit = utils.LanguageModelCriterion()
 
     optimizer = optim.Adam(model.parameters(), lr=opt.learning_rate)
-    cnn_optimizer = optim.Adam(cnn_model.parameters(), lr=opt.cnn_learning_rate, weight_decay=opt.cnn_weight_decay)
+    # only finetune the layer2 to layer4
+    cnn_optimizer = optim.Adam([\
+        {'params': module.parameter()} for module in cnn_model._modules.values()[5:]\
+        ], lr=opt.cnn_learning_rate, weight_decay=opt.cnn_weight_decay)
 
     # Load the optimizer
     if vars(opt).get('start_from', None) is not None:
@@ -102,6 +103,10 @@ def train(opt):
             else:
                 for p in cnn_model.parameters():
                     p.requires_grad = True
+                # Fix the first few layers:
+                for module in cnn_model._modules.values()[:5]:
+                    for p in module.paramters():
+                        p.requires_grad = False
                 cnn_model.train()
             update_lr_flag = False
 

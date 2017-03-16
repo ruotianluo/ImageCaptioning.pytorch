@@ -61,7 +61,10 @@ def train(opt):
     crit = utils.LanguageModelCriterion()
 
     optimizer = optim.Adam(model.parameters(), lr=opt.learning_rate)
-    cnn_optimizer = optim.Adam(cnn_model.parameters(), lr=opt.cnn_learning_rate, weight_decay=opt.cnn_weight_decay)
+    # only finetune the layer2 to layer4
+    cnn_optimizer = optim.Adam([\
+        {'params': module.parameter()} for module in cnn_model._modules.values()[5:]\
+        ], lr=opt.cnn_learning_rate, weight_decay=opt.cnn_weight_decay)
 
     # Load the optimizer
     if vars(opt).get('start_from', None) is not None:
@@ -93,6 +96,10 @@ def train(opt):
             else:
                 for p in cnn_model.parameters():
                     p.requires_grad = True
+                # Fix the first few layers:
+                for module in cnn_model._modules.values()[:5]:
+                    for p in module.paramters():
+                        p.requires_grad = False
                 cnn_model.train()
             update_lr_flag = False
 
@@ -152,6 +159,7 @@ def train(opt):
             eval_kwargs.update(vars(opt))
             val_loss, predictions, lang_stats = eval_utils.eval_split(cnn_model, model, crit, loader, eval_kwargs)
 
+            # Write validation result into summary
             val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
 
             # Save model if is improving on validation result
