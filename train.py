@@ -61,17 +61,19 @@ def train(opt):
     crit = utils.LanguageModelCriterion()
 
     optimizer = optim.Adam(model.parameters(), lr=opt.learning_rate)
-    # only finetune the layer2 to layer4
-    cnn_optimizer = optim.Adam([\
-        {'params': module.parameter()} for module in cnn_model._modules.values()[5:]\
-        ], lr=opt.cnn_learning_rate, weight_decay=opt.cnn_weight_decay)
+    if opt.finetune_cnn_after != -1 and epoch >= opt.finetune_cnn_after:
+        # only finetune the layer2 to layer4
+        cnn_optimizer = optim.Adam([\
+            {'params': module.parameters()} for module in cnn_model._modules.values()[5:]\
+            ], lr=opt.cnn_learning_rate, weight_decay=opt.cnn_weight_decay)
 
     # Load the optimizer
     if vars(opt).get('start_from', None) is not None:
         if os.path.isfile(os.path.join(opt.start_from, 'optimizer.pth')):
             optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
-        if os.path.isfile(os.path.join(opt.start_from, 'optimizer-cnn.pth')):
-            cnn_optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer-cnn.pth')))
+        if opt.finetune_cnn_after != -1 and epoch >= opt.finetune_cnn_after:
+            if os.path.isfile(os.path.join(opt.start_from, 'optimizer-cnn.pth')):
+                cnn_optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer-cnn.pth')))
 
     while True:
         if update_lr_flag:
@@ -98,7 +100,7 @@ def train(opt):
                     p.requires_grad = True
                 # Fix the first few layers:
                 for module in cnn_model._modules.values()[:5]:
-                    for p in module.paramters():
+                    for p in module.parameters():
                         p.requires_grad = False
                 cnn_model.train()
             update_lr_flag = False
@@ -180,9 +182,10 @@ def train(opt):
                 print("model saved to {}".format(checkpoint_path))
                 print("cnn model saved to {}".format(cnn_checkpoint_path))
                 optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer.pth')
-                cnn_optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer-cnn.pth')
                 torch.save(optimizer.state_dict(), optimizer_path)
-                torch.save(cnn_optimizer.state_dict(), cnn_optimizer_path)
+                if opt.finetune_cnn_after != -1 and epoch >= opt.finetune_cnn_after:
+                    cnn_optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer-cnn.pth')
+                    torch.save(cnn_optimizer.state_dict(), cnn_optimizer_path)
 
                 # Dump miscalleous informations
                 infos['iter'] = iteration
