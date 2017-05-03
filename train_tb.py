@@ -22,11 +22,6 @@ import eval_utils
 import misc.utils as utils
 import tensorflow as tf
 
-import os
-NUM_THREADS = 2 #int(os.environ['OMP_NUM_THREADS'])
-
-#from ipdb import set_trace
-
 def add_summary_value(writer, key, value, iteration):
     summary = tf.Summary(value=[tf.Summary.Value(tag=key, simple_value=value)])
     writer.add_summary(summary, iteration)

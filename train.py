@@ -21,8 +21,6 @@ import misc.utils as utils
 
 import os
 
-#from ipdb import set_trace
-
 def train(opt):
     loader = DataLoader(opt)
     opt.vocab_size = loader.vocab_size
