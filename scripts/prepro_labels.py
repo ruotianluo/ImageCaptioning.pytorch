@@ -36,21 +36,6 @@ import torchvision.models as models
 from torch.autograd import Variable
 import skimage.io
 
-from torchvision import transforms as trn
-preprocess = trn.Compose([
-        #trn.ToTensor(),
-        trn.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-])
-
-from misc.resnet_utils import myResnet
-import misc.resnet as resnet
-
-resnet = resnet.resnet101()
-resnet.load_state_dict(torch.load('/home-nfs/rluo/rluo/model/pytorch-resnet/resnet101.pth'))
-my_resnet = myResnet(resnet)
-my_resnet.cuda()
-my_resnet.eval()
-
 def build_vocab(imgs, params):
   count_thr = params['word_count_threshold']
 
@@ -165,36 +150,11 @@ def main(params):
   # create output h5 file
   N = len(imgs)
   f_lb = h5py.File(params['output_h5']+'_label.h5', "w")
-  f_fc = h5py.File(params['output_h5']+'_fc.h5', "w")
-  f_att = h5py.File(params['output_h5']+'_att.h5', "w")
   f_lb.create_dataset("labels", dtype='uint32', data=L)
   f_lb.create_dataset("label_start_ix", dtype='uint32', data=label_start_ix)
   f_lb.create_dataset("label_end_ix", dtype='uint32', data=label_end_ix)
   f_lb.create_dataset("label_length", dtype='uint32', data=label_length)
   f_lb.close()
-
-  dset_fc = f_fc.create_dataset("fc", (N,2048), dtype='float32')
-  dset_att = f_att.create_dataset("att", (N,14,14,2048), dtype='float32')
-  for i,img in enumerate(imgs):
-    # load the image
-    I = skimage.io.imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
-    # handle grayscale input images
-    if len(I.shape) == 2:
-      I = I[:,:,np.newaxis]
-      I = np.concatenate((I,I,I), axis=2)
-
-    I = I.astype('float32')/255.0
-    I = torch.from_numpy(I.transpose([2,0,1])).cuda()
-    I = Variable(preprocess(I), volatile=True)
-    tmp_fc, tmp_att = my_resnet(I)
-    # write to h5
-    dset_fc[i] = tmp_fc.data.cpu().float().numpy()
-    dset_att[i] = tmp_att.data.cpu().float().numpy()
-    if i % 1000 == 0:
-      print 'processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N)
-  f_fc.close()
-  f_att.close()
-  print 'wrote ', params['output_h5']
 
   # create output json file
   out = {}
@@ -223,7 +183,6 @@ if __name__ == "__main__":
 
   # options
   parser.add_argument('--max_length', default=16, type=int, help='max length of a caption, in number of words. captions longer than this get clipped.')
-  parser.add_argument('--images_root', default='', help='root location in which images are stored, to be prepended to file_path in input json')
   parser.add_argument('--word_count_threshold', default=5, type=int, help='only words that occur more than this number of times will be put in vocab')
 
   args = parser.parse_args()

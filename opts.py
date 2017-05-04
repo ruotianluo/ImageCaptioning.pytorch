@@ -5,10 +5,10 @@ def parse_opt():
     # Data input settings
     parser.add_argument('--input_json', type=str, default='data/coco.json',
                     help='path to the json file containing additional info and vocab')
-    parser.add_argument('--input_fc_h5', type=str, default='data/coco_fc.h5',
-                    help='path to the h5file containing the preprocessed dataset')
-    parser.add_argument('--input_att_h5', type=str, default='data/coco_att.h5',
-                    help='path to the h5file containing the preprocessed dataset')
+    parser.add_argument('--input_fc_dir', type=str, default='data/cocotalk_fc',
+                    help='path to the directory containing the preprocessed fc feats')
+    parser.add_argument('--input_att_dir', type=str, default='data/cocotalk_att',
+                    help='path to the directory containing the preprocessed att feats')
     parser.add_argument('--input_label_h5', type=str, default='data/coco_label.h5',
                     help='path to the h5file containing the preprocessed dataset')
     parser.add_argument('--start_from', type=str, default=None,
@@ -62,12 +62,14 @@ def parse_opt():
                     help='every how many iterations thereafter to drop LR?(in epoch)')
     parser.add_argument('--learning_rate_decay_rate', type=float, default=0.8, 
                     help='every how many iterations thereafter to drop LR?(in epoch)')
-    parser.add_argument('--optim_alpha', type=float, default=0.8,
+    parser.add_argument('--optim_alpha', type=float, default=0.9,
                     help='alpha for adam')
     parser.add_argument('--optim_beta', type=float, default=0.999,
                     help='beta used for adam')
     parser.add_argument('--optim_epsilon', type=float, default=1e-8,
                     help='epsilon that goes into denominator for smoothing')
+    parser.add_argument('--weight_decay', type=float, default=0,
+                    help='weight_decay')
 
     parser.add_argument('--scheduled_sampling_start', type=int, default=-1, 
                     help='at what iteration to start decay gt probability')

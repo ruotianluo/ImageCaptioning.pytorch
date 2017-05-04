@@ -11,14 +11,12 @@ from six.moves import cPickle
 
 import opts
 import models
-from dataloader_pool import *
+from dataloader import *
 from dataloaderraw import *
 import eval_utils
 import argparse
 import misc.utils as utils
 import torch
-
-NUM_THREADS = 2 #int(os.environ['OMP_NUM_THREADS'])
 
 # Input arguments and options
 parser = argparse.ArgumentParser()
@@ -54,9 +52,9 @@ parser.add_argument('--image_folder', type=str, default='',
 parser.add_argument('--image_root', type=str, default='', 
                 help='In case the image paths have to be preprended with a root path to an image folder')
 # For evaluation on MSCOCO images from some split:
-parser.add_argument('--input_fc_h5', type=str, default='',
+parser.add_argument('--input_fc_dir', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
-parser.add_argument('--input_att_h5', type=str, default='',
+parser.add_argument('--input_att_dir', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_label_h5', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')

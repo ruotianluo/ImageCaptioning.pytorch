@@ -15,7 +15,7 @@ from six.moves import cPickle
 
 import opts
 import models
-from dataloader_pool import *
+from dataloader import *
 import eval_utils
 import misc.utils as utils
 
@@ -44,6 +44,7 @@ def train(opt):
     ss_prob_history = infos.get('ss_prob_history', {})
 
     loader.iterators = infos.get('iterators', loader.iterators)
+    loader.split_ix = infos.get('split_ix', loader.split_ix)
     if opt.load_best_score == 1:
         best_val_score = infos.get('best_val_score', None)
 
@@ -56,7 +57,7 @@ def train(opt):
 
     crit = utils.LanguageModelCriterion()
 
-    optimizer = optim.Adam(model.parameters(), lr=opt.learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=opt.learning_rate, weight_decay=opt.weight_decay)
 
     # Load the optimizer
     if vars(opt).get('start_from', None) is not None:
@@ -145,6 +146,7 @@ def train(opt):
                 infos['iter'] = iteration
                 infos['epoch'] = epoch
                 infos['iterators'] = loader.iterators
+                infos['split_ix'] = loader.split_ix
                 infos['best_val_score'] = best_val_score
                 infos['opt'] = opt
                 infos['val_result_history'] = val_result_history
