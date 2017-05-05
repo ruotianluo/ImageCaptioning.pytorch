@@ -65,6 +65,7 @@ def train(opt):
     # Assure in training mode
     model.train()
 
+    crit = utils.LanguageModelCriterion()
     rl_crit = utils.RewardCriterion()
 
     optimizer = optim.Adam(model.parameters(), lr=opt.learning_rate, weight_decay=opt.weight_decay)
