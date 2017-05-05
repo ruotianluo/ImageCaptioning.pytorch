@@ -2,7 +2,7 @@
 
 This is an unofficial implementation for [Self-critical Sequence Training for Image Captioning](https://arxiv.org/abs/1612.00563). The result of FC model can be replicated. (Not able to replicate Att2in result.)
 
-The author helped me a lot when I tried to replicate the result. Great thanks.
+The author helped me a lot when I tried to replicate the result. Great thanks. After training 330k iterations, our fc model can achieve ~0.93 Cider score on validation data. Then start self-critical training to 400k iterations, the Cider score goes to ~1.05.
 
 This is based on my [neuraltalk2.pytorch](https://github.com/ruotianluo/neuraltalk2.pytorch) repository. The modifications are:
 - Add FC model(as in the paper)
@@ -61,7 +61,7 @@ $ python scripts/prepro_ngrams.py --input_json .../dataset_coco.json --dict_json
 
 And also you need to clone my forked [cider](https://github.com/ruotianluo/cider) repository.
 
-Then, copy the model from the pretrained model (trained by cross entropy).
+Then, copy the model from the pretrained model using cross entropy. (It's not mandatory to copy the model, just for back-up)
 ```
 $ bash scripts/copy_model.sh fc fc_rl
 ```
