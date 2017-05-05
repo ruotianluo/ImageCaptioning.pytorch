@@ -59,8 +59,8 @@ def main(params):
 
   seed(123) # make reproducible
 
-  dir_fc = params['ourput_dir']+'_fc'
-  dir_att = params['ourput_dir']+'_att'
+  dir_fc = params['output_dir']+'_fc'
+  dir_att = params['output_dir']+'_att'
   if not os.path.isdir(dir_fc):
     os.mkdir(dir_fc)
   if not os.path.isdir(dir_att):
@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
   # input json
   parser.add_argument('--input_json', required=True, help='input json file to process into hdf5')
-  parser.add_argument('--ourput_dir', default='data', help='output h5 file')
+  parser.add_argument('--output_dir', default='data', help='output h5 file')
 
   # options
   parser.add_argument('--images_root', default='', help='root location in which images are stored, to be prepended to file_path in input json')
