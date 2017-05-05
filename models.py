@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import copy
 
@@ -10,6 +14,8 @@ from misc.ShowTellModel import ShowTellModel
 # from misc.ShowAttendTellModel import ShowAttendTellModel
 # from misc.ShowAttendTellModel_new import ShowAttendTellModel_new
 # from misc.TestAttentionModel import TestAttentionModel
+from misc.FCModel import FCModel
+import torch.nn as nn
 
 def setup(opt):
     
@@ -23,6 +29,8 @@ def setup(opt):
     #     return ShowAttendTellModel_new(opt)
     # elif opt.caption_model == 'test_att':
     #     return TestAttentionModel(opt)
+    elif opt.caption_model == 'fc':
+        model = FCModel(opt)
     else:
         raise Exception("Caption model not supported: {}".format(opt.caption_model))
 

@@ -1,12 +1,12 @@
-# Neuraltalk2-pytorch
+# Self-critical Sequence Training for Image Captioning
 
-There's something difference compared to neuraltalk2.
-- Instead of using random split, we use [karpathy's split](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip).
-- Instead of including the convnet in the model, we use preprocessed features. (finetuneable cnn version is in the branch **with_finetune**)
-- Use resnet101; the same way as in self-critical (the preprocessing code may have bug, haven't tested yet)
+This is an unofficial implementation for [Self-critical Sequence Training for Image Captioning](https://arxiv.org/abs/1612.00563). The result of FC model can be replicated. (Not able to replicate Att2in result.)
 
-# TODO:
-- Other models
+The author helped me a lot when I tried to replicate the result. Great thanks.
+
+This is based on my [neuraltalk2.pytorch](https://github.com/ruotianluo/neuraltalk2.pytorch) repository. The modifications are:
+- Add FC model(as in the paper)
+- Add self critical training.
 
 # Requirements
 Python 2.7 (may work for python 3), pytorch
@@ -39,7 +39,7 @@ This is telling the script to read in all the data (the images and the captions)
 **(Copy end.)**
 
 ```bash
-$ python train.py --input_json coco/cocotalk.json --input_json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --beam_size 1 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --val_images_use 5000
+$ python train.py --input_json coco/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --id fc --caption_model fc --beam_size 1 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --val_images_use 5000 --checkpoint_path log_fc
 ```
 
 The train script will take over, and start dumping checkpoints into the folder specified by `checkpoint_path` (default = current folder). For more options, see `opts.py`.
@@ -51,6 +51,25 @@ The current command use scheduled sampling, you can also set scheduled_sampling_
 If you'd like to evaluate BLEU/METEOR/CIDEr scores during training in addition to validation cross entropy loss, use `--language_eval 1` option, but don't forget to download the [coco-caption code](https://github.com/tylin/coco-caption) into `coco-caption` directory.
 
 **A few notes on training.** To give you an idea, with the default settings one epoch of MS COCO images is about 7500 iterations. 1 epoch of training (with no finetuning - notice this is the default) takes about 15 minutes and results in validation loss ~2.7 and CIDEr score of ~0.5. ~~By iteration 50,000 CIDEr climbs up to about 0.65 (validation loss at about 2.4).~~
+
+# Train using self critical
+
+First you should preprocess the dataset and get the cache for calculating cider score:
+```
+$ python scripts/prepro_ngrams.py --input_json .../dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
+```
+
+And also you need to clone my forked [cider](https://github.com/ruotianluo/cider) repository.
+
+Then, copy the model from the pretrained model (trained by cross entropy).
+```
+$ bash scripts/copy_model.sh fc fc_rl
+```
+
+Then
+```bash
+python train_rl_tb.py --caption_model fc --rnn_size 512 --batch_size 10 --seq_per_img 5 --input_encoding_size 512 --train_only 0 --id fc_rl --input_json data/cocotalk.json --input_fc_h5 data/cocotalk_fc.h5 --input_att_h5 data/cocotalk_att.h5 --input_label_h5 data/cocotalk_label.h5 --beam_size 1 --learning_rate 5e-5 --optim adam --optim_alpha 0.9 --optim_beta 0.999 --checkpoint_path log_fc_rl --start_from log_fc_rl --save_checkpoint_every 5000 --language_eval 1 --val_images_use 5000
+```
 
 ### Caption images after training
 

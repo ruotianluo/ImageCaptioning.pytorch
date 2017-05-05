@@ -6,6 +6,7 @@ import collections
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+import numpy as np
 
 def repackage(h):
     """Wraps hidden states in new Variables, to detach them from their history."""
@@ -37,6 +38,19 @@ def to_contiguous(tensor):
     else:
         return tensor.contiguous()
 
+class RewardCriterion(nn.Module):
+    def __init__(self):
+        super(RewardCriterion, self).__init__()
+
+    def forward(self, input, seq, reward):
+        input = to_contiguous(input).view(-1)
+        reward = to_contiguous(reward).view(-1)
+        mask = (seq>0).float()
+        mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
+        output = - input * reward * Variable(mask)
+        output = torch.sum(output) / torch.sum(mask)
+
+        return output
 class LanguageModelCriterion(nn.Module):
     def __init__(self):
         super(LanguageModelCriterion, self).__init__()
