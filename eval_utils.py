@@ -16,7 +16,7 @@ import os
 import sys
 import misc.utils as utils
 
-def language_eval(dataset, preds):
+def language_eval(dataset, preds, model_id, split):
     import sys
     if 'coco' in dataset:
         sys.path.append("coco-caption")
@@ -29,8 +29,9 @@ def language_eval(dataset, preds):
 
     encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
-    random.seed(time.time())
-    tmp_name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    if not os.path.isdir('eval_results'):
+        os.mkdir('eval_results')
+    cache_path = os.path.join('eval_results/', model_id + '_' + split + '.json')
 
     coco = COCO(annFile)
     valids = coco.getImgIds()
@@ -38,21 +39,24 @@ def language_eval(dataset, preds):
     # filter results to only those in MSCOCO validation set (will be about a third)
     preds_filt = [p for p in preds if p['image_id'] in valids]
     print('using %d/%d predictions' % (len(preds_filt), len(preds)))
-    json.dump(preds_filt, open(tmp_name+'.json', 'w')) # serialize to temporary json file. Sigh, COCO API...
+    json.dump(preds_filt, open(cache_path, 'w')) # serialize to temporary json file. Sigh, COCO API...
 
-    resFile = tmp_name+'.json'
-    cocoRes = coco.loadRes(resFile)
+    cocoRes = coco.loadRes(cache_path)
     cocoEval = COCOEvalCap(coco, cocoRes)
     cocoEval.params['image_id'] = cocoRes.getImgIds()
     cocoEval.evaluate()
-
-    # delete the temp file
-    os.system('rm '+tmp_name+'.json')
 
     # create output dictionary
     out = {}
     for metric, score in cocoEval.eval.items():
         out[metric] = score
+
+    imgToEval = cocoEval.imgToEval
+    for p in preds_filt:
+        image_id, caption = p['image_id'], p['caption']
+        imgToEval[image_id]['caption'] = caption
+    with open(cache_path, 'w') as outfile:
+        json.dump({'overall': out, 'imgToEval': imgToEval}, outfile)
 
     return out
 
@@ -120,7 +124,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             break
 
     if lang_eval == 1:
-        lang_stats = language_eval(dataset, predictions)
+        lang_stats = language_eval(dataset, predictions, eval_kwargs['id'], split)
 
     # Switch back to training mode
     model.train()
@@ -213,7 +217,7 @@ def eval_eval(model, crit, loader, eval_kwargs={}):
 
     lang_stats = None
     if lang_eval == 1:
-        lang_stats = language_eval(dataset, predictions)
+        lang_stats = language_eval(dataset, predictions, eval_kwargs['id'], split)
 
     # Switch back to training mode
     model.train()
