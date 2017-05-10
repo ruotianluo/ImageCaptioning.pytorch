@@ -6,6 +6,7 @@ import misc.utils as utils
 import torch
 
 from misc.ShowTellModel import ShowTellModel
+from misc.FCModel import FCModel
 # from misc.AttentionModel import AttentionModel
 # from misc.ShowAttendTellModel import ShowAttendTellModel
 # from misc.ShowAttendTellModel_new import ShowAttendTellModel_new
@@ -15,6 +16,8 @@ def setup(opt):
     
     if opt.caption_model == 'show_tell':
         model = ShowTellModel(opt)
+    if opt.caption_model == 'fc':
+        model = FCModel(opt)
     # elif opt.caption_model == 'attention':
     #     return AttentionModel(opt)
     # elif opt.caption_model == 'show_attend_tell':
