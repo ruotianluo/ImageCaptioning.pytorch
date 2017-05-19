@@ -75,9 +75,9 @@ with open(opt.infos_path) as f:
     infos = cPickle.load(f)
 
 # override and collect parameters
-if len(opt.input_fc_h5) == 0:
-    opt.input_fc_h5 = infos['opt'].input_fc_h5
-    opt.input_att_h5 = infos['opt'].input_att_h5
+if len(opt.input_fc_dir) == 0:
+    opt.input_fc_dir = infos['opt'].input_fc_dir
+    opt.input_att_dir = infos['opt'].input_att_dir
     opt.input_label_h5 = infos['opt'].input_label_h5
 if len(opt.input_json) == 0:
     opt.input_json = infos['opt'].input_json
@@ -111,7 +111,7 @@ else:
 
 
 # Set sample options
-loss, split_predictions, lang_stats = eval_utils.eval_eval(model, crit, loader, 
+loss, split_predictions, lang_stats = eval_utils.eval_split(model, crit, loader, 
     vars(opt))
 
 print('loss: ', loss)
