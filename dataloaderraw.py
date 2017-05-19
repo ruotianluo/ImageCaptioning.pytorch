@@ -88,7 +88,7 @@ class DataLoaderRaw():
 
             if len(img.shape) == 2:
                 img = img[:,:,np.newaxis]
-                img = img.concatenate((img, img, img), axis=2)
+                img = np.concatenate((img, img, img), axis=2)
 
             img_batch[i] = preprocess(torch.from_numpy(img[16:-16, 16:-16,:].transpose(2,0,1).astype('float32')/255.0)).numpy()
 

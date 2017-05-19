@@ -18,8 +18,6 @@ import argparse
 import misc.utils as utils
 import torch
 
-NUM_THREADS = 2 #int(os.environ['OMP_NUM_THREADS'])
-
 # Input arguments and options
 parser = argparse.ArgumentParser()
 # Input paths
@@ -113,7 +111,7 @@ else:
 
 
 # Set sample options
-loss, split_predictions, lang_stats = eval_utils.eval_eval(cnn_model, model, crit, loader, 
+loss, split_predictions, lang_stats = eval_utils.eval_split(cnn_model, model, crit, loader, 
     vars(opt))
 
 print('loss: ', loss)

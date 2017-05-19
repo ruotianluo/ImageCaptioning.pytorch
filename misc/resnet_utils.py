@@ -28,7 +28,7 @@ class myResnet(nn.Module):
         super(myResnet, self).__init__()
         self.resnet = resnet
 
-    def forward(self, img):
+    def forward(self, img, att_size=14):
         x = img.unsqueeze(0)
 
         x = self.resnet.conv1(x)
@@ -42,7 +42,7 @@ class myResnet(nn.Module):
         x = self.resnet.layer4(x)
 
         fc = x.mean(2).mean(3).squeeze()
-        att = spatialAdaAvgPool(x,14,14).squeeze().permute(1, 2, 0)
+        att = spatialAdaAvgPool(x,att_size,att_size).squeeze().permute(1, 2, 0)
 
         return fc, att
 
