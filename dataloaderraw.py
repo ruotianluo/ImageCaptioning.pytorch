@@ -101,7 +101,7 @@ class DataLoaderRaw():
 
             if len(img.shape) == 2:
                 img = img[:,:,np.newaxis]
-                img = img.concatenate((img, img, img), axis=2)
+                img = np.concatenate((img, img, img), axis=2)
 
             img = img.astype('float32')/255.0
             img = torch.from_numpy(img.transpose([2,0,1])).cuda()
