@@ -20,7 +20,7 @@ def spatialAdaAvgPool(x, oH, oW):
 
             j1, j2 = start_end(ow, oW, iW)
 
-            output[:, :, oh, ow] = x[:,:,i1:i2,j1:j2].mean(2).mean(3).squeeze(3).squeeze(2)
+            output[:, :, oh, ow] = x[:,:,i1:i2,j1:j2].mean(2).mean(2)
     return output
 
 class myResnet(nn.Module):
@@ -41,7 +41,7 @@ class myResnet(nn.Module):
         x = self.resnet.layer3(x)
         x = self.resnet.layer4(x)
 
-        fc = x.mean(2).mean(3).squeeze()
+        fc = x.mean(2).mean(2)
         att = spatialAdaAvgPool(x,att_size,att_size).squeeze().permute(1, 2, 0)
 
         return fc, att
