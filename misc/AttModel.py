@@ -308,7 +308,7 @@ class AdaAtt_lstm(nn.Module):
             forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
             out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
             # decode the write inputs
-            if self.use_maxout:
+            if not self.use_maxout:
                 in_transform = F.tanh(all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size))
             else:
                 in_transform = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size)
