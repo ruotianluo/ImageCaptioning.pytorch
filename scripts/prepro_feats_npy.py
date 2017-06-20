@@ -23,10 +23,6 @@ The json file has a dict that contains:
   such as in particular the 'split' it was assigned to.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import json
 import argparse
@@ -87,8 +83,8 @@ def main(params):
     np.savez_compressed(os.path.join(dir_att, str(img['cocoid'])), feat=tmp_att.data.cpu().float().numpy())
 
     if i % 1000 == 0:
-      print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
-  print('wrote ', params['ourput_dir'])
+      print 'processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N)
+  print 'wrote ', params['ourput_dir']
 
 if __name__ == "__main__":
 
@@ -105,6 +101,6 @@ if __name__ == "__main__":
 
   args = parser.parse_args()
   params = vars(args) # convert to ordinary dict
-  print('parsed input parameters:')
-  print(json.dumps(params, indent = 2))
+  print 'parsed input parameters:'
+  print json.dumps(params, indent = 2)
   main(params)
