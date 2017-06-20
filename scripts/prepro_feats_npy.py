@@ -88,7 +88,7 @@ def main(params):
 
     if i % 1000 == 0:
       print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
-  print('wrote ', params['ourput_dir'])
+  print('wrote ', params['output_dir'])
 
 if __name__ == "__main__":
 
