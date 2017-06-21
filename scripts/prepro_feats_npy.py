@@ -52,7 +52,7 @@ import misc.resnet as resnet
 
 def main(params):
   net = getattr(resnet, params['model'])()
-  net.load_state_dict(torch.load('/home-nfs/rluo/rluo/model/pytorch-resnet/'+params['model']+'.pth'))
+  net.load_state_dict(torch.load(os.path.join(params['model_root'],params['model']+'.pth')))
   my_resnet = myResnet(net)
   my_resnet.cuda()
   my_resnet.eval()
@@ -102,6 +102,7 @@ if __name__ == "__main__":
   parser.add_argument('--images_root', default='', help='root location in which images are stored, to be prepended to file_path in input json')
   parser.add_argument('--att_size', default=14, type=int, help='14x14 or 7x7')
   parser.add_argument('--model', default='resnet101', type=str, help='resnet101, resnet152')
+  parser.add_argument('--model_root', default='/home-nfs/rluo/rluo/model/pytorch-resnet/', type=str, help='model root')
 
   args = parser.parse_args()
   params = vars(args) # convert to ordinary dict

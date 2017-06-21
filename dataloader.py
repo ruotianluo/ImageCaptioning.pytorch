@@ -149,7 +149,7 @@ class DataLoader():
 
         # generate mask
         t_start = time.time()
-        nonzeros = np.array(map(lambda x: (x != 0).sum()+2, label_batch))
+        nonzeros = np.array(list(map(lambda x: (x != 0).sum()+2, label_batch)))
         for ix, row in enumerate(mask_batch):
             row[:nonzeros[ix]] = 1
         #print('mask', time.time() - t_start)
@@ -183,7 +183,7 @@ class BlobFetcher():
         if len(self.fifo) == 0:
             self.cur_idx = self.dataloader.iterators[self.split]
             self.cur_split_ix = self.dataloader.split_ix[self.split][:] # copy
-        for i in xrange(512 - len(self.fifo)):
+        for i in range(512 - len(self.fifo)):
             ix = self.cur_split_ix[self.cur_idx]
             if self.cur_idx + 1 >= len(self.cur_split_ix):
                 self.cur_idx = 0
