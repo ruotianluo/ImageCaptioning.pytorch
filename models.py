@@ -6,23 +6,35 @@ import misc.utils as utils
 import torch
 
 from misc.ShowTellModel import ShowTellModel
-# from misc.AttentionModel import AttentionModel
-# from misc.ShowAttendTellModel import ShowAttendTellModel
-# from misc.ShowAttendTellModel_new import ShowAttendTellModel_new
-# from misc.TestAttentionModel import TestAttentionModel
+from misc.FCModel import FCModel
+from misc.CaptionModel import ShowAttendTellModel, AllImgModel
+from misc.Att2inModel import Att2inModel
+from misc.AttModel import *
 
 def setup(opt):
     
     if opt.caption_model == 'show_tell':
         model = ShowTellModel(opt)
-    # elif opt.caption_model == 'attention':
-    #     return AttentionModel(opt)
-    # elif opt.caption_model == 'show_attend_tell':
-    #     return ShowAttendTellModel(opt)
-    # elif opt.caption_model == 'show_attend_tell_new':
-    #     return ShowAttendTellModel_new(opt)
-    # elif opt.caption_model == 'test_att':
-    #     return TestAttentionModel(opt)
+    elif opt.caption_model == 'show_attend_tell':
+        model = ShowAttendTellModel(opt)
+    # img is concatenated with word embedding at every time step as the input of lstm
+    elif opt.caption_model == 'all_img':
+        model = AllImgModel(opt)
+    # FC model in self-critical
+    elif opt.caption_model == 'fc':
+        model = FCModel(opt)
+    # Att2in model in self-critical
+    elif opt.caption_model == 'att2in':
+        model = Att2inModel(opt)
+    # Att2in model with two-layer MLP img embedding and word embedding
+    elif opt.caption_model == 'att2in2':
+        model = Att2in2Model(opt)
+    # Adaptive Attention model from Knowing when to look
+    elif opt.caption_model == 'adaatt':
+        model = AdaAttModel(opt)
+    # Adaptive Attention with maxout lstm
+    elif opt.caption_model == 'adaattmo':
+        model = AdaAttMOModel(opt)
     else:
         raise Exception("Caption model not supported: {}".format(opt.caption_model))
 

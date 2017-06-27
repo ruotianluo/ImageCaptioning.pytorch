@@ -131,7 +131,7 @@ class DataLoader():
             infos.append(info_dict)
 
         # generate mask
-        nonzeros = np.array(map(lambda x: (x != 0).sum()+2, label_batch))
+        nonzeros = np.array(list(map(lambda x: (x != 0).sum()+2, label_batch)))
         for ix, row in enumerate(mask_batch):
             row[:nonzeros[ix]] = 1
 

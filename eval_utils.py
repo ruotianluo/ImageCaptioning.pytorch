@@ -75,6 +75,7 @@ def eval_split(cnn_model, model, crit, loader, eval_kwargs={}):
     loader.reset_iterator(split)
 
     n = 0
+    loss = 0
     loss_sum = 0
     loss_evals = 1e-8
     predictions = []
@@ -114,10 +115,9 @@ def eval_split(cnn_model, model, crit, loader, eval_kwargs={}):
 
         for k, sent in enumerate(sents):
             entry = {'image_id': data['infos'][k]['id'], 'caption': sent}
-            predictions.append(entry)
             if eval_kwargs.get('dump_path', 0) == 1:
                 entry['file_name'] = data['infos'][k]['file_path']
-                table.insert(predictions, entry)
+            predictions.append(entry)
             if eval_kwargs.get('dump_images', 0) == 1:
                 # dump the raw image to vis/ folder
                 cmd = 'cp "' + os.path.join(eval_kwargs['image_root'], data['infos'][k]['file_path']) + '" vis/imgs/img' + str(len(predictions)) + '.jpg' # bit gross
