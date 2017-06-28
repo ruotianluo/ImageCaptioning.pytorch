@@ -127,8 +127,8 @@ def train(opt):
         tmp = [Variable(torch.from_numpy(_), requires_grad=False).cuda() for _ in tmp]
         images, labels, masks = tmp
 
-        att_feats = cnn_model(images)
-        fc_feats = att_feats.mean(2).mean(3).squeeze(2).squeeze(2)
+        att_feats = cnn_model(images).permute(0, 2, 3, 1)
+        fc_feats = att_feats.mean(1).mean(2).squeeze(1).squeeze(1)
 
         att_feats = att_feats.unsqueeze(1).expand(*((att_feats.size(0), opt.seq_per_img,) + att_feats.size()[1:])).contiguous().view(*((att_feats.size(0) * opt.seq_per_img,) + att_feats.size()[1:]))
         fc_feats = fc_feats.unsqueeze(1).expand(*((fc_feats.size(0), opt.seq_per_img,) + fc_feats.size()[1:])).contiguous().view(*((fc_feats.size(0) * opt.seq_per_img,) + fc_feats.size()[1:]))
