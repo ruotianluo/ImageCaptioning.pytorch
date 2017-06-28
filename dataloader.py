@@ -29,12 +29,13 @@ class DataLoader():
         print('vocab size is ', self.vocab_size)
         
         # open the hdf5 file
-        print('DataLoader loading h5 file: ', opt.input_h5)
-        self.h5_file = h5py.File(self.opt.input_h5)
+        print('DataLoader loading h5 file: ', opt.input_label_h5, opt.input_image_h5)
+        self.h5_label_file = h5py.File(self.opt.input_label_h5)
+        self.h5_image_file = h5py.File(self.opt.input_image_h5)
 
 
         # extract image size from dataset
-        images_size = self.h5_file['images'].shape
+        images_size = self.h5_image_file['images'].shape
         assert len(images_size) == 4, 'images should be a 4D tensor'
         assert images_size[2] == images_size[3], 'width and height must match'
         self.num_images = images_size[0]
@@ -44,12 +45,12 @@ class DataLoader():
                     self.num_channels, self.max_image_size, self.max_image_size))
 
         # load in the sequence data
-        seq_size = self.h5_file['labels'].shape
+        seq_size = self.h5_label_file['labels'].shape
         self.seq_length = seq_size[1]
         print('max sequence length in data is', self.seq_length)
         # load the pointers in full to RAM (should be small enough)
-        self.label_start_ix = self.h5_file['label_start_ix'][:]
-        self.label_end_ix = self.h5_file['label_end_ix'][:]
+        self.label_start_ix = self.h5_label_file['label_start_ix'][:]
+        self.label_end_ix = self.h5_label_file['label_end_ix'][:]
 
         # separate out indexes for each of the provided splits
         self.split_ix = {'train': [], 'val': [], 'test': []}
@@ -103,7 +104,7 @@ class DataLoader():
 
             # fetch image
             #img = self.load_image(self.image_info[ix]['filename'])
-            img = self.h5_file['images'][ix, :, :, :]
+            img = self.h5_image_file['images'][ix, :, :, :]
             img_batch[i] = preprocess(torch.from_numpy(img[:, 16:-16, 16:-16].astype('float32')/255.0)).numpy()
 
             # fetch the sequence labels
@@ -117,10 +118,10 @@ class DataLoader():
                 seq = np.zeros([self.seq_per_img, self.seq_length], dtype = 'int')
                 for q in range(self.seq_per_img):
                     ixl = random.randint(ix1,ix2)
-                    seq[q, :] = self.h5_file['labels'][ixl, :self.seq_length]
+                    seq[q, :] = self.h5_label_file['labels'][ixl, :self.seq_length]
             else:
                 ixl = random.randint(ix1, ix2 - self.seq_per_img + 1)
-                seq = self.h5_file['labels'][ixl: ixl + self.seq_per_img, :self.seq_length]
+                seq = self.h5_label_file['labels'][ixl: ixl + self.seq_per_img, :self.seq_length]
 
             label_batch[i * self.seq_per_img : (i + 1) * self.seq_per_img, 1 : self.seq_length + 1] = seq
 

@@ -5,8 +5,10 @@ def parse_opt():
     # Data input settings
     parser.add_argument('--input_json', type=str, default='data/coco.json',
                     help='path to the json file containing additional info and vocab')
-    parser.add_argument('--input_h5', type=str, default='data/coco.h5',
-                    help='path to the h5file containing the preprocessed dataset')
+    parser.add_argument('--input_label_h5', type=str, default='data/coco_label.h5',
+                    help='path to the h5file containing the preprocessed label')
+    parser.add_argument('--input_image_h5', type=str, default='data/coco_image.h5',
+                    help='path to the h5file containing the preprocessed image')
     parser.add_argument('--cnn_model', type=str, default='resnet101',
                     help='resnet')
     parser.add_argument('--cnn_weight', type=str, default='resnet101.pth',

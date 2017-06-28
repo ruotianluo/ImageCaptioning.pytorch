@@ -23,7 +23,8 @@ Great, first we need to some preprocessing. Head over to the `coco/` folder and 
 Once we have this, we're ready to invoke the `prepro_split.py` script, which will read all of this in and create a dataset (several hdf5 files and a json file). For example, for MS COCO we can run the prepro file as follows:
 
 ```bash
-$ python scripts/prepro.py --input_json .../dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk.h5 --images_root ...
+$ python scripts/prepro_labels.py --input_json .../dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk
+$ python scripts/prepro_images.py --input_json .../dataset_coco.json --output_h5 data/cocotalk --images_root ...
 ```
 
 You need to download [dataset_coco.json](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip) from Karpathy's homepage.
@@ -35,7 +36,7 @@ This is telling the script to read in all the data (the images and the captions)
 **(Copy end.)**
 
 ```bash
-$ python train.py --input_json coco/cocotalk.json --input_json --input_h5 data/cocotalk.h5 --beam_size 1 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --val_images_use 5000 --cnn_model resnet101 --cnn_weight resnet101.pth
+$ python train.py --input_json data/cocotalk.json --input_json --input_label_h5 data/cocotalk_label.h5 --input_image_h5 data/cocotalk_image.h5 --beam_size 1 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --val_images_use 5000 --cnn_model resnet101 --cnn_weight resnet101.pth
 ```
 
 The train script will take over, and start dumping checkpoints into the folder specified by `checkpoint_path` (default = current folder). For more options, see `opts.py`.

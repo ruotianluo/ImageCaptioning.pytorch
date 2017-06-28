@@ -35,7 +35,10 @@ import string
 # non-standard dependencies:
 import h5py
 import numpy as np
-from scipy.misc import imread, imresize
+import torch
+import torchvision.models as models
+from torch.autograd import Variable
+import skimage.io
 
 def build_vocab(imgs, params):
   count_thr = params['word_count_threshold']
@@ -150,32 +153,12 @@ def main(params):
 
   # create output h5 file
   N = len(imgs)
-  f = h5py.File(params['output_h5'], "w")
-  f.create_dataset("labels", dtype='uint32', data=L)
-  f.create_dataset("label_start_ix", dtype='uint32', data=label_start_ix)
-  f.create_dataset("label_end_ix", dtype='uint32', data=label_end_ix)
-  f.create_dataset("label_length", dtype='uint32', data=label_length)
-  dset = f.create_dataset("images", (N,3,256,256), dtype='uint8') # space for resized images
-  for i,img in enumerate(imgs):
-    # load the image
-    I = imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
-    try:
-        Ir = imresize(I, (256,256))
-    except:
-        print('failed resizing image %s - see http://git.io/vBIE0' % (img['file_path'],))
-        raise
-    # handle grayscale input images
-    if len(Ir.shape) == 2:
-      Ir = Ir[:,:,np.newaxis]
-      Ir = np.concatenate((Ir,Ir,Ir), axis=2)
-    # and swap order of axes from (256,256,3) to (3,256,256)
-    Ir = Ir.transpose(2,0,1)
-    # write to h5
-    dset[i] = Ir
-    if i % 1000 == 0:
-      print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
-  f.close()
-  print('wrote ', params['output_h5'])
+  f_lb = h5py.File(params['output_h5']+'_label.h5', "w")
+  f_lb.create_dataset("labels", dtype='uint32', data=L)
+  f_lb.create_dataset("label_start_ix", dtype='uint32', data=label_start_ix)
+  f_lb.create_dataset("label_end_ix", dtype='uint32', data=label_end_ix)
+  f_lb.create_dataset("label_length", dtype='uint32', data=label_length)
+  f_lb.close()
 
   # create output json file
   out = {}
@@ -200,11 +183,10 @@ if __name__ == "__main__":
   # input json
   parser.add_argument('--input_json', required=True, help='input json file to process into hdf5')
   parser.add_argument('--output_json', default='data.json', help='output json file')
-  parser.add_argument('--output_h5', default='data.h5', help='output h5 file')
-  
+  parser.add_argument('--output_h5', default='data', help='output h5 file')
+
   # options
   parser.add_argument('--max_length', default=16, type=int, help='max length of a caption, in number of words. captions longer than this get clipped.')
-  parser.add_argument('--images_root', default='', help='root location in which images are stored, to be prepended to file_path in input json')
   parser.add_argument('--word_count_threshold', default=5, type=int, help='only words that occur more than this number of times will be put in vocab')
 
   args = parser.parse_args()
