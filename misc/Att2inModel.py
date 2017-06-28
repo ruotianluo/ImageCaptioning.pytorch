@@ -51,7 +51,7 @@ class Att2inCore(nn.Module):
         
         weight = F.softmax(dot)                             # batch * att_size
         att_feats_ = att_feats.view(-1, att_size, self.att_feat_size) # batch * att_size * att_feat_size
-        att_res = (att_feats_ * weight.unsqueeze(2).expand_as(att_feats_)).sum(1).squeeze(1) # batch * att_feat_size
+        att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1) # batch * att_feat_size
 
         all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
