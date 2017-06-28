@@ -266,7 +266,7 @@ class ShowAttendTellCore(nn.Module):
         
         weight = F.softmax(dot)
         att_feats_ = att_feats.view(-1, att_size, self.att_feat_size) # batch * att_size * att_feat_size
-        att_res = (att_feats_ * weight.unsqueeze(2).expand_as(att_feats_)).sum(1).squeeze(1) # batch * att_feat_size
+        att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1) # batch * att_feat_size
 
         output, state = self.rnn(torch.cat([xt, att_res], 1).unsqueeze(0), state)
         return output.squeeze(0), state
