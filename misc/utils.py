@@ -8,6 +8,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import misc.resnet as resnet
 import os
+import random
 
 def build_cnn(opt):
     net = getattr(resnet, opt.cnn_model)()
@@ -28,13 +29,13 @@ def build_cnn(opt):
 
 def prepro_images(imgs, data_augment=False):
     # crop the image
-    h,w = imgs.size(2), imgs.size(3)
+    h,w = imgs.shape[2], imgs.shape[3]
     cnn_input_size = 224
 
     # cropping data augmentation, if needed
     if h > cnn_input_size or w > cnn_input_size:
         if data_augment:
-          xoff, yoff = torch.random(w-cnn_input_size), torch.random(h-cnn_input_size)
+          xoff, yoff = random.randint(0, w-cnn_input_size), random.randint(0, h-cnn_input_size)
         else:
           # sample the center
           xoff, yoff = (w-cnn_input_size)//2, (h-cnn_input_size)//2

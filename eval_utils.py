@@ -92,7 +92,7 @@ def eval_split(cnn_model, model, crit, loader, eval_kwargs={}):
         tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
         images, labels, masks = tmp
 
-        att_feats = _att_feats = cnn_model(images).permute(0, 2, 3, 1)
+        att_feats = _att_feats = cnn_model(images).permute(0, 2, 3, 1).contiguous()
         fc_feats = _fc_feats = att_feats.mean(1).mean(2).squeeze(1).squeeze(1)
 
         # forward the model to get loss
