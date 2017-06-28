@@ -9,28 +9,17 @@ import numpy as np
 import misc.utils as utils
 import torch
 
-from misc.ShowTellModel import ShowTellModel
-# from misc.AttentionModel import AttentionModel
-# from misc.ShowAttendTellModel import ShowAttendTellModel
-# from misc.ShowAttendTellModel_new import ShowAttendTellModel_new
-# from misc.TestAttentionModel import TestAttentionModel
 from misc.FCModel import FCModel
+from misc.Att2inModel import Att2inModel
 import torch.nn as nn
 
 def setup(opt):
     
-    if opt.caption_model == 'show_tell':
-        model = ShowTellModel(opt)
-    # elif opt.caption_model == 'attention':
-    #     return AttentionModel(opt)
-    # elif opt.caption_model == 'show_attend_tell':
-    #     return ShowAttendTellModel(opt)
-    # elif opt.caption_model == 'show_attend_tell_new':
-    #     return ShowAttendTellModel_new(opt)
-    # elif opt.caption_model == 'test_att':
-    #     return TestAttentionModel(opt)
-    elif opt.caption_model == 'fc':
+    if opt.caption_model == 'fc':
         model = FCModel(opt)
+    # Att2in model in self-critical
+    elif opt.caption_model == 'att2in':
+        model = Att2inModel(opt)
     else:
         raise Exception("Caption model not supported: {}".format(opt.caption_model))
 

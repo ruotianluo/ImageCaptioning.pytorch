@@ -8,13 +8,6 @@ import torch.nn as nn
 from torch.autograd import Variable
 import numpy as np
 
-def repackage(h):
-    """Wraps hidden states in new Variables, to detach them from their history."""
-    if type(h) == Variable:
-        return Variable(h.data)
-    else:
-        return tuple(repackage(v) for v in h)
-
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
 def decode_sequence(ix_to_word, seq):
     N, D = seq.size()

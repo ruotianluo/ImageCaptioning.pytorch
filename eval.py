@@ -65,7 +65,7 @@ parser.add_argument('--split', type=str, default='test',
 parser.add_argument('--coco_json', type=str, default='', 
                 help='if nonempty then use this file in DataLoaderRaw (see docs there). Used only in MSCOCO test evaluation, where we have a specific json file of only test set images.')
 # misc
-parser.add_argument('--id', type=str, default='evalscript', 
+parser.add_argument('--id', type=str, default='', 
                 help='an id identifying this run/job. used only if language_eval = 1 for appending to intermediate files')
 
 opt = parser.parse_args()
@@ -83,7 +83,9 @@ if len(opt.input_json) == 0:
     opt.input_json = infos['opt'].input_json
 if opt.batch_size == 0:
     opt.batch_size = infos['opt'].batch_size
-ignore = ["id", "batch_size", "beam_size", "start_from"]
+if len(opt.id) == 0:
+    opt.id = infos['opt'].id
+ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval"]
 for k in vars(infos['opt']).keys():
     if k not in ignore:
         if k in vars(opt):

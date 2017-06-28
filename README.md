@@ -9,7 +9,7 @@ This is based on my [neuraltalk2.pytorch](https://github.com/ruotianluo/neuralta
 - Add self critical training.
 
 # Requirements
-Python 2.7 (may work for python 3), pytorch
+Python 2.7 (no [coco-caption](https://github.com/tylin/coco-caption) version for python 3), pytorch
 
 # Train your own network on COCO
 **(Almost identical to neuraltalk2)**

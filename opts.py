@@ -20,8 +20,8 @@ def parse_opt():
                     """)
 
     # Model settings
-    parser.add_argument('--caption_model', type=str, default="show_tell",
-                    help='show_tell, show_attend_tell, attention, test_att, show_attend_tell_new')
+    parser.add_argument('--caption_model', type=str, default="fc",
+                    help='fc, att2in')
     parser.add_argument('--rnn_size', type=int, default=512,
                     help='size of the rnn in number of hidden nodes in each layer')
     parser.add_argument('--num_layers', type=int, default=1,
