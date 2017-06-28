@@ -81,6 +81,7 @@ def eval_split(cnn_model, model, crit, loader, eval_kwargs={}):
     predictions = []
     while True:
         data = loader.get_batch(split)
+        data['images'] = utils.prepro_images(data['images'], False)
         n = n + loader.batch_size
 
         #evaluate loss if we have the labels

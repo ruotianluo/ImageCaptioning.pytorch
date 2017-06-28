@@ -84,7 +84,7 @@ class DataLoader():
         split_ix = self.split_ix[split]
         batch_size = batch_size or self.batch_size
 
-        img_batch = np.ndarray([batch_size, 3, 224,224], dtype = 'float32')
+        img_batch = np.ndarray([batch_size, 3, 256,256], dtype = 'float32')
         label_batch = np.zeros([batch_size * self.seq_per_img, self.seq_length + 2], dtype = 'int')
         mask_batch = np.zeros([batch_size * self.seq_per_img, self.seq_length + 2], dtype = 'float32')
 
@@ -105,7 +105,7 @@ class DataLoader():
             # fetch image
             #img = self.load_image(self.image_info[ix]['filename'])
             img = self.h5_image_file['images'][ix, :, :, :]
-            img_batch[i] = preprocess(torch.from_numpy(img[:, 16:-16, 16:-16].astype('float32')/255.0)).numpy()
+            img_batch[i] = preprocess(torch.from_numpy(img.astype('float32')/255.0)).numpy()
 
             # fetch the sequence labels
             ix1 = self.label_start_ix[ix] - 1 #label_start_ix starts from 1

@@ -26,6 +26,23 @@ def build_cnn(opt):
         net.load_state_dict(torch.load(os.path.join(opt.start_from, 'model-cnn.pth')))
     return net
 
+def prepro_images(imgs, data_augment=False):
+    # crop the image
+    h,w = imgs.size(2), imgs.size(3)
+    cnn_input_size = 224
+
+    # cropping data augmentation, if needed
+    if h > cnn_input_size or w > cnn_input_size:
+        if data_augment:
+          xoff, yoff = torch.random(w-cnn_input_size), torch.random(h-cnn_input_size)
+        else:
+          # sample the center
+          xoff, yoff = (w-cnn_input_size)//2, (h-cnn_input_size)//2
+    # crop.
+    imgs = imgs[:,:, yoff:yoff+cnn_input_size, xoff:xoff+cnn_input_size]
+
+    return imgs
+
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
 def decode_sequence(ix_to_word, seq):
     N, D = seq.size()

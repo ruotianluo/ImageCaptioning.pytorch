@@ -116,6 +116,7 @@ def train(opt):
         start = time.time()
         # Load data from train split (0)
         data = loader.get_batch('train')
+        data['images'] = utils.prepro_images(data['images'], True)
         torch.cuda.synchronize()
         print('Read data:', time.time() - start)
 

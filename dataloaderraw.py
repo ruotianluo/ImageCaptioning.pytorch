@@ -69,7 +69,7 @@ class DataLoaderRaw():
         batch_size = batch_size or self.batch_size
 
         # pick an index of the datapoint to load next
-        img_batch = np.ndarray([batch_size, 3, 224,224], dtype = 'float32')
+        img_batch = np.ndarray([batch_size, 3, 256,256], dtype = 'float32')
         max_index = self.N
         wrapped = False
         infos = []
@@ -90,7 +90,7 @@ class DataLoaderRaw():
                 img = img[:,:,np.newaxis]
                 img = np.concatenate((img, img, img), axis=2)
 
-            img_batch[i] = preprocess(torch.from_numpy(img[16:-16, 16:-16,:].transpose(2,0,1).astype('float32')/255.0)).numpy()
+            img_batch[i] = preprocess(torch.from_numpy(img.transpose(2,0,1).astype('float32')/255.0)).numpy()
 
             info_struct = {}
             info_struct['id'] = self.ids[ri]
