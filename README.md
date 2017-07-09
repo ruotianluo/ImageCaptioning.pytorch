@@ -74,7 +74,7 @@ Now visit `localhost:8000` in your browser and you should see your predicted cap
 ## Evaluate on test split of coco dataset
 
 ```bash
-$ python eval.py --dump_images 0 --num_images 5000 --model model.pth --language_eval 1 --infos_path infos_<id>.pkl
+$ python eval.py --dump_images 0 --num_images 5000 --model model.pth --cnn_model_path model-cnn.pth --language_eval 1 --infos_path infos_<id>.pkl
 ```
 
 The defualt split to evaluate is test. The default inference method is greedy decoding (`--sample_max 1`), to sample from the posterior, set `--sample_max 0`.

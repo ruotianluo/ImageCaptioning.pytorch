@@ -54,8 +54,10 @@ parser.add_argument('--image_folder', type=str, default='',
 parser.add_argument('--image_root', type=str, default='', 
                 help='In case the image paths have to be preprended with a root path to an image folder')
 # For evaluation on MSCOCO images from some split:
-parser.add_argument('--input_h5', type=str, default='',
-                help='path to the h5file containing the preprocessed dataset')
+parser.add_argument('--input_label_h5', type=str, default='',
+                help='path to the h5file containing the preprocessed label')
+parser.add_argument('--input_image_h5', type=str, default='',
+                help='path to the h5file containing the preprocessed image')
 parser.add_argument('--input_json', type=str, default='', 
                 help='path to the json file containing additional info and vocab. empty = fetch from model checkpoint.')
 parser.add_argument('--split', type=str, default='test', 
@@ -73,8 +75,10 @@ with open(opt.infos_path) as f:
     infos = cPickle.load(f)
 
 # override and collect parameters
-if len(opt.input_h5) == 0:
-    opt.input_h5 = infos['opt'].input_h5
+if len(opt.input_label_h5) == 0:
+    opt.input_label_h5 = infos['opt'].input_label_h5
+if len(opt.input_image_h5) == 0:
+    opt.input_image_h5 = infos['opt'].input_image_h5
 if len(opt.input_json) == 0:
     opt.input_json = infos['opt'].input_json
 if opt.batch_size == 0:
