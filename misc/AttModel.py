@@ -116,7 +116,7 @@ class AttModel(nn.Module):
         self.done_beams = [[] for _ in range(batch_size)]
         for k in range(batch_size):
             state = self.init_hidden(beam_size)
-            tmp_fc_feats = fc_feats[k:k+1].expand(beam_size, self.rnn_size)
+            tmp_fc_feats = fc_feats[k:k+1].expand(beam_size, fc_feats.size(1))
             tmp_att_feats = att_feats[k:k+1].expand(*((beam_size,)+att_feats.size()[1:])).contiguous()
             tmp_p_att_feats = p_att_feats[k:k+1].expand(*((beam_size,)+p_att_feats.size()[1:])).contiguous()
 
