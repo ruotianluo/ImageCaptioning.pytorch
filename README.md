@@ -9,7 +9,7 @@ There's something difference compared to neuraltalk2.
 - Other models
 
 # Requirements
-Python 2.7 (no [coco-caption](https://github.com/tylin/coco-caption) version for python 3), pytorch
+Python 2.7 (no [coco-caption](https://github.com/tylin/coco-caption) version for python 3), pytorch 0.2
 
 # Train your own network on COCO
 **(Almost identical to neuraltalk2)**
