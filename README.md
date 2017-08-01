@@ -11,6 +11,11 @@ This is based on my [neuraltalk2.pytorch](https://github.com/ruotianluo/neuralta
 # Requirements
 Python 2.7 (no [coco-caption](https://github.com/tylin/coco-caption) version for python 3), pytorch
 
+# Pretrained FC model.
+Download pretrained model from [link](https://drive.google.com/open?id=0B7fNdx_jAqhtZnZsaXM3MDN5NGM). You also need pretrained resnet which can be downloaded from [pytorch-resnet](https://github.com/ruotianluo/pytorch-resnet.git).
+
+Then you can follow [this section](#markdown-header-caption-images-after-training).
+
 # Train your own network on COCO
 **(Almost identical to neuraltalk2)**
 

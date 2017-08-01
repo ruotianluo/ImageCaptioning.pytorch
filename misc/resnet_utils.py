@@ -21,7 +21,7 @@ class myResnet(nn.Module):
         x = self.resnet.layer3(x)
         x = self.resnet.layer4(x)
 
-        fc = x.mean(2).mean(3).squeeze()
+        fc = x.mean(3).mean(2)
         att = F.adaptive_avg_pool2d(x,[att_size,att_size]).squeeze().permute(1, 2, 0)
         
         return fc, att
