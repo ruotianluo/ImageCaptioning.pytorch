@@ -19,12 +19,22 @@ from dataloader import *
 import eval_utils
 import misc.utils as utils
 
-import os
+try:
+    import tensorflow as tf
+except ImportError:
+    print("Tensorflow not installed; No tensorboard logging.")
+    tf = None
+
+def add_summary_value(writer, key, value, iteration):
+    summary = tf.Summary(value=[tf.Summary.Value(tag=key, simple_value=value)])
+    writer.add_summary(summary, iteration)
 
 def train(opt):
     loader = DataLoader(opt)
     opt.vocab_size = loader.vocab_size
     opt.seq_length = loader.seq_length
+
+    tf_summary_writer = tf and tf.summary.FileWriter(opt.checkpoint_path)
 
     infos = {}
     if opt.start_from is not None:
@@ -111,6 +121,12 @@ def train(opt):
 
         # Write the training loss summary
         if (iteration % opt.losses_log_every == 0):
+            if tf is not None:
+                add_summary_value(tf_summary_writer, 'train_loss', train_loss, iteration)
+                add_summary_value(tf_summary_writer, 'learning_rate', opt.current_lr, iteration)
+                add_summary_value(tf_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
+                tf_summary_writer.flush()
+
             loss_history[iteration] = train_loss
             lr_history[iteration] = opt.current_lr
             ss_prob_history[iteration] = model.ss_prob
@@ -123,6 +139,12 @@ def train(opt):
             eval_kwargs.update(vars(opt))
             val_loss, predictions, lang_stats = eval_utils.eval_split(model, crit, loader, eval_kwargs)
 
+            # Write validation result into summary
+            if tf is not None:
+                add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
+                for k,v in lang_stats.items():
+                    add_summary_value(tf_summary_writer, k, v, iteration)
+                tf_summary_writer.flush()
             val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
 
             # Save model if is improving on validation result

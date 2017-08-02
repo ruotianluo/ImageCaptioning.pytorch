@@ -5,9 +5,6 @@ There's something difference compared to neuraltalk2.
 - Instead of including the convnet in the model, we use preprocessed features. (finetuneable cnn version is in the branch **with_finetune**)
 - Use resnet101; the same way as in self-critical (the preprocessing code may have bug, haven't tested yet)
 
-# TODO:
-- Other models
-
 # Requirements
 Python 2.7 (no [coco-caption](https://github.com/tylin/coco-caption) version for python 3), pytorch
 
@@ -49,7 +46,7 @@ $ python train.py --input_json coco/cocotalk.json --input_json --input_fc_dir da
 
 The train script will take over, and start dumping checkpoints into the folder specified by `checkpoint_path` (default = current folder). For more options, see `opts.py`.
 
-If you have tensorflow, you can run train.py instead of `train_tb.py`. `train_tb.py` saves learning curves by summary writer, and can be visualized using tensorboard.
+If you have tensorflow, the loss histories are automatically dumped into checkpoint_path, and can be visualized using tensorboard.
 
 The current command use scheduled sampling, you can also set scheduled_sampling_start to -1 to turn off scheduled sampling.
 
