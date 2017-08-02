@@ -33,6 +33,7 @@ class CaptionModel(nn.Module):
         self.linear = nn.Linear(self.fc_feat_size, self.num_layers * self.rnn_size) # feature to rnn_size
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
+        self.dropout = nn.Dropout(self.drop_prob_lm)
 
         self.init_weights()
 
@@ -78,7 +79,7 @@ class CaptionModel(nn.Module):
             xt = self.embed(it)
 
             output, state = self.core(xt, fc_feats, att_feats, state)
-            output = F.log_softmax(self.logit(output))
+            output = F.log_softmax(self.logit(self.dropout(output)))
             outputs.append(output)
 
         return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
@@ -165,7 +166,7 @@ class CaptionModel(nn.Module):
                     state = new_state
 
                 output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, state)
-                logprobs = F.log_softmax(self.logit(output))
+                logprobs = F.log_softmax(self.logit(self.dropout(output)))
 
             self.done_beams[k] = sorted(self.done_beams[k], key=lambda x: -x['p'])
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
@@ -216,7 +217,7 @@ class CaptionModel(nn.Module):
                 seqLogprobs.append(sampleLogprobs.view(-1))
 
             output, state = self.core(xt, fc_feats, att_feats, state)
-            logprobs = F.log_softmax(self.logit(output))
+            logprobs = F.log_softmax(self.logit(self.dropout(output)))
 
         return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
 

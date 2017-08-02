@@ -464,9 +464,7 @@ class Att2in2Core(nn.Module):
         next_c = forget_gate * state[1][-1] + in_gate * in_transform
         next_h = out_gate * F.tanh(next_c)
 
-        next_h = self.dropout(next_h)
-
-        output = next_h
+        output = self.dropout(next_h)
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
