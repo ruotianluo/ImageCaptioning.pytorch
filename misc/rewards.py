@@ -12,7 +12,6 @@ from torch.autograd import Variable
 import sys
 sys.path.append("cider")
 from pyciderevalcap.ciderD.ciderD import CiderD
-#from pyciderevalcap.cider.cider import Cider
 
 CiderD_scorer = CiderD(df='coco-train-idxs')
 #CiderD_scorer = CiderD(df='corpus')
@@ -54,14 +53,6 @@ def get_self_critical_reward(model, fc_feats, att_feats, data, gen_result):
 
     scores = scores[:batch_size] - scores[batch_size:]
 
-    #rewards = np.ones((batch_size, gen_result.shape[1])) * np.inf
-
     rewards = np.repeat(scores[:, np.newaxis], gen_result.shape[1], 1)
-
-    # for i in range(batch_size):
-    #     for j in range(gen_result.shape[1]):
-    #         rewards[i, j] = scores[i]
-    #         if gen_result[i, j] == 0:
-    #             break
 
     return rewards

@@ -18,7 +18,7 @@ import models
 from dataloader import *
 import eval_utils
 import misc.utils as utils
-import get_rewards
+from misc.rewards import get_self_critical_reward
 
 try:
     import tensorflow as tf
@@ -122,7 +122,7 @@ def train(opt):
             loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:])
         else:
             gen_result, sample_logprobs = model.sample(fc_feats, att_feats, {'sample_max':0})
-            rewards = get_rewards.get_self_critical_reward(model, fc_feats, att_feats, data, gen_result)
+            rewards = get_self_critical_reward(model, fc_feats, att_feats, data, gen_result)
             loss = rl_crit(sample_logprobs, gen_result, Variable(torch.from_numpy(rewards).float().cuda(), requires_grad=False))
 
         loss.backward()
