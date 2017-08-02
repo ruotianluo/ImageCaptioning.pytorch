@@ -33,6 +33,7 @@ class CaptionModel(nn.Module):
         self.linear = nn.Linear(self.fc_feat_size, self.num_layers * self.rnn_size) # feature to rnn_size
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
+        self.dropout = nn.Dropout(self.drop_prob_lm)
 
         self.init_weights()
 
@@ -78,7 +79,7 @@ class CaptionModel(nn.Module):
             xt = self.embed(it)
 
             output, state = self.core(xt, fc_feats, att_feats, state)
-            output = F.log_softmax(self.logit(output))
+            output = F.log_softmax(self.logit(self.dropout(output)))
             outputs.append(output)
 
         return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
@@ -165,7 +166,7 @@ class CaptionModel(nn.Module):
                     state = new_state
 
                 output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, state)
-                logprobs = F.log_softmax(self.logit(output))
+                logprobs = F.log_softmax(self.logit(self.dropout(output)))
 
             self.done_beams[k] = sorted(self.done_beams[k], key=lambda x: -x['p'])
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
@@ -216,7 +217,7 @@ class CaptionModel(nn.Module):
                 seqLogprobs.append(sampleLogprobs.view(-1))
 
             output, state = self.core(xt, fc_feats, att_feats, state)
-            logprobs = F.log_softmax(self.logit(output))
+            logprobs = F.log_softmax(self.logit(self.dropout(output)))
 
         return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
 
@@ -271,73 +272,6 @@ class ShowAttendTellCore(nn.Module):
         output, state = self.rnn(torch.cat([xt, att_res], 1).unsqueeze(0), state)
         return output.squeeze(0), state
 
-# class Att2inCore(nn.Module):
-#     def __init__(self, opt):
-#         super(Att2inCore, self).__init__()
-#         self.input_encoding_size = opt.input_encoding_size
-#         #self.rnn_type = opt.rnn_type
-#         self.rnn_size = opt.rnn_size
-#         #self.num_layers = opt.num_layers
-#         self.drop_prob_lm = opt.drop_prob_lm
-#         self.fc_feat_size = opt.fc_feat_size
-#         self.att_feat_size = opt.att_feat_size
-#         self.att_hid_size = opt.att_hid_size
-        
-#         # Build a LSTM
-#         self.a2c = nn.Linear(self.att_feat_size, self.rnn_size)
-#         self.i2h = nn.Linear(self.input_encoding_size, 4 * self.rnn_size)
-#         self.h2h = nn.Linear(self.rnn_size, 4 * self.rnn_size)
-#         self.dropout = nn.Dropout(self.drop_prob_lm)
-
-#         if self.att_hid_size > 0:
-#             self.ctx2att = nn.Linear(self.att_feat_size, self.att_hid_size)
-#             self.h2att = nn.Linear(self.rnn_size, self.att_hid_size)
-#             self.alpha_net = nn.Linear(self.att_hid_size, 1)
-#         else:
-#             self.ctx2att = nn.Linear(self.att_feat_size, 1)
-#             self.h2att = nn.Linear(self.rnn_size, 1)
-
-#     def forward(self, xt, fc_feats, att_feats, state):
-#         att_size = att_feats.numel() // att_feats.size(0) // self.att_feat_size
-#         att = att_feats.view(-1, self.att_feat_size)
-#         if self.att_hid_size > 0:
-#             att = self.ctx2att(att)                             # (batch * att_size) * att_hid_size
-#             att = att.view(-1, att_size, self.att_hid_size)     # batch * att_size * att_hid_size
-#             att_h = self.h2att(state[0][-1])                        # batch * att_hid_size
-#             att_h = att_h.unsqueeze(1).expand_as(att)            # batch * att_size * att_hid_size
-#             dot = att + att_h                                   # batch * att_size * att_hid_size
-#             dot = F.tanh(dot)                                # batch * att_size * att_hid_size
-#             dot = dot.view(-1, self.att_hid_size)               # (batch * att_size) * att_hid_size
-#             dot = self.alpha_net(dot)                           # (batch * att_size) * 1
-#             dot = dot.view(-1, att_size)                        # batch * att_size
-#         else:
-#             att = self.ctx2att(att)(att)                        # (batch * att_size) * 1
-#             att = att.view(-1, att_size)                        # batch * att_size
-#             att_h = self.h2att(state[0][-1])                        # batch * 1
-#             att_h = att_h.expand_as(att)                         # batch * att_size
-#             dot = att_h + att                                   # batch * att_size
-        
-#         weight = F.softmax(dot)
-#         att_feats_ = att_feats.view(-1, att_size, self.att_feat_size) # batch * att_size * att_feat_size
-#         att_res = (att_feats_ * weight.unsqueeze(2).expand_as(att_feats_)).sum(1).squeeze(1) # batch * att_feat_size
-
-#         all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
-#         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
-#         sigmoid_chunk = F.sigmoid(sigmoid_chunk)
-#         in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)
-#         forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
-#         out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
-
-#         in_transform = all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size) + \
-#             self.a2c(att_res)
-#         in_transform = F.tanh(in_transform)
-#         next_c = forget_gate * state[1][-1] + in_gate * in_transform
-#         next_h = out_gate * F.tanh(next_c)
-
-#         output = next_h
-#         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
-#         return output, state
-
 class AllImgCore(nn.Module):
     def __init__(self, opt):
         super(AllImgCore, self).__init__()
@@ -359,12 +293,6 @@ class ShowAttendTellModel(CaptionModel):
     def __init__(self, opt):
         super(ShowAttendTellModel, self).__init__(opt)
         self.core = ShowAttendTellCore(opt)
-
-# class Att2inModel(CaptionModel):
-#     def __init__(self, opt):
-#         opt.update({'num_layers': 1})
-#         super(Att2inModel, self).__init__(opt)
-#         self.core = Att2inCore(opt)
 
 class AllImgModel(CaptionModel):
     def __init__(self, opt):

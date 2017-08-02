@@ -1,4 +1,4 @@
-# This file contains Att2in2, AdaAtt, AdaAttMO model
+# This file contains Att2in2, AdaAtt, AdaAttMO, TopDown model
 
 # AdaAtt is from Knowing When to Look: Adaptive Attention via A Visual Sentinel for Image Captioning
 # https://arxiv.org/abs/1612.01887
@@ -8,6 +8,9 @@
 # https://arxiv.org/abs/1612.00563
 # In this file we only have Att2in2, which is a slightly different version of att2in,
 # in which the img feature embedding and word embedding is the same as what in adaatt.
+
+# TopDown is from Bottom-Up and Top-Down Attention for Image Captioning and VQA
+# https://arxiv.org/abs/1707.07998
 
 from __future__ import absolute_import
 from __future__ import division
@@ -411,6 +414,62 @@ class AdaAttCore(nn.Module):
         atten_out = self.attention(h_out, p_out, att_feats, p_att_feats)
         return atten_out, state
 
+class TopDownCore(nn.Module):
+    def __init__(self, opt, use_maxout=False):
+        super(TopDownCore, self).__init__()
+        self.drop_prob_lm = opt.drop_prob_lm
+
+        self.att_lstm = nn.LSTMCell(opt.input_encoding_size + opt.rnn_size * 2, opt.rnn_size) # we, fc, h^2_t-1
+        self.lang_lstm = nn.LSTMCell(opt.rnn_size * 2, opt.rnn_size) # h^1_t, \hat v
+        self.attention = Attention(opt)
+
+    def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
+        prev_h = state[0][-1]
+        att_lstm_input = torch.cat([prev_h, fc_feats, xt], 1)
+
+        h_att, c_att = self.att_lstm(att_lstm_input, (state[0][0], state[1][0]))
+
+        att = self.attention(h_att, att_feats, p_att_feats)
+
+        lang_lstm_input = torch.cat([att, h_att], 1)
+        # lang_lstm_input = torch.cat([att, F.dropout(h_att, self.drop_prob_lm, self.training)], 1) ?????
+
+        h_lang, c_lang = self.lang_lstm(lang_lstm_input, (state[0][1], state[1][1]))
+
+        output = F.dropout(h_lang, self.drop_prob_lm, self.training)
+        state = (torch.stack([h_att, h_lang]), torch.stack([c_att, c_lang]))
+
+        return output, state
+
+class Attention(nn.Module):
+    def __init__(self, opt):
+        super(Attention, self).__init__()
+        self.rnn_size = opt.rnn_size
+        self.att_hid_size = opt.att_hid_size
+
+        self.h2att = nn.Linear(self.rnn_size, self.att_hid_size)
+        self.alpha_net = nn.Linear(self.att_hid_size, 1)
+
+    def forward(self, h, att_feats, p_att_feats):
+        # The p_att_feats here is already projected
+        att_size = att_feats.numel() // att_feats.size(0) // self.rnn_size
+        att = p_att_feats.view(-1, att_size, self.att_hid_size)
+        
+        att_h = self.h2att(h)                        # batch * att_hid_size
+        att_h = att_h.unsqueeze(1).expand_as(att)            # batch * att_size * att_hid_size
+        dot = att + att_h                                   # batch * att_size * att_hid_size
+        dot = F.tanh(dot)                                # batch * att_size * att_hid_size
+        dot = dot.view(-1, self.att_hid_size)               # (batch * att_size) * att_hid_size
+        dot = self.alpha_net(dot)                           # (batch * att_size) * 1
+        dot = dot.view(-1, att_size)                        # batch * att_size
+        
+        weight = F.softmax(dot)                             # batch * att_size
+        att_feats_ = att_feats.view(-1, att_size, self.rnn_size) # batch * att_size * att_feat_size
+        att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1) # batch * att_feat_size
+
+        return att_res
+
+
 class Att2in2Core(nn.Module):
     def __init__(self, opt):
         super(Att2in2Core, self).__init__()
@@ -429,25 +488,10 @@ class Att2in2Core(nn.Module):
         self.h2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
         self.dropout = nn.Dropout(self.drop_prob_lm)
 
-        self.h2att = nn.Linear(self.rnn_size, self.att_hid_size)
-        self.alpha_net = nn.Linear(self.att_hid_size, 1)
+        self.attention = Attention(opt)
 
     def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
-        # The p_att_feats here is already projected
-        att_size = att_feats.numel() // att_feats.size(0) // self.rnn_size
-        att = p_att_feats.view(-1, att_size, self.att_hid_size)
-        
-        att_h = self.h2att(state[0][-1])                        # batch * att_hid_size
-        att_h = att_h.unsqueeze(1).expand_as(att)            # batch * att_size * att_hid_size
-        dot = att + att_h                                   # batch * att_size * att_hid_size
-        dot = F.tanh(dot)                                # batch * att_size * att_hid_size
-        dot = dot.view(-1, self.att_hid_size)               # (batch * att_size) * att_hid_size
-        dot = self.alpha_net(dot)                           # (batch * att_size) * 1
-        dot = dot.view(-1, att_size)                        # batch * att_size
-        
-        weight = F.softmax(dot)                             # batch * att_size
-        att_feats_ = att_feats.view(-1, att_size, self.rnn_size) # batch * att_size * att_feat_size
-        att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1) # batch * att_feat_size
+        att_res = self.attention(state[0][-1], att_feats, p_att_feats)
 
         all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
@@ -464,9 +508,7 @@ class Att2in2Core(nn.Module):
         next_c = forget_gate * state[1][-1] + in_gate * in_transform
         next_h = out_gate * F.tanh(next_c)
 
-        next_h = self.dropout(next_h)
-
-        output = next_h
+        output = self.dropout(next_h)
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
@@ -487,3 +529,9 @@ class Att2in2Model(AttModel):
         self.core = Att2in2Core(opt)
         delattr(self, 'fc_embed')
         self.fc_embed = lambda x : x
+
+class TopDownModel(AttModel):
+    def __init__(self, opt):
+        super(TopDownModel, self).__init__(opt)
+        self.num_layers = 2
+        self.core = TopDownCore(opt)

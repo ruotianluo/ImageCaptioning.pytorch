@@ -5,9 +5,6 @@ There's something difference compared to neuraltalk2.
 - Put resnet in the loop, instead of preprocessing.
 - Use resnet101; the same way as in knowing when to look (resize and crop).
 
-# TODO:
-- Other models
-
 # Requirements
 Python 2.7 (no [coco-caption](https://github.com/tylin/coco-caption) version for python 3), pytorch 0.2
 
@@ -43,8 +40,7 @@ The train script will take over, and start dumping checkpoints into the folder s
 
 **You have to download pretrained resnet101 weights from [pytorch-resnet](https://github.com/ruotianluo/pytorch-resnet.git). Don't use default torchvision resnet weights.** 
 
-
-If you have tensorflow, you can run train.py instead of `train_tb.py`. `train_tb.py` saves learning curves by summary writer, and can be visualized using tensorboard.
+If you have tensorflow, the loss histories are automatically dumped into checkpoint_path, and can be visualized using tensorboard.
 
 The current command use scheduled sampling, you can also set scheduled_sampling_start to -1 to turn off scheduled sampling.
 

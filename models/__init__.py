@@ -5,11 +5,11 @@ import numpy as np
 import misc.utils as utils
 import torch
 
-from misc.ShowTellModel import ShowTellModel
-from misc.FCModel import FCModel
-from misc.CaptionModel import ShowAttendTellModel, AllImgModel
-from misc.Att2inModel import Att2inModel
-from misc.AttModel import *
+from .ShowTellModel import ShowTellModel
+from .FCModel import FCModel
+from .CaptionModel import ShowAttendTellModel, AllImgModel
+from .Att2inModel import Att2inModel
+from .AttModel import *
 
 def setup(opt):
     
@@ -35,6 +35,9 @@ def setup(opt):
     # Adaptive Attention with maxout lstm
     elif opt.caption_model == 'adaattmo':
         model = AdaAttMOModel(opt)
+    # Top-down attention model
+    elif opt.caption_model == 'topdown':
+        model = TopDownModel(opt)
     else:
         raise Exception("Caption model not supported: {}".format(opt.caption_model))
 
