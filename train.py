@@ -37,6 +37,7 @@ def train(opt):
     tf_summary_writer = tf and tf.summary.FileWriter(opt.checkpoint_path)
 
     infos = {}
+    histories = {}
     if opt.start_from is not None:
         # open old infos and check if models are compatible
         with open(os.path.join(opt.start_from, 'infos_'+opt.id+'.pkl')) as f:
@@ -46,12 +47,17 @@ def train(opt):
             for checkme in need_be_same:
                 assert vars(saved_model_opt)[checkme] == vars(opt)[checkme], "Command line argument and saved model disagree on '%s' " % checkme
 
+        if os.path.isfile(os.path.join(opt.start_from, 'histories_'+opt.id+'.pkl')):
+            with open(os.path.join(opt.start_from, 'histories_'+opt.id+'.pkl')) as f:
+                histories = cPickle.load(f)
+
     iteration = infos.get('iter', 0)
     epoch = infos.get('epoch', 0)
-    val_result_history = infos.get('val_result_history', {})
-    loss_history = infos.get('loss_history', {})
-    lr_history = infos.get('lr_history', {})
-    ss_prob_history = infos.get('ss_prob_history', {})
+
+    val_result_history = histories.get('val_result_history', {})
+    loss_history = histories.get('loss_history', {})
+    lr_history = histories.get('lr_history', {})
+    ss_prob_history = histories.get('ss_prob_history', {})
 
     loader.iterators = infos.get('iterators', loader.iterators)
     loader.split_ix = infos.get('split_ix', loader.split_ix)
@@ -171,13 +177,16 @@ def train(opt):
                 infos['split_ix'] = loader.split_ix
                 infos['best_val_score'] = best_val_score
                 infos['opt'] = opt
-                infos['val_result_history'] = val_result_history
-                infos['loss_history'] = loss_history
-                infos['lr_history'] = lr_history
-                infos['ss_prob_history'] = ss_prob_history
                 infos['vocab'] = loader.get_vocab()
+
+                histories['val_result_history'] = val_result_history
+                histories['loss_history'] = loss_history
+                histories['lr_history'] = lr_history
+                histories['ss_prob_history'] = ss_prob_history
                 with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'.pkl'), 'wb') as f:
                     cPickle.dump(infos, f)
+                with open(os.path.join(opt.checkpoint_path, 'histories_'+opt.id+'.pkl'), 'wb') as f:
+                    cPickle.dump(histories, f)
 
                 if best_flag:
                     checkpoint_path = os.path.join(opt.checkpoint_path, 'model-best.pth')
