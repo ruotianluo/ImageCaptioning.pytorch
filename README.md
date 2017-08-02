@@ -8,8 +8,10 @@ There's something difference compared to neuraltalk2.
 # Requirements
 Python 2.7 (no [coco-caption](https://github.com/tylin/coco-caption) version for python 3), pytorch
 
-# Pretrained FC model.
-Download pretrained model from [link](https://drive.google.com/drive/folders/0B7fNdx_jAqhtOVBabHRCQzJ1Skk?usp=sharing). You also need pretrained resnet which can be downloaded from [pytorch-resnet](https://github.com/ruotianluo/pytorch-resnet.git).
+# Pretrained models.
+You need pretrained resnet both for training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
+
+We also provide pretrained fc model, and you can download it from [here](https://drive.google.com/drive/folders/0B7fNdx_jAqhtOVBabHRCQzJ1Skk?usp=sharing).
 
 Then you can follow [this section](#markdown-header-caption-images-after-training).
 
@@ -28,9 +30,6 @@ Once we have this, we're ready to invoke the `prepro_*.py` script, which will re
 $ python scripts/prepro_labels.py --input_json .../dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk
 $ python scripts/prepro_feats_npy.py --input_json .../dataset_coco.json --output_dir data/cocotalk --images_root ...
 ```
-
-(prepro_feats_npy.py uses the resnet converted from caffe
-[pytorch-resnet](https://github.com/ruotianluo/pytorch-resnet.git). )
 
 You need to download [dataset_coco.json](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip) from Karpathy's homepage.
 

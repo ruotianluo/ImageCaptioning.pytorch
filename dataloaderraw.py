@@ -23,7 +23,7 @@ from misc.resnet_utils import myResnet
 import misc.resnet as resnet
 
 resnet = resnet.resnet101()
-resnet.load_state_dict(torch.load('/home-nfs/rluo/rluo/model/pytorch-resnet/resnet101.pth'))
+resnet.load_state_dict(torch.load('./data/imagenet_weights/resnet101.pth'))
 my_resnet = myResnet(resnet)
 my_resnet.cuda()
 my_resnet.eval()
