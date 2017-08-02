@@ -26,6 +26,7 @@ class ShowTellModel(nn.Module):
         self.core = getattr(nn, self.rnn_type.upper())(self.input_encoding_size, self.rnn_size, self.num_layers, bias=False, dropout=self.drop_prob_lm)
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
+        self.dropout = nn.Dropout(self.drop_prob_lm)
 
         self.init_weights()
 
@@ -73,7 +74,7 @@ class ShowTellModel(nn.Module):
                 xt = self.embed(it)
 
             output, state = self.core(xt.unsqueeze(0), state)
-            output = F.log_softmax(self.logit(output.squeeze(0)))
+            output = F.log_softmax(self.logit(self.dropout(output.squeeze(0))))
             outputs.append(output)
 
         return torch.cat([_.unsqueeze(1) for _ in outputs[1:]], 1).contiguous()
@@ -159,7 +160,7 @@ class ShowTellModel(nn.Module):
                     state = new_state
 
                 output, state = self.core(xt.unsqueeze(0), state)
-                logprobs = F.log_softmax(self.logit(output.squeeze(0)))
+                logprobs = F.log_softmax(self.logit(self.dropout(output.squeeze(0))))
 
             self.done_beams[k] = sorted(self.done_beams[k], key=lambda x: -x['p'])
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
@@ -212,6 +213,6 @@ class ShowTellModel(nn.Module):
                 seqLogprobs.append(sampleLogprobs.view(-1))
 
             output, state = self.core(xt.unsqueeze(0), state)
-            logprobs = F.log_softmax(self.logit(output.squeeze(0)))
+            logprobs = F.log_softmax(self.logit(self.dropout(output.squeeze(0))))
 
         return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)

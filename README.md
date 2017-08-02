@@ -4,15 +4,17 @@ This is an unofficial implementation for [Self-critical Sequence Training for Im
 
 The author helped me a lot when I tried to replicate the result. Great thanks. After training 330k iterations, our fc model can achieve ~0.93 Cider score on validation data. Then start self-critical training to 400k iterations, the Cider score goes to ~1.05.
 
-This is based on my [neuraltalk2.pytorch](https://github.com/ruotianluo/neuraltalk2.pytorch) repository. The modifications are:
-- Add FC model(as in the paper)
+This is based on my [neuraltalk2.pytorch](https://github.com/ruotianluo/neuraltalk2.pytorch) repository. The modifications is:
 - Add self critical training.
 
 # Requirements
 Python 2.7 (no [coco-caption](https://github.com/tylin/coco-caption) version for python 3), pytorch
 
-# Pretrained FC model.
-Download pretrained model from [link](https://drive.google.com/open?id=0B7fNdx_jAqhtZnZsaXM3MDN5NGM). You also need pretrained resnet which can be downloaded from [pytorch-resnet](https://github.com/ruotianluo/pytorch-resnet.git).
+
+# Pretrained models.
+You need pretrained resnet both for training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
+
+We also provide pretrained fc model, and you can download it from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtZnZsaXM3MDN5NGM).
 
 Then you can follow [this section](#markdown-header-caption-images-after-training).
 
@@ -32,9 +34,6 @@ $ python scripts/prepro_labels.py --input_json .../dataset_coco.json --output_js
 $ python scripts/prepro_feats_npy.py --input_json .../dataset_coco.json --output_dir data/cocotalk --images_root ...
 ```
 
-(prepro_feats_npy.py uses the resnet converted from caffe
-[pytorch-resnet](https://github.com/ruotianluo/pytorch-resnet.git). )
-
 You need to download [dataset_coco.json](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip) from Karpathy's homepage.
 
 This is telling the script to read in all the data (the images and the captions), allocate the images to different splits according to the split json file, extract the resnet101 features (both fc feature and last conv feature) of each image, and map all words that occur <= 5 times to a special `UNK` token. The resulting `json` and `h5` files are about 200GB and contain everything we want to know about the dataset.
@@ -44,12 +43,12 @@ This is telling the script to read in all the data (the images and the captions)
 **(Copy end.)**
 
 ```bash
-$ python train.py --input_json coco/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --id fc --caption_model fc --beam_size 1 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --val_images_use 5000 --checkpoint_path log_fc
+$ python train.py --input_json coco/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --id fc --caption_model fc --beam_size 1 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --val_images_use 5000 --checkpoint_path log_fc --max_epochs 30
 ```
 
 The train script will take over, and start dumping checkpoints into the folder specified by `checkpoint_path` (default = current folder). For more options, see `opts.py`.
 
-If you have tensorflow, you can run train.py instead of `train_tb.py`. `train_tb.py` saves learning curves by summary writer, and can be visualized using tensorboard.
+If you have tensorflow, the loss histories are automatically dumped into checkpoint_path, and can be visualized using tensorboard.
 
 The current command use scheduled sampling, you can also set scheduled_sampling_start to -1 to turn off scheduled sampling.
 
@@ -73,7 +72,7 @@ $ bash scripts/copy_model.sh fc fc_rl
 
 Then
 ```bash
-python train_rl.py --caption_model fc --rnn_size 512 --batch_size 10 --seq_per_img 5 --input_encoding_size 512 --train_only 0 --id fc_rl --input_json data/cocotalk.json --input_fc_h5 data/cocotalk_fc.h5 --input_att_h5 data/cocotalk_att.h5 --input_label_h5 data/cocotalk_label.h5 --beam_size 1 --learning_rate 5e-5 --optim adam --optim_alpha 0.9 --optim_beta 0.999 --checkpoint_path log_fc_rl --start_from log_fc_rl --save_checkpoint_every 5000 --language_eval 1 --val_images_use 5000
+python train.py --caption_model fc --rnn_size 512 --batch_size 10 --seq_per_img 5 --input_encoding_size 512 --train_only 0 --id fc_rl --input_json data/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --beam_size 1 --learning_rate 5e-5 --optim adam --optim_alpha 0.9 --optim_beta 0.999 --checkpoint_path log_fc_rl --start_from log_fc_rl --save_checkpoint_every 5000 --language_eval 1 --val_images_use 5000 --self_critical_after 30
 ```
 You can also use train_rl_tb which uses tensorboard.
 

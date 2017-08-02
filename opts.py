@@ -20,8 +20,8 @@ def parse_opt():
                     """)
 
     # Model settings
-    parser.add_argument('--caption_model', type=str, default="fc",
-                    help='fc, att2in')
+    parser.add_argument('--caption_model', type=str, default="show_tell",
+                    help='show_tell, show_attend_tell, all_img, fc, att2in, att2in2, adaatt, adaattmo, topdown')
     parser.add_argument('--rnn_size', type=int, default=512,
                     help='size of the rnn in number of hidden nodes in each layer')
     parser.add_argument('--num_layers', type=int, default=1,
@@ -46,6 +46,8 @@ def parse_opt():
                     help='clip gradients at this value')
     parser.add_argument('--drop_prob_lm', type=float, default=0.5,
                     help='strength of dropout in the Language Model RNN')
+    parser.add_argument('--self_critical_after', type=int, default=-1,
+                    help='After what epoch do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
     parser.add_argument('--seq_per_img', type=int, default=5,
                     help='number of captions to sample for each image during training. Done for efficiency since CNN forward pass is expensive. E.g. coco has 5 sents/image')
     parser.add_argument('--beam_size', type=int, default=1,
