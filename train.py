@@ -98,7 +98,7 @@ def train(opt):
                 model.ss_prob = opt.ss_prob
 
             # If start self critical training
-            if opt.self_critical_after != -1 or epoch >= opt.self_critical_after:
+            if opt.self_critical_after != -1 and epoch >= opt.self_critical_after:
                 sc_flag = True
             else:
                 sc_flag = False
@@ -122,8 +122,8 @@ def train(opt):
             loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:])
         else:
             gen_result, sample_logprobs = model.sample(fc_feats, att_feats, {'sample_max':0})
-            rewards = get_self_critical_reward(model, fc_feats, att_feats, data, gen_result)
-            loss = rl_crit(sample_logprobs, gen_result, Variable(torch.from_numpy(rewards).float().cuda(), requires_grad=False))
+            reward = get_self_critical_reward(model, fc_feats, att_feats, data, gen_result)
+            loss = rl_crit(sample_logprobs, gen_result, Variable(torch.from_numpy(reward).float().cuda(), requires_grad=False))
 
         loss.backward()
         utils.clip_gradient(optimizer, opt.grad_clip)
@@ -136,7 +136,7 @@ def train(opt):
                 .format(iteration, epoch, train_loss, end - start))
         else:
             print("iter {} (epoch {}), avg_reward = {:.3f}, time/batch = {:.3f}" \
-                .format(iteration, epoch, np.mean(rewards[:,0]), end - start))
+                .format(iteration, epoch, np.mean(reward[:,0]), end - start))
 
         # Update the iteration and epoch
         iteration += 1
@@ -151,10 +151,10 @@ def train(opt):
                 add_summary_value(tf_summary_writer, 'learning_rate', opt.current_lr, iteration)
                 add_summary_value(tf_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
                 if sc_flag:
-                    add_summary_value(tf_summary_writer, 'avg_rewards', np.mean(rewards[:,0]), iteration)
+                    add_summary_value(tf_summary_writer, 'avg_reward', np.mean(reward[:,0]), iteration)
                 tf_summary_writer.flush()
 
-            loss_history[iteration] = train_loss if sc_flag else np.mean(rewards[:,0])
+            loss_history[iteration] = train_loss if not sc_flag else np.mean(reward[:,0])
             lr_history[iteration] = opt.current_lr
             ss_prob_history[iteration] = model.ss_prob
 
