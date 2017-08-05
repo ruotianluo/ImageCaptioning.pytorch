@@ -22,12 +22,6 @@ preprocess = trn.Compose([
 from misc.resnet_utils import myResnet
 import misc.resnet as resnet
 
-resnet = resnet.resnet101()
-resnet.load_state_dict(torch.load('./data/imagenet_weights/resnet101.pth'))
-my_resnet = myResnet(resnet)
-my_resnet.cuda()
-my_resnet.eval()
-
 class DataLoaderRaw():
     
     def __init__(self, opt):
@@ -37,6 +31,16 @@ class DataLoaderRaw():
 
         self.batch_size = opt.get('batch_size', 1)
         self.seq_per_img = 1
+
+        # Load resnet
+        self.cnn_model = opt.get('cnn_model', 'resnet101')
+        resnet = getattr(resnet, self.cnn_model)()
+        resnet.load_state_dict(torch.load('./data/imagenet_weights/'+self.cnn_model+'.pth'))
+        self.my_resnet = myResnet(resnet)
+        self.my_resnet.cuda()
+        self.my_resnet.eval()
+
+
 
         # load the json file which contains additional information about the dataset
         print('DataLoaderRaw loading images from folder: ', self.folder_path)
@@ -106,7 +110,7 @@ class DataLoaderRaw():
             img = img.astype('float32')/255.0
             img = torch.from_numpy(img.transpose([2,0,1])).cuda()
             img = Variable(preprocess(img), volatile=True)
-            tmp_fc, tmp_att = my_resnet(img)
+            tmp_fc, tmp_att = self.my_resnet(img)
 
             fc_batch[i] = tmp_fc.data.cpu().float().numpy()
             att_batch[i] = tmp_att.data.cpu().float().numpy()
