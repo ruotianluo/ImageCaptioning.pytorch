@@ -23,6 +23,8 @@ parser = argparse.ArgumentParser()
 # Input paths
 parser.add_argument('--model', type=str, default='',
                 help='path to model to evaluate')
+parser.add_argument('--cnn_model', type=str,  default='resnet101',
+                help='resnet101, resnet152')
 parser.add_argument('--infos_path', type=str, default='',
                 help='path to infos to evaluate')
 # Basic options
@@ -108,7 +110,8 @@ if len(opt.image_folder) == 0:
 else:
   loader = DataLoaderRaw({'folder_path': opt.image_folder, 
                             'coco_json': opt.coco_json,
-                            'batch_size': opt.batch_size})
+                            'batch_size': opt.batch_size,
+                            'cnn_model': opt.cnn_model})
   loader.ix_to_word = infos['vocab']
 
 
