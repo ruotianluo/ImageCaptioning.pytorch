@@ -7,6 +7,12 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
+def if_use_att(caption_model):
+    # Decide if load attention feature according to caption model
+    if caption_model in ['show_tell', 'all_img', 'fc']:
+        return False
+    return True
+
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
 def decode_sequence(ix_to_word, seq):
     N, D = seq.size()
