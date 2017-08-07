@@ -9,10 +9,11 @@ import numpy as np
 import random
 from multiprocessing.dummy import Pool
 
-def get_npy_data(ix, fc_file, att_file):
-    return (np.load(fc_file),
-        np.load(att_file)['feat'],
-        ix)
+def get_npy_data(ix, fc_file, att_file, use_att):
+    if use_att == True:
+        return (np.load(fc_file), np.load(att_file)['feat'], ix)
+    else:
+        return (np.load(fc_file), np.zeros((1,1,1)), ix)
 
 class DataLoader():
 
@@ -35,6 +36,7 @@ class DataLoader():
         self.opt = opt
         self.batch_size = self.opt.batch_size
         self.seq_per_img = opt.seq_per_img
+        self.use_att = opt.use_att
 
         # load the json file which contains additional information about the dataset
         print('DataLoader loading json file: ', opt.input_json)
@@ -194,7 +196,8 @@ class BlobFetcher():
             self.fifo.append(self.pool.apply_async(get_npy_data, \
                 (ix, \
                 os.path.join(self.dataloader.input_fc_dir, str(self.dataloader.info['images'][ix]['id']) + '.npy'),
-                os.path.join(self.dataloader.input_att_dir, str(self.dataloader.info['images'][ix]['id']) + '.npz')
+                os.path.join(self.dataloader.input_att_dir, str(self.dataloader.info['images'][ix]['id']) + '.npz'),
+                self.dataloader.use_att
                 )))
 
     def terminate(self):

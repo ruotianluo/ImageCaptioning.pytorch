@@ -31,6 +31,7 @@ def add_summary_value(writer, key, value, iteration):
     writer.add_summary(summary, iteration)
 
 def train(opt):
+    opt.use_att = utils.if_use_att(opt.caption_model)
     loader = DataLoader(opt)
     opt.vocab_size = loader.vocab_size
     opt.seq_length = loader.seq_length
