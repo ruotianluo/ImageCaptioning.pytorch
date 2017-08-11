@@ -57,7 +57,7 @@ class CaptionModel(nn.Module):
         outputs = []
 
         for i in range(seq.size(1) - 1):
-            if i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
+            if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
                 sample_prob = fc_feats.data.new(batch_size).uniform_(0, 1)
                 sample_mask = sample_prob < self.ss_prob
                 if sample_mask.sum() == 0:
