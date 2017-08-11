@@ -85,7 +85,7 @@ class FCModel(nn.Module):
             if i == 0:
                 xt = self.img_embed(fc_feats)
             else:
-                if i >= 2 and self.ss_prob > 0.0: # otherwiste no need to sample
+                if self.training and i >= 2 and self.ss_prob > 0.0: # otherwiste no need to sample
                     sample_prob = fc_feats.data.new(batch_size).uniform_(0, 1)
                     sample_mask = sample_prob < self.ss_prob
                     if sample_mask.sum() == 0:
