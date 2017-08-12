@@ -32,6 +32,7 @@ def add_summary_value(writer, key, value, iteration):
     writer.add_summary(summary, iteration)
 
 def train(opt):
+    opt.use_att = utils.if_use_att(opt.caption_model)
     loader = DataLoader(opt)
     opt.vocab_size = loader.vocab_size
     opt.seq_length = loader.seq_length
@@ -138,6 +139,9 @@ def train(opt):
 
         att_feats = cnn_model(images).permute(0, 2, 3, 1)
         fc_feats = att_feats.mean(2).mean(1)
+
+        if not opt.use_att:
+            att_feats = Variable(torch.FloatTensor(1,1,1,1).cuda())
 
         att_feats = att_feats.unsqueeze(1).expand(*((att_feats.size(0), opt.seq_per_img,) + att_feats.size()[1:])).contiguous().view(*((att_feats.size(0) * opt.seq_per_img,) + att_feats.size()[1:]))
         fc_feats = fc_feats.unsqueeze(1).expand(*((fc_feats.size(0), opt.seq_per_img,) + fc_feats.size()[1:])).contiguous().view(*((fc_feats.size(0) * opt.seq_per_img,) + fc_feats.size()[1:]))
