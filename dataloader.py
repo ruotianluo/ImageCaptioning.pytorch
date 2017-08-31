@@ -7,7 +7,11 @@ import h5py
 import os
 import numpy as np
 import random
-from multiprocessing.dummy import Pool
+
+import torch
+import torch.utils.data as data
+
+import multiprocessing
 
 def get_npy_data(ix, fc_file, att_file, use_att):
     if use_att == True:
@@ -15,11 +19,10 @@ def get_npy_data(ix, fc_file, att_file, use_att):
     else:
         return (np.load(fc_file), np.zeros((1,1,1)), ix)
 
-class DataLoader():
+class DataLoader(data.Dataset):
 
     def reset_iterator(self, split):
-        self._prefetch_process[split].terminate()
-        self._prefetch_process[split].join()
+        del self._prefetch_process[split]
         self._prefetch_process[split] = BlobFetcher(split, self, split=='train')
         self.iterators[split] = 0
 
@@ -89,8 +92,7 @@ class DataLoader():
         def cleanup():
             print('Terminating BlobFetcher')
             for split in self.iterators.keys():
-                self._prefetch_process[split].terminate()
-                self._prefetch_process[split].join()
+                del self._prefetch_process[split]
         import atexit
         atexit.register(cleanup)
 
@@ -167,6 +169,22 @@ class DataLoader():
 
         return data
 
+    # It's not coherent to make DataLoader a subclass of Dataset, but essentially, we only need to implement the following to functions,
+    # so that the torch.utils.data.DataLoader can load the data according the index.
+    # However, it's minimum change to switch to pytorch data loading.
+    def __getitem__(self, index):
+        """This function returns a tuple that is further passed to collate_fn
+        """
+        ix = index #self.split_ix[index]
+        return get_npy_data(ix, \
+                os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy'),
+                os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'),
+                self.use_att
+                )
+
+    def __len__(self):
+        return len(self.info['images'])
+
 class BlobFetcher():
     """Experimental class for prefetching blobs in a separate process."""
     def __init__(self, split, dataloader, if_shuffle=False):
@@ -177,41 +195,24 @@ class BlobFetcher():
         self.dataloader = dataloader
         self.if_shuffle = if_shuffle
 
-        self.pool = Pool()
-        self.fifo = []
-
     # Add more in the queue
     def reset(self):
-        if len(self.fifo) == 0:
-            self.cur_idx = self.dataloader.iterators[self.split]
-            self.cur_split_ix = self.dataloader.split_ix[self.split][:] # copy
-        for i in range(512 - len(self.fifo)):
-            ix = self.cur_split_ix[self.cur_idx]
-            if self.cur_idx + 1 >= len(self.cur_split_ix):
-                self.cur_idx = 0
-                if self.if_shuffle:
-                    random.shuffle(self.cur_split_ix)
-            else:
-                self.cur_idx += 1
-            self.fifo.append(self.pool.apply_async(get_npy_data, \
-                (ix, \
-                os.path.join(self.dataloader.input_fc_dir, str(self.dataloader.info['images'][ix]['id']) + '.npy'),
-                os.path.join(self.dataloader.input_att_dir, str(self.dataloader.info['images'][ix]['id']) + '.npz'),
-                self.dataloader.use_att
-                )))
-
-    def terminate(self):
-        while len(self.fifo) > 0:
-            self.fifo.pop(0).get()
-        self.pool.terminate()
-        print(self.split, 'terminated')
-
-    def join(self):
-        self.pool.join()
-        print(self.split, 'joined')
+        """
+        Two cases:
+        1. not hasattr(self, 'split_loader'): Resume from previous training. Create the dataset given the saved split_ix and iterator
+        2. wrapped: a new epoch, the split_ix and iterator have been updated in the get_minibatch_inds already.
+        """
+        # batch_size is 0, the merge is done in DataLoader class
+        self.split_loader = iter(data.DataLoader(dataset=self.dataloader,
+                                            batch_size=1,
+                                            sampler=self.dataloader.split_ix[self.split][self.dataloader.iterators[self.split]:],
+                                            shuffle=False,
+                                            pin_memory=True,
+                                            num_workers=multiprocessing.cpu_count(),
+                                            collate_fn=lambda x: x[0]))
 
     def _get_next_minibatch_inds(self):
-        max_index = len(self.cur_split_ix)
+        max_index = len(self.dataloader.split_ix[self.split])
         wrapped = False
 
         ri = self.dataloader.iterators[self.split]
@@ -220,19 +221,22 @@ class BlobFetcher():
         ri_next = ri + 1
         if ri_next >= max_index:
             ri_next = 0
-            self.dataloader.split_ix[self.split] = self.cur_split_ix[:] # copy
+            if self.if_shuffle:
+                random.shuffle(self.dataloader.split_ix[self.split])
             wrapped = True
         self.dataloader.iterators[self.split] = ri_next
 
         return ix, wrapped
     
     def get(self):
-        if len(self.fifo) < 400:
+        if not hasattr(self, 'split_loader'):
             self.reset()
 
         ix, wrapped = self._get_next_minibatch_inds()
-        tmp = self.fifo.pop(0).get()
+        tmp = self.split_loader.next()
+        if wrapped:
+            self.reset()
 
         assert tmp[2] == ix, "ix not equal"
 
-        return tmp + (wrapped,)
+        return tmp + [wrapped]
