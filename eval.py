@@ -112,7 +112,9 @@ else:
                             'coco_json': opt.coco_json,
                             'batch_size': opt.batch_size,
                             'cnn_model': opt.cnn_model})
-  loader.ix_to_word = infos['vocab']
+# When eval using provided pretrained model, the vocab may be different from what you have in your cocotalk.json
+# So make sure to use the vocab in infos file.
+loader.ix_to_word = infos['vocab']
 
 
 # Set sample options
