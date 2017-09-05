@@ -133,7 +133,7 @@ class CaptionModel(nn.Module):
                     if t > 1:
                         # well need these as reference when we fork beams around
                         beam_seq_prev = beam_seq[:t-1].clone()
-                        beam_seq_logprobs_prev = beam_seq_logprobs[:t-2].clone()
+                        beam_seq_logprobs_prev = beam_seq_logprobs[:t-1].clone()
                     for vix in range(beam_size):
                         v = candidates[vix]
                         # fork beam index q into index vix
