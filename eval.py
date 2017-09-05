@@ -113,7 +113,10 @@ else:
   loader = DataLoaderRaw({'folder_path': opt.image_folder, 
                             'coco_json': opt.coco_json,
                             'batch_size': opt.batch_size})
-  loader.ix_to_word = infos['vocab']
+# When eval using provided pretrained model, the vocab may be different from what you have in your cocotalk.json
+# So make sure to use the vocab in infos file.
+loader.ix_to_word = infos['vocab']
+>>>>>>> master
 
 
 # Set sample options
