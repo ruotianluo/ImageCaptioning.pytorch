@@ -96,7 +96,7 @@ class CaptionModel(nn.Module):
         self.done_beams = [[] for _ in range(batch_size)]
         for k in range(batch_size):
             tmp_fc_feats = fc_feats[k:k+1].expand(beam_size, self.fc_feat_size)
-            tmp_att_feats = att_feats[k:k+1].expand(*((beam_size,)+att_feats.size()[1:]))
+            tmp_att_feats = att_feats[k:k+1].expand(*((beam_size,)+att_feats.size()[1:])).contiguous()
             
             state = self.init_hidden(tmp_fc_feats)
 
