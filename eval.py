@@ -116,7 +116,6 @@ else:
 # When eval using provided pretrained model, the vocab may be different from what you have in your cocotalk.json
 # So make sure to use the vocab in infos file.
 loader.ix_to_word = infos['vocab']
->>>>>>> master
 
 
 # Set sample options
