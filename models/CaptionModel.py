@@ -95,9 +95,10 @@ class CaptionModel(nn.Module):
 
         self.done_beams = [[] for _ in range(batch_size)]
         for k in range(batch_size):
-            state = self.init_hidden(fc_feats[k:k+1].expand(beam_size, self.rnn_size))
             tmp_fc_feats = fc_feats[k:k+1].expand(beam_size, self.fc_feat_size)
-            tmp_att_feats = att_feats[k:k+1].expand(*((beam_size,)+att_feats.size()[1:]))
+            tmp_att_feats = att_feats[k:k+1].expand(*((beam_size,)+att_feats.size()[1:])).contiguous()
+            
+            state = self.init_hidden(tmp_fc_feats)
 
             beam_seq = torch.LongTensor(self.seq_length, beam_size).zero_()
             beam_seq_logprobs = torch.FloatTensor(self.seq_length, beam_size).zero_()
@@ -132,7 +133,7 @@ class CaptionModel(nn.Module):
                     if t > 1:
                         # well need these as reference when we fork beams around
                         beam_seq_prev = beam_seq[:t-1].clone()
-                        beam_seq_logprobs_prev = beam_seq_logprobs[:t-2].clone()
+                        beam_seq_logprobs_prev = beam_seq_logprobs[:t-1].clone()
                     for vix in range(beam_size):
                         v = candidates[vix]
                         # fork beam index q into index vix
