@@ -105,12 +105,12 @@ def train(opt):
         torch.cuda.synchronize()
         start = time.time()
 
-        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
+        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
         tmp = [Variable(torch.from_numpy(_), requires_grad=False).cuda() for _ in tmp]
-        fc_feats, att_feats, labels, masks = tmp
+        fc_feats, att_feats, labels, masks, att_masks = tmp
         
         optimizer.zero_grad()
-        loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:])
+        loss = crit(model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         loss.backward()
         utils.clip_gradient(optimizer, opt.grad_clip)
         optimizer.step()
