@@ -55,7 +55,7 @@ class AttModel(nn.Module):
         return (Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_()),
                 Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_()))
 
-    def forward(self, fc_feats, att_feats, seq):
+    def forward(self, fc_feats, att_feats, seq, att_masks=None):
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
 
@@ -92,13 +92,13 @@ class AttModel(nn.Module):
 
             xt = self.embed(it)
 
-            output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state)
+            output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
             output = F.log_softmax(self.logit(output))
             outputs.append(output)
 
         return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
-    def sample_beam(self, fc_feats, att_feats, opt={}):
+    def sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
@@ -189,7 +189,7 @@ class AttModel(nn.Module):
                 if t >= 1:
                     state = new_state
 
-                output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state)
+                output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, att_masks)
                 logprobs = F.log_softmax(self.logit(output))
 
             self.done_beams[k] = sorted(self.done_beams[k], key=lambda x: -x['p'])
@@ -198,12 +198,12 @@ class AttModel(nn.Module):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def sample(self, fc_feats, att_feats, opt={}):
+    def sample(self, fc_feats, att_feats, att_masks=None, opt={}):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
         if beam_size > 1:
-            return self.sample_beam(fc_feats, att_feats, opt)
+            return self.sample_beam(fc_feats, att_feats, att_masks, opt)
 
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
@@ -250,7 +250,7 @@ class AttModel(nn.Module):
 
                 seqLogprobs.append(sampleLogprobs.view(-1))
 
-            output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state)
+            output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
             logprobs = F.log_softmax(self.logit(output))
 
         return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
@@ -369,7 +369,7 @@ class AdaAtt_attention(nn.Module):
         self.alpha_net = nn.Linear(self.att_hid_size, 1)
         self.att2h = nn.Linear(self.rnn_size, self.rnn_size)
 
-    def forward(self, h_out, fake_region, conv_feat, conv_feat_embed):
+    def forward(self, h_out, fake_region, conv_feat, conv_feat_embed, att_masks=None):
 
         # View into three dimensions
         att_size = conv_feat.numel() // conv_feat.size(0) // self.rnn_size
@@ -394,6 +394,11 @@ class AdaAtt_attention(nn.Module):
         hAflat = self.alpha_net(hA.view(-1, self.att_hid_size))
         PI = F.softmax(hAflat.view(-1, att_size + 1))
 
+        if att_masks is not None:
+            att_masks = att_masks.view(-1, att_size)
+            PI = PI * torch.cat([att_masks[:,:1], att_masks], 1) # assume one one at the first time step.
+            PI = PI / PI.sum(1, keepdim=True)
+
         visAtt = torch.bmm(PI.unsqueeze(1), img_all)
         visAttdim = visAtt.squeeze(1)
 
@@ -409,9 +414,9 @@ class AdaAttCore(nn.Module):
         self.lstm = AdaAtt_lstm(opt, use_maxout)
         self.attention = AdaAtt_attention(opt)
 
-    def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
+    def forward(self, xt, fc_feats, att_feats, p_att_feats, state, att_masks=None):
         h_out, p_out, state = self.lstm(xt, fc_feats, state)
-        atten_out = self.attention(h_out, p_out, att_feats, p_att_feats)
+        atten_out = self.attention(h_out, p_out, att_feats, p_att_feats, att_masks)
         return atten_out, state
 
 class TopDownCore(nn.Module):
@@ -423,13 +428,13 @@ class TopDownCore(nn.Module):
         self.lang_lstm = nn.LSTMCell(opt.rnn_size * 2, opt.rnn_size) # h^1_t, \hat v
         self.attention = Attention(opt)
 
-    def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
+    def forward(self, xt, fc_feats, att_feats, p_att_feats, state, att_masks=None):
         prev_h = state[0][-1]
         att_lstm_input = torch.cat([prev_h, fc_feats, xt], 1)
 
         h_att, c_att = self.att_lstm(att_lstm_input, (state[0][0], state[1][0]))
 
-        att = self.attention(h_att, att_feats, p_att_feats)
+        att = self.attention(h_att, att_feats, p_att_feats, att_masks)
 
         lang_lstm_input = torch.cat([att, h_att], 1)
         # lang_lstm_input = torch.cat([att, F.dropout(h_att, self.drop_prob_lm, self.training)], 1) ?????
@@ -450,7 +455,7 @@ class Attention(nn.Module):
         self.h2att = nn.Linear(self.rnn_size, self.att_hid_size)
         self.alpha_net = nn.Linear(self.att_hid_size, 1)
 
-    def forward(self, h, att_feats, p_att_feats):
+    def forward(self, h, att_feats, p_att_feats, att_masks=None):
         # The p_att_feats here is already projected
         att_size = att_feats.numel() // att_feats.size(0) // self.rnn_size
         att = p_att_feats.view(-1, att_size, self.att_hid_size)
@@ -464,6 +469,9 @@ class Attention(nn.Module):
         dot = dot.view(-1, att_size)                        # batch * att_size
         
         weight = F.softmax(dot)                             # batch * att_size
+        if att_masks is not None:
+            weight = weight * att_masks.view(-1, att_size).float()
+            weight = weight / weight.sum(1, keepdim=True) # normalize to 1
         att_feats_ = att_feats.view(-1, att_size, self.rnn_size) # batch * att_size * att_feat_size
         att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1) # batch * att_feat_size
 
@@ -490,8 +498,8 @@ class Att2in2Core(nn.Module):
 
         self.attention = Attention(opt)
 
-    def forward(self, xt, fc_feats, att_feats, p_att_feats, state):
-        att_res = self.attention(state[0][-1], att_feats, p_att_feats)
+    def forward(self, xt, fc_feats, att_feats, p_att_feats, state, att_masks=None):
+        att_res = self.attention(state[0][-1], att_feats, p_att_feats, att_masks)
 
         all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)

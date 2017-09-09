@@ -114,15 +114,15 @@ def train(opt):
         torch.cuda.synchronize()
         start = time.time()
 
-        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
+        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
         tmp = [Variable(torch.from_numpy(_), requires_grad=False).cuda() for _ in tmp]
-        fc_feats, att_feats, labels, masks = tmp
+        fc_feats, att_feats, labels, masks, att_masks = tmp
         
         optimizer.zero_grad()
         if not sc_flag:
-            loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:])
+            loss = crit(model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
-            gen_result, sample_logprobs = model.sample(fc_feats, att_feats, {'sample_max':0})
+            gen_result, sample_logprobs = model.sample(fc_feats, att_feats, att_masks, {'sample_max':0})
             reward = get_self_critical_reward(model, fc_feats, att_feats, data, gen_result)
             loss = rl_crit(sample_logprobs, gen_result, Variable(torch.from_numpy(reward).float().cuda(), requires_grad=False))
 
