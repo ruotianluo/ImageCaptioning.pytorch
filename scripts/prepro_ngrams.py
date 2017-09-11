@@ -104,7 +104,7 @@ def build_dict(imgs, wtoi, params):
 
   ngram_words = compute_doc_freq(create_crefs(refs_words))
   ngram_idxs = compute_doc_freq(create_crefs(refs_idxs))
-  return ngram_words, ngram_idxs
+  return ngram_words, ngram_idxs, count_imgs
 
 def main(params):
 
@@ -114,53 +114,10 @@ def main(params):
 
   imgs = imgs['images']
 
-  ngram_words, ngram_idxs = build_dict(imgs, wtoi, params)
+  ngram_words, ngram_idxs, ref_len = build_dict(imgs, wtoi, params)
 
-  cPickle.dump(ngram_words, open(params['output_pkl']+'-words.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
-  cPickle.dump(ngram_idxs, open(params['output_pkl']+'-idxs.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
-
-
-# def build_ngram(imgs, n, wtoi, params):
-#   wtoi['<eos>'] = 0
-
-#   count_words = defaultdict(float)
-#   count_idxs = defaultdict(float)
-
-#   count_imgs = 0
-#   for img in imgs:
-#     if (params['split'] == img['split']) or \
-#       (params['split'] == 'train' and img['split'] == 'restval') or \
-#       (params['split'] == 'all'):
-#       #(params['split'] == 'val' and img['split'] == 'restval') or \
-#       for sent in img['sentences']:
-#         tmp_tokens = sent['tokens'] + ['<eos>']
-#         for i in range(len(tmp_tokens) - n + 1):
-#           tmp = tuple([_ if _ in wtoi else 'UNK' for _ in tmp_tokens[i:i+n]])
-#           count_words[tmp] = count_words.get(tmp, 0) + 1
-#           tmp_idx = tuple([str(wtoi.get(_, wtoi['UNK'])) for _ in tmp_tokens[i:i+n]])
-#           count_idxs[tmp_idx] = count_idxs.get(tmp_idx, 0) + 1
-#       count_imgs += 1
-#   print('total imgs:', count_imgs)
-#   return count_words, count_idxs
-
-# def main(params):
-
-#   imgs = json.load(open(params['input_json'], 'r'))
-#   itow = json.load(open(params['dict_json'], 'r'))['ix_to_word']
-#   wtoi = {w:i for i,w in itow.items()}
-
-#   imgs = imgs['images']
-
-#   ngram_word = defaultdict(float)
-#   ngram_idx = defaultdict(float)
-
-#   for n in range(1, 5):
-#     tmp1, tmp2 = build_ngram(imgs, n, wtoi, params)
-#     ngram_word.update(tmp1)
-#     ngram_idx.update(tmp2)
-
-#   cPickle.dump(ngram_word, open(params['output_pkl']+'-words.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
-#   cPickle.dump(ngram_idx, open(params['output_pkl']+'-idxs.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
+  cPickle.dump({'document_frequency': ngram_words, 'ref_len': ref_len}, open(params['output_pkl']+'-words.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
+  cPickle.dump({'document_frequency': ngram_idxs, 'ref_len': ref_len}, open(params['output_pkl']+'-idxs.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
 
 if __name__ == "__main__":
 
