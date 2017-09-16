@@ -122,6 +122,7 @@ class AttModel(nn.Module):
             tmp_fc_feats = fc_feats[k:k+1].expand(beam_size, fc_feats.size(1))
             tmp_att_feats = att_feats[k:k+1].expand(*((beam_size,)+att_feats.size()[1:])).contiguous()
             tmp_p_att_feats = p_att_feats[k:k+1].expand(*((beam_size,)+p_att_feats.size()[1:])).contiguous()
+            tmp_att_masks = att_masks[k:k+1].expand(*((beam_size,)+att_masks.size()[1:])).contiguous()
 
             beam_seq = torch.LongTensor(self.seq_length, beam_size).zero_()
             beam_seq_logprobs = torch.FloatTensor(self.seq_length, beam_size).zero_()
@@ -189,7 +190,7 @@ class AttModel(nn.Module):
                 if t >= 1:
                     state = new_state
 
-                output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, att_masks)
+                output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, tmp_att_masks)
                 logprobs = F.log_softmax(self.logit(output))
 
             self.done_beams[k] = sorted(self.done_beams[k], key=lambda x: -x['p'])
