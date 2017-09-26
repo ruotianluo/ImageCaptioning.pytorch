@@ -183,6 +183,7 @@ class FCModel(nn.Module):
                                                 'logps': beam_seq_logprobs[:, vix].clone(),
                                                 'p': beam_logprobs_sum[vix]
                                                 })
+                            beam_logprobs_sum[vix] = -1000 # make finished beam improbable
         
                     # encode as vectors
                     it = beam_seq[t-2]
