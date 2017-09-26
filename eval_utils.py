@@ -101,7 +101,10 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         # forward the model to also get generated samples for each image
         seq, _ = model.sample(fc_feats, att_feats, eval_kwargs)
         
-        #set_trace()
+        # Print beam search
+        # for i in range(loader.batch_size):
+        #     print('\n'.join([utils.decode_sequence(loader.get_vocab(), _['seq'].unsqueeze(0))[0] for _ in model.done_beams[i]]))
+        #     print('--' * 10)
         sents = utils.decode_sequence(loader.get_vocab(), seq)
 
         for k, sent in enumerate(sents):
