@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from torch.autograd import *
 import misc.utils as utils
 
+from .CaptionModel import CaptionModel
+
 class LSTMCore(nn.Module):
     def __init__(self, opt):
         super(LSTMCore, self).__init__()
@@ -41,7 +43,7 @@ class LSTMCore(nn.Module):
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
-class FCModel(nn.Module):
+class FCModel(CaptionModel):
     def __init__(self, opt):
         super(FCModel, self).__init__()
         self.vocab_size = opt.vocab_size
@@ -111,6 +113,15 @@ class FCModel(nn.Module):
 
         return torch.cat([_.unsqueeze(1) for _ in outputs[1:]], 1).contiguous()
 
+    def get_logprobs_state(self, it, state):
+        # 'it' is Variable contraining a word index
+        xt = self.embed(it)
+
+        output, state = self.core(xt, state)
+        logprobs = F.log_softmax(self.logit(output))
+
+        return logprobs, state
+
     def sample_beam(self, fc_feats, att_feats, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
@@ -123,79 +134,17 @@ class FCModel(nn.Module):
         self.done_beams = [[] for _ in range(batch_size)]
         for k in range(batch_size):
             state = self.init_hidden(beam_size)
-
-            beam_seq = torch.LongTensor(self.seq_length, beam_size).zero_()
-            beam_seq_logprobs = torch.FloatTensor(self.seq_length, beam_size).zero_()
-            beam_logprobs_sum = torch.zeros(beam_size) # running sum of logprobs for each beam
-            for t in range(self.seq_length + 2):
+            for t in range(2):
                 if t == 0:
                     xt = self.img_embed(fc_feats[k:k+1]).expand(beam_size, self.input_encoding_size)
                 elif t == 1: # input <bos>
                     it = fc_feats.data.new(beam_size).long().zero_()
                     xt = self.embed(Variable(it, requires_grad=False))
-                else:
-                    """perform a beam merge. that is,
-                    for every previous beam we now many new possibilities to branch out
-                    we need to resort our beams to maintain the loop invariant of keeping
-                    the top beam_size most likely sequences."""
-                    logprobsf = logprobs.float() # lets go to CPU for more efficiency in indexing operations
-                    ys,ix = torch.sort(logprobsf,1,True) # sorted array of logprobs along each previous beam (last true = descending)
-                    candidates = []
-                    cols = min(beam_size, ys.size(1))
-                    rows = beam_size
-                    if t == 2:  # at first time step only the first beam is active
-                        rows = 1
-                    for c in range(cols):
-                        for q in range(rows):
-                            # compute logprob of expanding beam q with word in (sorted) position c
-                            local_logprob = ys[q,c]
-                            candidate_logprob = beam_logprobs_sum[q] + local_logprob
-                            candidates.append({'c':ix.data[q,c], 'q':q, 'p':candidate_logprob.data[0], 'r':local_logprob.data[0]})
-                    candidates = sorted(candidates, key=lambda x: -x['p'])
-
-                    # construct new beams
-                    new_state = [_.clone() for _ in state]
-                    if t > 2:
-                        # well need these as reference when we fork beams around
-                        beam_seq_prev = beam_seq[:t-2].clone()
-                        beam_seq_logprobs_prev = beam_seq_logprobs[:t-2].clone()
-                    for vix in range(beam_size):
-                        v = candidates[vix]
-                        # fork beam index q into index vix
-                        if t > 2:
-                            beam_seq[:t-2, vix] = beam_seq_prev[:, v['q']]
-                            beam_seq_logprobs[:t-2, vix] = beam_seq_logprobs_prev[:, v['q']]
-
-                        # rearrange recurrent states
-                        for state_ix in range(len(new_state)):
-                            # copy over state in previous beam q to new beam at vix
-                            new_state[state_ix][0, vix] = state[state_ix][0, v['q']] # dimension one is time step
-
-                        # append new end terminal at the end of this beam
-                        beam_seq[t-2, vix] = v['c'] # c'th word is the continuation
-                        beam_seq_logprobs[t-2, vix] = v['r'] # the raw logprob here
-                        beam_logprobs_sum[vix] = v['p'] # the new (sum) logprob along this beam
-
-                        if v['c'] == 0 or t == self.seq_length + 1:
-                            # END token special case here, or we reached the end.
-                            # add the beam to a set of done beams
-                            self.done_beams[k].append({'seq': beam_seq[:, vix].clone(), 
-                                                'logps': beam_seq_logprobs[:, vix].clone(),
-                                                'p': beam_logprobs_sum[vix]
-                                                })
-                            beam_logprobs_sum[vix] = -1000 # make finished beam improbable
-        
-                    # encode as vectors
-                    it = beam_seq[t-2]
-                    xt = self.embed(Variable(it.cuda()))
-                
-                if t >= 2:
-                    state = new_state
 
                 output, state = self.core(xt, state)
                 logprobs = F.log_softmax(self.logit(output))
 
-            self.done_beams[k] = sorted(self.done_beams[k], key=lambda x: -x['p'])
+            self.done_beams[k] = self.beam_search(state, logprobs, opt=opt)
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
