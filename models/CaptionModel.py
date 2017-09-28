@@ -108,13 +108,18 @@ class CaptionModel(nn.Module):
         logprobs_table = list(init_logprobs.chunk(group_size, 0))
         # END INIT
 
+        # Chunk elements in the args
+        args = list(args)
+        args = [_.chunk(group_size) for _ in args]
+        args = [[args[i][j] for i in range(len(args))] for j in range(group_size)]
+
         for t in range(self.seq_length + group_size - 1):
             for divm in range(group_size): 
                 if t >= divm and t <= self.seq_length + divm - 1:
                     # add diversity
                     logprobsf = logprobs_table[divm].data.float()
                     # suppress UNK tokens in the decoding
-                    logprobsf[:,logprobsf.size(1)-1] =  logprobsf[:, logprobsf.size(1)-1] - 1000  
+                    logprobsf[:,logprobsf.size(1)-1] = logprobsf[:, logprobsf.size(1)-1] - 1000  
                     # diversity is added here
                     # the function directly modifies the logprobsf values and hence, we need to return
                     # the unaugmented ones for sorting the candidates in the end. # for historical
@@ -151,7 +156,7 @@ class CaptionModel(nn.Module):
                     # move the current group one step forward in time
                     
                     it = beam_seq_table[divm][t-divm]
-                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(Variable(it.cuda()), *(args + (state_table[divm],)))
+                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(Variable(it.cuda()), *(args[divm] + [state_table[divm]]))
 
         # all beams are sorted by their log-probabilities
         done_beams_table = [sorted(done_beams_table[i], key=lambda x: -x['p'])[:bdash] for i in range(group_size)]
