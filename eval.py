@@ -73,6 +73,8 @@ parser.add_argument('--coco_json', type=str, default='',
 # misc
 parser.add_argument('--id', type=str, default='', 
                 help='an id identifying this run/job. used only if language_eval = 1 for appending to intermediate files')
+parser.add_argument('--verbose_beam', type=int, default=1, 
+                help='if we need to print out all beam search beams.')
 
 opt = parser.parse_args()
 
