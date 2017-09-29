@@ -11,7 +11,7 @@ import torch
 
 from .ShowTellModel import ShowTellModel
 from .FCModel import FCModel
-from .CaptionModel import ShowAttendTellModel, AllImgModel
+from .OldModel import ShowAttendTellModel, AllImgModel
 from .Att2inModel import Att2inModel
 from .AttModel import *
 

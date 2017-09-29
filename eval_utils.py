@@ -58,6 +58,7 @@ def language_eval(dataset, preds, model_id, split):
 
 def eval_split(model, crit, loader, eval_kwargs={}):
     verbose = eval_kwargs.get('verbose', True)
+    verbose_beam = eval_kwargs.get('verbose_beam', 1)
     num_images = eval_kwargs.get('num_images', eval_kwargs.get('val_images_use', -1))
     split = eval_kwargs.get('split', 'val')
     lang_eval = eval_kwargs.get('language_eval', 0)
@@ -98,7 +99,11 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         # forward the model to also get generated samples for each image
         seq, _ = model.sample(fc_feats, att_feats, att_masks, eval_kwargs)
         
-        #set_trace()
+        # Print beam search
+        if beam_size > 1 and verbose_beam:
+            for i in range(loader.batch_size):
+                print('\n'.join([utils.decode_sequence(loader.get_vocab(), _['seq'].unsqueeze(0))[0] for _ in model.done_beams[i]]))
+                print('--' * 10)
         sents = utils.decode_sequence(loader.get_vocab(), seq)
 
         for k, sent in enumerate(sents):
