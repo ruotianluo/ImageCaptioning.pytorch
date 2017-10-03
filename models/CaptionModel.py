@@ -89,6 +89,8 @@ class CaptionModel(nn.Module):
             we need to resort our beams to maintain the loop invariant of keeping
             the top beam_size most likely sequences."""
             logprobsf = logprobs.data.float() # lets go to CPU for more efficiency in indexing operations
+            # suppress UNK tokens in the decoding
+            logprobsf[:,logprobsf.size(1)-1] =  logprobsf[:, logprobsf.size(1)-1] - 1000  
         
             beam_seq,\
             beam_seq_logprobs,\
