@@ -18,7 +18,7 @@ import models
 from dataloader import *
 import eval_utils
 import misc.utils as utils
-from misc.rewards import get_self_critical_reward
+from misc.rewards import init_cider_scorer, get_self_critical_reward
 
 try:
     import tensorflow as tf
@@ -101,6 +101,7 @@ def train(opt):
             # If start self critical training
             if opt.self_critical_after != -1 and epoch >= opt.self_critical_after:
                 sc_flag = True
+                init_cider_scorer(opt.cached_tokens)
             else:
                 sc_flag = False
 

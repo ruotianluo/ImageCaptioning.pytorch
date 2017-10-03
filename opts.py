@@ -18,6 +18,8 @@ def parse_opt():
                                               Note: this file contains absolute paths, be careful when moving files around;
                         'model.ckpt-*'      : file(s) with model definition (created by tf)
                     """)
+    parser.add_argument('--cached_tokens', type=str, default='coco-train-idxs',
+                    help='Cached token file for calculating cider score during self critical training.')
 
     # Model settings
     parser.add_argument('--caption_model', type=str, default="show_tell",
