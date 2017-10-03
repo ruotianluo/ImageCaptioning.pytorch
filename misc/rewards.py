@@ -13,8 +13,12 @@ import sys
 sys.path.append("cider")
 from pyciderevalcap.ciderD.ciderD import CiderD
 
-CiderD_scorer = CiderD(df='coco-train-idxs')
+CiderD_scorer = None
 #CiderD_scorer = CiderD(df='corpus')
+
+def init_cider_scorer(cached_tokens):
+    global CiderD_scorer
+    CiderD_scorer = CiderD(df=cached_tokens)
 
 def array_to_str(arr):
     out = ''
