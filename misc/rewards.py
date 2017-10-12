@@ -18,7 +18,7 @@ CiderD_scorer = None
 
 def init_cider_scorer(cached_tokens):
     global CiderD_scorer
-    CiderD_scorer = CiderD(df=cached_tokens)
+    CiderD_scorer = CiderD_scorer or CiderD(df=cached_tokens)
 
 def array_to_str(arr):
     out = ''
