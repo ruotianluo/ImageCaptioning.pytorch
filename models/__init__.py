@@ -25,6 +25,8 @@ def setup(opt):
     # Att2in model with two-layer MLP img embedding and word embedding
     elif opt.caption_model == 'att2in2':
         model = Att2in2Model(opt)
+    elif opt.caption_model == 'att2all2':
+        model = Att2all2Model(opt)
     # Adaptive Attention model from Knowing when to look
     elif opt.caption_model == 'adaatt':
         model = AdaAttModel(opt)

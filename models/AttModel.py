@@ -471,6 +471,47 @@ class Att2in2Core(nn.Module):
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
+class Att2all2Core(nn.Module):
+    def __init__(self, opt):
+        super(Att2all2Core, self).__init__()
+        self.input_encoding_size = opt.input_encoding_size
+        #self.rnn_type = opt.rnn_type
+        self.rnn_size = opt.rnn_size
+        #self.num_layers = opt.num_layers
+        self.drop_prob_lm = opt.drop_prob_lm
+        self.fc_feat_size = opt.fc_feat_size
+        self.att_feat_size = opt.att_feat_size
+        self.att_hid_size = opt.att_hid_size
+        
+        # Build a LSTM
+        self.a2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
+        self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
+        self.h2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
+        self.dropout = nn.Dropout(self.drop_prob_lm)
+
+        self.attention = Attention(opt)
+
+    def forward(self, xt, fc_feats, att_feats, p_att_feats, state, att_masks=None):
+        att_res = self.attention(state[0][-1], att_feats, p_att_feats, att_masks)
+
+        all_input_sums = self.i2h(xt) + self.h2h(state[0][-1]) + self.a2h(att_res)
+        sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
+        sigmoid_chunk = F.sigmoid(sigmoid_chunk)
+        in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)
+        forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
+        out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
+
+        in_transform = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size)
+        in_transform = torch.max(\
+            in_transform.narrow(1, 0, self.rnn_size),
+            in_transform.narrow(1, self.rnn_size, self.rnn_size))
+        next_c = forget_gate * state[1][-1] + in_gate * in_transform
+        next_h = out_gate * F.tanh(next_c)
+
+        output = self.dropout(next_h)
+        state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
+        return output, state
+
 class AdaAttModel(AttModel):
     def __init__(self, opt):
         super(AdaAttModel, self).__init__(opt)
@@ -486,6 +527,13 @@ class Att2in2Model(AttModel):
     def __init__(self, opt):
         super(Att2in2Model, self).__init__(opt)
         self.core = Att2in2Core(opt)
+        delattr(self, 'fc_embed')
+        self.fc_embed = lambda x : x
+
+class Att2all2Model(AttModel):
+    def __init__(self, opt):
+        super(Att2all2Model, self).__init__(opt)
+        self.core = Att2all2Core(opt)
         delattr(self, 'fc_embed')
         self.fc_embed = lambda x : x
 
