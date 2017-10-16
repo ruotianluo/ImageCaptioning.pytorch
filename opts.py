@@ -105,6 +105,13 @@ def parse_opt():
     parser.add_argument('--train_only', type=int, default=0,
                     help='if true then use 80k, else use 110k')
 
+
+    # Reward
+    parser.add_argument('--cider_reward_weight', type=float, default=1,
+                    help='The reward weight from cider')
+    parser.add_argument('--bleu_reward_weight', type=float, default=0,
+                    help='The reward weight from bleu4')
+
     args = parser.parse_args()
 
     # Check if args are valid
