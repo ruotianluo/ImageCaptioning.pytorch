@@ -57,11 +57,12 @@ class AttModel(CaptionModel):
         return (Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_()),
                 Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_()))
 
-    def forward(self, fc_feats, att_feats, seq, att_masks=None):
+    def _forward(self, fc_feats, att_feats, seq, att_masks=None):
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
 
-        outputs = []
+        # outputs = []
+        outputs = Variable(fc_feats.data.new(batch_size, seq.size(1) - 1, self.vocab_size+1).zero_())
 
         # embed fc and att feats
         fc_feats = self.fc_embed(fc_feats)
@@ -83,7 +84,8 @@ class AttModel(CaptionModel):
                     it = seq[:, i].data.clone()
                     #prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
                     #it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
-                    prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
+                    # prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
+                    prob_prev = torch.exp(outputs[:, i-1].data) # fetch prev distribution: shape Nx(M+1)
                     it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
                     it = Variable(it, requires_grad=False)
             else:
@@ -96,9 +98,11 @@ class AttModel(CaptionModel):
 
             output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
             output = F.log_softmax(self.logit(output))
-            outputs.append(output)
+            outputs[:, i] = output
+            # outputs.append(output)
 
-        return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
+        return outputs
+        # return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
     def get_logprobs_state(self, it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state):
         # 'it' is Variable contraining a word index
@@ -109,7 +113,7 @@ class AttModel(CaptionModel):
 
         return logprobs, state
 
-    def sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
+    def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
@@ -147,14 +151,14 @@ class AttModel(CaptionModel):
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
-        return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
+        return Variable(seq.transpose(0, 1)), Variable(seqLogprobs.transpose(0, 1))
 
-    def sample(self, fc_feats, att_feats, att_masks=None, opt={}):
+    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
         if beam_size > 1:
-            return self.sample_beam(fc_feats, att_feats, att_masks, opt)
+            return self._sample_beam(fc_feats, att_feats, att_masks, opt)
 
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
@@ -168,8 +172,10 @@ class AttModel(CaptionModel):
         p_att_feats = self.ctx2att(att_feats.view(-1, self.rnn_size))
         p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
 
-        seq = []
-        seqLogprobs = []
+        # seq = []
+        # seqLogprobs = []
+        seq = Variable(fc_feats.data.new(batch_size, self.seq_length).long().zero_())
+        seqLogprobs = Variable(fc_feats.data.new(batch_size, self.seq_length).zero_())
         for t in range(self.seq_length + 1):
             if t == 0: # input <bos>
                 it = fc_feats.data.new(batch_size).long().zero_()
@@ -178,11 +184,11 @@ class AttModel(CaptionModel):
                 it = it.view(-1).long()
             else:
                 if temperature == 1.0:
-                    prob_prev = torch.exp(logprobs.data).cpu() # fetch prev distribution: shape Nx(M+1)
+                    prob_prev = torch.exp(logprobs.data) # fetch prev distribution: shape Nx(M+1)
                 else:
                     # scale logprobs by temperature
-                    prob_prev = torch.exp(torch.div(logprobs.data, temperature)).cpu()
-                it = torch.multinomial(prob_prev, 1).cuda()
+                    prob_prev = torch.exp(torch.div(logprobs.data, temperature))
+                it = torch.multinomial(prob_prev, 1)
                 sampleLogprobs = logprobs.gather(1, Variable(it, requires_grad=False)) # gather the logprobs at sampled positions
                 it = it.view(-1).long() # and flatten indices for downstream processing
 
@@ -197,14 +203,17 @@ class AttModel(CaptionModel):
                 if unfinished.sum() == 0:
                     break
                 it = it * unfinished.type_as(it)
-                seq.append(it) #seq[t] the input of t+2 time step
+                seq[:,t-1] = it
+                # seq.append(it) #seq[t] the input of t+2 time step
 
-                seqLogprobs.append(sampleLogprobs.view(-1))
+                # seqLogprobs.append(sampleLogprobs.view(-1))
+                seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
 
             output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
             logprobs = F.log_softmax(self.logit(output))
 
-        return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
+        return seq, seqLogprobs
+        # return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
 
 class AdaAtt_lstm(nn.Module):
     def __init__(self, opt, use_maxout=True):

@@ -38,12 +38,12 @@ def get_self_critical_reward(model, fc_feats, att_feats, data, gen_result, opt):
     seq_per_img = batch_size // len(data['gts'])
     
     # get greedy decoding baseline
-    greedy_res, _ = model.sample(Variable(fc_feats.data, volatile=True), Variable(att_feats.data, volatile=True))
+    greedy_res, _ = model(Variable(fc_feats.data, volatile=True), Variable(att_feats.data, volatile=True), mode='sample')
 
     res = OrderedDict()
     
-    gen_result = gen_result.cpu().numpy()
-    greedy_res = greedy_res.cpu().numpy()
+    gen_result = gen_result.data.cpu().numpy()
+    greedy_res = greedy_res.data.cpu().numpy()
     for i in range(batch_size):
         res[i] = [array_to_str(gen_result[i])]
     for i in range(batch_size):

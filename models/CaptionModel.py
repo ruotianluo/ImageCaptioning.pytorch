@@ -24,6 +24,12 @@ class CaptionModel(nn.Module):
     # calls beam_step and returns the final set of beams
     # augments log-probabilities with diversity terms when number of groups > 1
 
+    def forward(self, *args, **kwargs):
+        mode = kwargs.get('mode', 'forward')
+        if 'mode' in kwargs:
+            del kwargs['mode']
+        return getattr(self, '_'+mode)(*args, **kwargs)
+
     def beam_search(self, init_state, init_logprobs, *args, **kwargs):
 
         # function computes the similarity score to be augmented

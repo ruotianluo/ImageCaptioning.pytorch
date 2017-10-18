@@ -66,12 +66,12 @@ def train(opt):
     if opt.load_best_score == 1:
         best_val_score = infos.get('best_val_score', None)
 
-    model = models.setup(opt)
-    model.cuda()
+    model = models.setup(opt).cuda()
+    dp_model = torch.nn.DataParallel(model)
 
     update_lr_flag = True
     # Assure in training mode
-    model.train()
+    dp_model.train()
 
     crit = utils.LanguageModelCriterion()
     rl_crit = utils.RewardCriterion()
@@ -121,11 +121,11 @@ def train(opt):
         
         optimizer.zero_grad()
         if not sc_flag:
-            loss = crit(model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
+            loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
-            gen_result, sample_logprobs = model.sample(fc_feats, att_feats, att_masks, {'sample_max':0})
-            reward = get_self_critical_reward(model, fc_feats, att_feats, data, gen_result, opt)
-            loss = rl_crit(sample_logprobs, gen_result, Variable(torch.from_numpy(reward).float().cuda(), requires_grad=False))
+            gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
+            reward = get_self_critical_reward(dp_model, fc_feats, att_feats, data, gen_result, opt)
+            loss = rl_crit(sample_logprobs, gen_result.data, Variable(torch.from_numpy(reward).float().cuda(), requires_grad=False))
 
         loss.backward()
         utils.clip_gradient(optimizer, opt.grad_clip)
@@ -166,7 +166,7 @@ def train(opt):
             eval_kwargs = {'split': 'val',
                             'dataset': opt.input_json}
             eval_kwargs.update(vars(opt))
-            val_loss, predictions, lang_stats = eval_utils.eval_split(model, crit, loader, eval_kwargs)
+            val_loss, predictions, lang_stats = eval_utils.eval_split(dp_model, crit, loader, eval_kwargs)
 
             # Write validation result into summary
             if tf is not None:
