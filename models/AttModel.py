@@ -406,6 +406,77 @@ class TopDownCore(nn.Module):
 
         return output, state
 
+
+from .FCModel import LSTMCore
+class StackAttCore(nn.Module):
+    def __init__(self, opt, use_maxout=False):
+        super(StackAttCore, self).__init__()
+        self.drop_prob_lm = opt.drop_prob_lm
+
+        # self.att0 = Attention(opt)
+        self.att1 = Attention(opt)
+        self.att2 = Attention(opt)
+
+        opt_input_encoding_size = opt.input_encoding_size
+        opt.input_encoding_size = opt.input_encoding_size + opt.rnn_size
+        self.lstm0 = LSTMCore(opt) # att_feat + word_embedding
+        opt.input_encoding_size = opt.rnn_size * 2
+        self.lstm1 = LSTMCore(opt)
+        self.lstm2 = LSTMCore(opt)
+        opt.input_encoding_size = opt_input_encoding_size
+
+        # self.emb1 = nn.Linear(opt.rnn_size, opt.rnn_size)
+        self.emb2 = nn.Linear(opt.rnn_size, opt.rnn_size)
+
+    def forward(self, xt, fc_feats, att_feats, p_att_feats, state, att_masks=None):
+        # att_res_0 = self.att0(state[0][-1], att_feats, p_att_feats, att_masks)
+        h_0, state_0 = self.lstm0(torch.cat([xt,fc_feats],1), [state[0][0:1], state[1][0:1]])
+        att_res_1 = self.att1(h_0, att_feats, p_att_feats, att_masks)
+        h_1, state_1 = self.lstm1(torch.cat([h_0,att_res_1],1), [state[0][1:2], state[1][1:2]])
+        att_res_2 = self.att2(h_1 + self.emb2(att_res_1), att_feats, p_att_feats, att_masks)
+        h_2, state_2 = self.lstm2(torch.cat([h_1,att_res_2],1), [state[0][2:3], state[1][2:3]])
+
+        return h_2, [torch.cat(_, 0) for _ in zip(state_0, state_1, state_2)]
+
+class DenseAttCore(nn.Module):
+    def __init__(self, opt, use_maxout=False):
+        super(DenseAttCore, self).__init__()
+        self.drop_prob_lm = opt.drop_prob_lm
+
+        # self.att0 = Attention(opt)
+        self.att1 = Attention(opt)
+        self.att2 = Attention(opt)
+
+        opt_input_encoding_size = opt.input_encoding_size
+        opt.input_encoding_size = opt.input_encoding_size + opt.rnn_size
+        self.lstm0 = LSTMCore(opt) # att_feat + word_embedding
+        opt.input_encoding_size = opt.rnn_size * 2
+        self.lstm1 = LSTMCore(opt)
+        self.lstm2 = LSTMCore(opt)
+        opt.input_encoding_size = opt_input_encoding_size
+
+        # self.emb1 = nn.Linear(opt.rnn_size, opt.rnn_size)
+        self.emb2 = nn.Linear(opt.rnn_size, opt.rnn_size)
+
+        # fuse h_0 and h_1
+        self.fusion1 = nn.Sequential(nn.Linear(opt.rnn_size*2, opt.rnn_size),
+                                     nn.ReLU(),
+                                     nn.Dropout(opt.drop_prob_lm))
+        # fuse h_0, h_1 and h_2
+        self.fusion2 = nn.Sequential(nn.Linear(opt.rnn_size*3, opt.rnn_size),
+                                     nn.ReLU(),
+                                     nn.Dropout(opt.drop_prob_lm))
+
+    def forward(self, xt, fc_feats, att_feats, p_att_feats, state, att_masks=None):
+        # att_res_0 = self.att0(state[0][-1], att_feats, p_att_feats, att_masks)
+        h_0, state_0 = self.lstm0(torch.cat([xt,fc_feats],1), [state[0][0:1], state[1][0:1]])
+        att_res_1 = self.att1(h_0, att_feats, p_att_feats, att_masks)
+        h_1, state_1 = self.lstm1(torch.cat([h_0,att_res_1],1), [state[0][1:2], state[1][1:2]])
+        att_res_2 = self.att2(h_1 + self.emb2(att_res_1), att_feats, p_att_feats, att_masks)
+        h_2, state_2 = self.lstm2(torch.cat([self.fusion1(torch.cat([h_0, h_1], 1)),att_res_2],1), [state[0][2:3], state[1][2:3]])
+
+        return self.fusion2(torch.cat([h_0, h_1, h_2], 1)), [torch.cat(_, 0) for _ in zip(state_0, state_1, state_2)]
+
 class Attention(nn.Module):
     def __init__(self, opt):
         super(Attention, self).__init__()
@@ -551,3 +622,15 @@ class TopDownModel(AttModel):
         super(TopDownModel, self).__init__(opt)
         self.num_layers = 2
         self.core = TopDownCore(opt)
+
+class StackAttModel(AttModel):
+    def __init__(self, opt):
+        super(StackAttModel, self).__init__(opt)
+        self.num_layers = 3
+        self.core = StackAttCore(opt)
+
+class DenseAttModel(AttModel):
+    def __init__(self, opt):
+        super(DenseAttModel, self).__init__(opt)
+        self.num_layers = 3
+        self.core = DenseAttCore(opt)

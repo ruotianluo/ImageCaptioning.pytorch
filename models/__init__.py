@@ -36,6 +36,12 @@ def setup(opt):
     # Top-down attention model
     elif opt.caption_model == 'topdown':
         model = TopDownModel(opt)
+    # StackAtt
+    elif opt.caption_model == 'stackatt':
+        model = StackAttModel(opt)
+    # DenseAtt
+    elif opt.caption_model == 'denseatt':
+        model = DenseAttModel(opt)
     else:
         raise Exception("Caption model not supported: {}".format(opt.caption_model))
 
