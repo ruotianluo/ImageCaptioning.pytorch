@@ -59,6 +59,7 @@ def language_eval(dataset, preds, model_id, split):
 def eval_split(model, crit, loader, eval_kwargs={}):
     verbose = eval_kwargs.get('verbose', True)
     verbose_beam = eval_kwargs.get('verbose_beam', 1)
+    verbose_loss = eval_kwargs.get('verbose_loss', 1)
     num_images = eval_kwargs.get('num_images', eval_kwargs.get('val_images_use', -1))
     split = eval_kwargs.get('split', 'val')
     lang_eval = eval_kwargs.get('language_eval', 0)
@@ -79,7 +80,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         data = loader.get_batch(split)
         n = n + loader.batch_size
 
-        if data.get('labels', None) is not None:
+        if data.get('labels', None) is not None and verbose_loss:
             # forward the model to get loss
             tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
             tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
