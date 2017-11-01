@@ -31,13 +31,9 @@ import os
 import json
 import argparse
 from random import shuffle, seed
-import string
-# non-standard dependencies:
-import h5py
-from six.moves import cPickle
+
 import numpy as np
 import torch
-import torchvision.models as models
 from torch.autograd import Variable
 import skimage.io
 
@@ -49,6 +45,13 @@ preprocess = trn.Compose([
 
 from misc.resnet_utils import myResnet
 import misc.resnet as resnet
+
+
+def append_array(f, f_toc, name, array):
+  np.save(f, array)
+  offset = f.tell()
+  f_toc.write("{} {}\n".format(name, offset))
+
 
 def main(params):
   net = getattr(resnet, params['model'])()
@@ -70,6 +73,11 @@ def main(params):
   if not os.path.isdir(dir_att):
     os.mkdir(dir_att)
 
+  dataset_fc = open(params['output_dir'] + 'dataset_fc.npy', 'wb')
+  dataset_fc_toc = open(params['output_dir'] + 'dataset_fc.toc', 'wt')
+
+  dataset_att = open(params['output_dir'] + 'dataset_att.npy', 'wb')
+  dataset_att_toc = open(params['output_dir'] + 'dataset_att.toc', 'wt')
   for i,img in enumerate(imgs):
     # load the image
     I = skimage.io.imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
@@ -83,12 +91,15 @@ def main(params):
     I = Variable(preprocess(I), volatile=True)
     tmp_fc, tmp_att = my_resnet(I, params['att_size'])
     # write to pkl
-    np.save(os.path.join(dir_fc, str(img['cocoid'])), tmp_fc.data.cpu().float().numpy())
-    np.savez_compressed(os.path.join(dir_att, str(img['cocoid'])), feat=tmp_att.data.cpu().float().numpy())
+    append_array(dataset_fc, dataset_fc_toc,
+                 str(img['cocoid']), tmp_fc.data.cpu().float().numpy())
+    append_array(dataset_att, dataset_att_toc,
+                 str(img['cocoid']), tmp_att.data.cpu().float().numpy())
 
     if i % 1000 == 0:
       print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
   print('wrote ', params['output_dir'])
+
 
 if __name__ == "__main__":
 

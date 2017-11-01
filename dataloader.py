@@ -8,16 +8,24 @@ import os
 import numpy as np
 import random
 
-import torch
 import torch.utils.data as data
 
 import multiprocessing
 
-def get_npy_data(ix, fc_file, att_file, use_att):
-    if use_att == True:
-        return (np.load(fc_file), np.load(att_file)['feat'], ix)
+
+def get_npy_data(ix, fc_file_name, fc_toc, name, att_file_name=None,
+                 att_toc=None, use_att=True):
+    fc_file = open(fc_file_name, 'rb')
+    offset = fc_toc[name]
+    fc_file.seek(offset)
+    fc_feats = np.load(fc_file)
+    if use_att:
+        att_file = open(att_file_name, 'rb')
+        att_file.seek(att_toc[name])
+        return fc_feats, np.load(att_file), ix
     else:
-        return (np.load(fc_file), np.zeros((1,1,1)), ix)
+        return fc_feats, np.zeros((1, 1, 1)), ix
+
 
 class DataLoader(data.Dataset):
 
@@ -89,12 +97,26 @@ class DataLoader(data.Dataset):
         for split in self.iterators.keys():
             self._prefetch_process[split] = BlobFetcher(split, self, split=='train')
             # Terminate the child process when the parent exists
+
         def cleanup():
             print('Terminating BlobFetcher')
             for split in self.iterators.keys():
                 del self._prefetch_process[split]
+
         import atexit
         atexit.register(cleanup)
+
+        toc_filename = os.path.join(self.input_fc_dir, 'dataset_fc.toc')
+        with open(toc_filename, 'rt') as f:
+            self.fc_toc = {l.split()[0]: int(l.split()[1])
+                           for l in f.readlines()}
+        if self.use_att:
+            toc_filename = os.path.join(self.input_fc_dir, 'dataset_att.toc')
+            with open(toc_filename, 'rt') as f:
+                self.att_toc = {l.split()[0]: int(l.split()[1])
+                                for l in f.readlines()}
+        else:
+            self.att_toc = None
 
     def get_batch(self, split, batch_size=None, seq_per_img=None):
         batch_size = batch_size or self.batch_size
@@ -176,11 +198,12 @@ class DataLoader(data.Dataset):
         """This function returns a tuple that is further passed to collate_fn
         """
         ix = index #self.split_ix[index]
-        return get_npy_data(ix, \
-                os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy'),
-                os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'),
-                self.use_att
-                )
+
+        return get_npy_data(ix, os.path.join(self.input_fc_dir, 'dataset_fc.npy'), self.fc_toc,
+                            name=str(self.info['images'][ix]['id']),
+                            att_file_name=os.path.join(self.input_att_dir, 'dataset_att.npy'),
+                            att_toc=self.att_toc,
+                            use_att=self.use_att)
 
     def __len__(self):
         return len(self.info['images'])
