@@ -48,8 +48,8 @@ import misc.resnet as resnet
 
 
 def append_array(f, f_toc, name, array):
-  np.save(f, array)
   offset = f.tell()
+  np.save(f, array)
   f_toc.write("{} {}\n".format(name, offset))
 
 
