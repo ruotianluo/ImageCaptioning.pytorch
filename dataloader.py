@@ -108,13 +108,11 @@ class DataLoader(data.Dataset):
 
         toc_filename = os.path.join(self.input_fc_dir, 'dataset_fc.toc')
         with open(toc_filename, 'rt') as f:
-            self.fc_toc = {l.split()[0]: int(l.split()[1])
-                           for l in f.readlines()}
+            self.fc_toc = json.load(f)
         if self.use_att:
             toc_filename = os.path.join(self.input_fc_dir, 'dataset_att.toc')
             with open(toc_filename, 'rt') as f:
-                self.att_toc = {l.split()[0]: int(l.split()[1])
-                                for l in f.readlines()}
+                self.att_toc = json.load(f)
         else:
             self.att_toc = None
 

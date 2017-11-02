@@ -47,10 +47,10 @@ from misc.resnet_utils import myResnet
 import misc.resnet as resnet
 
 
-def append_array(f, f_toc, name, array):
+def append_array(f, toc, name, array):
   offset = f.tell()
   np.save(f, array)
-  f_toc.write("{} {}\n".format(name, offset))
+  toc[name] = offset
 
 
 def main(params):
@@ -73,31 +73,36 @@ def main(params):
   if not os.path.isdir(dir_att):
     os.mkdir(dir_att)
 
-  dataset_fc = open(params['output_dir'] + 'dataset_fc.npy', 'wb')
-  dataset_fc_toc = open(params['output_dir'] + 'dataset_fc.toc', 'wt')
+  fc_toc = {}
+  att_toc = {}
+  with open(os.path.join(params['output_dir'], 'dataset_fc.npy'), 'wb') as dataset_fc,\
+       open(params['output_dir'] + 'dataset_att.npy', 'wb') as dataset_att:
+    for i,img in enumerate(imgs):
+      # load the image
+      I = skimage.io.imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
+      # handle grayscale input images
+      if len(I.shape) == 2:
+        I = I[:,:,np.newaxis]
+        I = np.concatenate((I,I,I), axis=2)
 
-  dataset_att = open(params['output_dir'] + 'dataset_att.npy', 'wb')
-  dataset_att_toc = open(params['output_dir'] + 'dataset_att.toc', 'wt')
-  for i,img in enumerate(imgs):
-    # load the image
-    I = skimage.io.imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
-    # handle grayscale input images
-    if len(I.shape) == 2:
-      I = I[:,:,np.newaxis]
-      I = np.concatenate((I,I,I), axis=2)
+      I = I.astype('float32')/255.0
+      I = torch.from_numpy(I.transpose([2,0,1])).cuda()
+      I = Variable(preprocess(I), volatile=True)
+      tmp_fc, tmp_att = my_resnet(I, params['att_size'])
+      # write to pkl
+      append_array(dataset_fc, fc_toc,
+                   str(img['cocoid']), tmp_fc.data.cpu().float().numpy())
+      append_array(dataset_att, att_toc,
+                   str(img['cocoid']), tmp_att.data.cpu().float().numpy())
+      if i % 1000 == 0:
+        print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
 
-    I = I.astype('float32')/255.0
-    I = torch.from_numpy(I.transpose([2,0,1])).cuda()
-    I = Variable(preprocess(I), volatile=True)
-    tmp_fc, tmp_att = my_resnet(I, params['att_size'])
-    # write to pkl
-    append_array(dataset_fc, dataset_fc_toc,
-                 str(img['cocoid']), tmp_fc.data.cpu().float().numpy())
-    append_array(dataset_att, dataset_att_toc,
-                 str(img['cocoid']), tmp_att.data.cpu().float().numpy())
+  print('writing table of contents')
+  with open(os.path.join(params['output_dir'], "dataset_fc_toc.json"), 'wt') as fc_toc_file:
+    json.dump(fc_toc, fc_toc_file)
+  with open(os.path.join(params['output_dir'], "dataset_att_toc.json"), 'wt') as att_toc_file:
+    json.dump(att_toc, att_toc_file)
 
-    if i % 1000 == 0:
-      print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
   print('wrote ', params['output_dir'])
 
 
