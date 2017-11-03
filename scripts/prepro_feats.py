@@ -49,8 +49,9 @@ import misc.resnet as resnet
 
 def append_array(f, toc, name, array):
   offset = f.tell()
-  np.save(f, array)
-  toc[name] = offset
+  np.savez_compressed(f, feat=array)
+  length = f.tell() - offset
+  toc[name] = (offset, length)
 
 
 def main(params):
@@ -75,8 +76,8 @@ def main(params):
 
   fc_toc = {}
   att_toc = {}
-  with open(os.path.join(params['output_dir'], 'dataset_fc.npy'), 'wb') as dataset_fc,\
-       open(params['output_dir'] + 'dataset_att.npy', 'wb') as dataset_att:
+  with open(os.path.join(dir_fc, 'feats.npy'), 'wb') as dataset_fc,\
+       open(os.path.join(dir_att, 'feats.npy'), 'wb') as dataset_att:
     for i,img in enumerate(imgs):
       # load the image
       I = skimage.io.imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
@@ -98,9 +99,9 @@ def main(params):
         print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
 
   print('writing table of contents')
-  with open(os.path.join(params['output_dir'], "dataset_fc_toc.json"), 'wt') as fc_toc_file:
+  with open(os.path.join(dir_fc, "toc.json"), 'wt') as fc_toc_file:
     json.dump(fc_toc, fc_toc_file)
-  with open(os.path.join(params['output_dir'], "dataset_att_toc.json"), 'wt') as att_toc_file:
+  with open(os.path.join(dir_att, "toc.json"), 'wt') as att_toc_file:
     json.dump(att_toc, att_toc_file)
 
   print('wrote ', params['output_dir'])
@@ -112,7 +113,7 @@ if __name__ == "__main__":
 
   # input json
   parser.add_argument('--input_json', required=True, help='input json file to process into hdf5')
-  parser.add_argument('--output_dir', default='data', help='output h5 file')
+  parser.add_argument('--output_dir', default='data', help='output directory')
 
   # options
   parser.add_argument('--images_root', default='', help='root location in which images are stored, to be prepended to file_path in input json')

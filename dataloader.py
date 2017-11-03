@@ -7,25 +7,26 @@ import h5py
 import os
 import numpy as np
 import random
+import io
 
 import torch.utils.data as data
 
 import multiprocessing
 
+class Reader:
+    """
+    A reader wrapper for feats file and toc file.
+    feats.np is a concatenation of all the image feature files.
+    toc saves the corresponding offset of each image.
+    """
+    def __init__(self, feat_dir):
+        self.filename = os.path.join(feat_dir, 'feats.np')
+        self.toc = json.load(open(os.path.join(feat_dir, 'toc.json')))
 
-def get_npy_data(ix, fc_file_name, fc_toc, name, att_file_name=None,
-                 att_toc=None, use_att=True):
-    fc_file = open(fc_file_name, 'rb')
-    offset = fc_toc[name]
-    fc_file.seek(offset)
-    fc_feats = np.load(fc_file)
-    if use_att:
-        att_file = open(att_file_name, 'rb')
-        att_file.seek(att_toc[name])
-        return fc_feats, np.load(att_file), ix
-    else:
-        return fc_feats, np.zeros((1, 1, 1)), ix
-
+    def load(self, ix):
+        with open(self.filename, 'rb') as f:
+            f.seek(self.toc[ix][0])
+            return np.load(io.BytesIO(f.read(self.toc[ix][1])))['feat']
 
 class DataLoader(data.Dataset):
 
@@ -60,8 +61,8 @@ class DataLoader(data.Dataset):
         print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_label_h5)
         self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
 
-        self.input_fc_dir = self.opt.input_fc_dir
-        self.input_att_dir = self.opt.input_att_dir
+        self.fc_feat_reader = Reader(self.opt.input_fc_dir)
+        self.att_feat_reader = Reader(self.opt.input_att_dir)
 
         # load in the sequence data
         seq_size = self.h5_label_file['labels'].shape
@@ -105,16 +106,6 @@ class DataLoader(data.Dataset):
 
         import atexit
         atexit.register(cleanup)
-
-        toc_filename = os.path.join(self.input_fc_dir, 'dataset_fc.toc')
-        with open(toc_filename, 'rt') as f:
-            self.fc_toc = json.load(f)
-        if self.use_att:
-            toc_filename = os.path.join(self.input_fc_dir, 'dataset_att.toc')
-            with open(toc_filename, 'rt') as f:
-                self.att_toc = json.load(f)
-        else:
-            self.att_toc = None
 
     def get_batch(self, split, batch_size=None, seq_per_img=None):
         batch_size = batch_size or self.batch_size
@@ -197,11 +188,9 @@ class DataLoader(data.Dataset):
         """
         ix = index #self.split_ix[index]
 
-        return get_npy_data(ix, os.path.join(self.input_fc_dir, 'dataset_fc.npy'), self.fc_toc,
-                            name=str(self.info['images'][ix]['id']),
-                            att_file_name=os.path.join(self.input_att_dir, 'dataset_att.npy'),
-                            att_toc=self.att_toc,
-                            use_att=self.use_att)
+        return (self.fc_feat_reader.load(str(self.info['images'][ix]['id'])),
+                self.att_feat_reader.load(str(self.info['images'][ix]['id'])) if self.use_att else np.zeros((1,1,1)),
+                ix)
 
     def __len__(self):
         return len(self.info['images'])
