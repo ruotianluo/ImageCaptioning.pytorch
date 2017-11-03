@@ -31,13 +31,9 @@ import os
 import json
 import argparse
 from random import shuffle, seed
-import string
-# non-standard dependencies:
-import h5py
-from six.moves import cPickle
+
 import numpy as np
 import torch
-import torchvision.models as models
 from torch.autograd import Variable
 import skimage.io
 
@@ -49,6 +45,13 @@ preprocess = trn.Compose([
 
 from misc.resnet_utils import myResnet
 import misc.resnet as resnet
+
+
+def append_array(f, toc, name, array):
+  offset = f.tell()
+  np.save(f, array)
+  toc[name] = offset
+
 
 def main(params):
   net = getattr(resnet, params['model'])()
@@ -70,25 +73,38 @@ def main(params):
   if not os.path.isdir(dir_att):
     os.mkdir(dir_att)
 
-  for i,img in enumerate(imgs):
-    # load the image
-    I = skimage.io.imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
-    # handle grayscale input images
-    if len(I.shape) == 2:
-      I = I[:,:,np.newaxis]
-      I = np.concatenate((I,I,I), axis=2)
+  fc_toc = {}
+  att_toc = {}
+  with open(os.path.join(params['output_dir'], 'dataset_fc.npy'), 'wb') as dataset_fc,\
+       open(params['output_dir'] + 'dataset_att.npy', 'wb') as dataset_att:
+    for i,img in enumerate(imgs):
+      # load the image
+      I = skimage.io.imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
+      # handle grayscale input images
+      if len(I.shape) == 2:
+        I = I[:,:,np.newaxis]
+        I = np.concatenate((I,I,I), axis=2)
 
-    I = I.astype('float32')/255.0
-    I = torch.from_numpy(I.transpose([2,0,1])).cuda()
-    I = Variable(preprocess(I), volatile=True)
-    tmp_fc, tmp_att = my_resnet(I, params['att_size'])
-    # write to pkl
-    np.save(os.path.join(dir_fc, str(img['cocoid'])), tmp_fc.data.cpu().float().numpy())
-    np.savez_compressed(os.path.join(dir_att, str(img['cocoid'])), feat=tmp_att.data.cpu().float().numpy())
+      I = I.astype('float32')/255.0
+      I = torch.from_numpy(I.transpose([2,0,1])).cuda()
+      I = Variable(preprocess(I), volatile=True)
+      tmp_fc, tmp_att = my_resnet(I, params['att_size'])
+      # write to pkl
+      append_array(dataset_fc, fc_toc,
+                   str(img['cocoid']), tmp_fc.data.cpu().float().numpy())
+      append_array(dataset_att, att_toc,
+                   str(img['cocoid']), tmp_att.data.cpu().float().numpy())
+      if i % 1000 == 0:
+        print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
 
-    if i % 1000 == 0:
-      print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
+  print('writing table of contents')
+  with open(os.path.join(params['output_dir'], "dataset_fc_toc.json"), 'wt') as fc_toc_file:
+    json.dump(fc_toc, fc_toc_file)
+  with open(os.path.join(params['output_dir'], "dataset_att_toc.json"), 'wt') as att_toc_file:
+    json.dump(att_toc, att_toc_file)
+
   print('wrote ', params['output_dir'])
+
 
 if __name__ == "__main__":
 
