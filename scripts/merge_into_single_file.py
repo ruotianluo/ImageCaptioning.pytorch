@@ -44,20 +44,7 @@ def merge(output_dir, _type):
     f.close()
     json.dump(toc, open(os.path.join(folder, 'toc.json'), 'w'))
 
-class Reader:
-    """
-    A reader wrapper for feats file and toc file.
-    feats.np is a concatenation of all the image feature files.
-    toc saves the corresponding offset of each image.
-    """
-    def __init__(self, feat_dir):
-        self.filename = os.path.join(feat_dir, 'feats.np')
-        self.toc = json.load(open(os.path.join(feat_dir, 'toc.json')))
-
-    def load(self, ix):
-        with open(self.filename, 'rb') as f:
-            f.seek(self.toc[ix][0])
-            return np.load(io.BytesIO(f.read(self.toc[ix][1])))['feat']
+from dataloader import Reader
 
 def test(output_dir, _type):
     folder = output_dir+'_'+_type

@@ -13,7 +13,7 @@ import torch.utils.data as data
 
 import multiprocessing
 
-class Reader:
+class Reader(object):
     """
     A reader wrapper for feats file and toc file.
     feats.np is a concatenation of all the image feature files.
