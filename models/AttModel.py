@@ -157,6 +157,7 @@ class AttModel(CaptionModel):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
+        decoding_constraint = opt.get('decoding_constraint', 0)
         if beam_size > 1:
             return self._sample_beam(fc_feats, att_feats, att_masks, opt)
 
@@ -210,7 +211,12 @@ class AttModel(CaptionModel):
                 seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
 
             output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
-            logprobs = F.log_softmax(self.logit(output))
+            if decoding_constraint and t > 0:
+                tmp = output.data.new(output.size(0), self.vocab_size + 1).zero_()
+                tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
+                logprobs = F.log_softmax(self.logit(output)+Variable(tmp))
+            else:
+                logprobs = F.log_softmax(self.logit(output))
 
         return seq, seqLogprobs
         # return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)

@@ -101,6 +101,7 @@ class CaptionModel(nn.Module):
         beam_size = opt.get('beam_size', 10)
         group_size = opt.get('group_size', 1)
         diversity_lambda = opt.get('diversity_lambda', 0.5)
+        decoding_constraint = opt.get('decoding_constraint', 0)
         bdash = beam_size // group_size # beam per group
 
         # INITIALIZATIONS
@@ -124,6 +125,9 @@ class CaptionModel(nn.Module):
                 if t >= divm and t <= self.seq_length + divm - 1:
                     # add diversity
                     logprobsf = logprobs_table[divm].data.float()
+                    # suppress previous word
+                    if decoding_constraint and t-divm > 0:
+                        logprobsf.scatter_(1, beam_seq_table[divm][t-divm-1].unsqueeze(1).cuda(), float('-inf'))
                     # suppress UNK tokens in the decoding
                     logprobsf[:,logprobsf.size(1)-1] = logprobsf[:, logprobsf.size(1)-1] - 1000  
                     # diversity is added here

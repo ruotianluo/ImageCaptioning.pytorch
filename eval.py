@@ -52,6 +52,8 @@ parser.add_argument('--diversity_lambda', type=float, default=0.5,
                 help='used for diverse beam search. Usually from 0.2 to 0.8. Higher value of lambda produces a more diverse list')
 parser.add_argument('--temperature', type=float, default=1.0,
                 help='temperature when sampling from distributions (i.e. when sample_max = 0). Lower = "safer" predictions.')
+parser.add_argument('--decoding_constraint', type=int, default=0,
+                help='If 1, not allowing same word in a row')
 # For evaluation on a folder of images:
 parser.add_argument('--image_folder', type=str, default='', 
                 help='If this is nonempty then will predict on the images in this folder path')

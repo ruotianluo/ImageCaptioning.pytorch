@@ -142,6 +142,7 @@ class AttEnsemble(CaptionModel):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
+        decoding_constraint = opt.get('decoding_constraint', 0)
         if beam_size > 1:
             return self._sample_beam(fc_feats, att_feats, att_masks, opt)
 
@@ -195,7 +196,12 @@ class AttEnsemble(CaptionModel):
                 seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
 
             output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, [att_masks] * len(self.models))
-            logprobs = torch.stack([F.softmax(m.logit(output[i])) for i,m in enumerate(self.models)], 2).mean(2).log()
+            if decoding_constraint and t > 0:
+                tmp = output.data.new(output.size(0), self.vocab_size + 1).zero_()
+                tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
+                logprobs = torch.stack([F.softmax(m.logit(output[i]+Variable(tmp))) for i,m in enumerate(self.models)], 2).mean(2).log()
+            else:
+                logprobs = torch.stack([F.softmax(m.logit(output[i])) for i,m in enumerate(self.models)], 2).mean(2).log()
 
         return seq, seqLogprobs
         # return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
@@ -272,6 +278,7 @@ class AttEnsemble(CaptionModel):
         beam_size = opt.get('beam_size', 10)
         group_size = opt.get('group_size', 1)
         diversity_lambda = opt.get('diversity_lambda', 0.5)
+        decoding_constraint = opt.get('decoding_constraint', 0)
         bdash = beam_size // group_size # beam per group
 
         # INITIALIZATIONS
@@ -294,6 +301,9 @@ class AttEnsemble(CaptionModel):
                 if t >= divm and t <= self.seq_length + divm - 1:
                     # add diversity
                     logprobsf = logprobs_table[divm].data.float()
+                    # suppress previous word
+                    if decoding_constraint and t-divm > 0:
+                        logprobsf.scatter_(1, beam_seq_table[divm][t-divm-1].unsqueeze(1).cuda(), float('-inf'))
                     # suppress UNK tokens in the decoding
                     logprobsf[:,logprobsf.size(1)-1] = logprobsf[:, logprobsf.size(1)-1] - 1000  
                     # diversity is added here
