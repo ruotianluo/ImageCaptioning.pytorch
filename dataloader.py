@@ -13,12 +13,6 @@ import torch.utils.data as data
 
 import multiprocessing
 
-def get_npy_data(ix, fc_file, att_file, use_att):
-    if use_att == True:
-        return (np.load(fc_file), np.load(att_file)['feat'], ix)
-    else:
-        return (np.load(fc_file), np.zeros((1,1,1)), ix)
-
 class DataLoader(data.Dataset):
 
     def reset_iterator(self, split):
@@ -182,11 +176,9 @@ class DataLoader(data.Dataset):
         """This function returns a tuple that is further passed to collate_fn
         """
         ix = index #self.split_ix[index]
-        return get_npy_data(ix, \
-                os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy'),
-                os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'),
-                self.use_att
-                )
+        return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
+                np.load(os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'))['feat'] if self.use_att else np.zeros((1,1,1)),
+                ix)
 
     def __len__(self):
         return len(self.info['images'])
