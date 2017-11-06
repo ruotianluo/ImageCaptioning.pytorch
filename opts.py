@@ -9,6 +9,8 @@ def parse_opt():
                     help='path to the directory containing the preprocessed fc feats')
     parser.add_argument('--input_att_dir', type=str, default='data/cocotalk_att',
                     help='path to the directory containing the preprocessed att feats')
+    parser.add_argument('--input_box_dir', type=str, default='data/cocotalk_box',
+                    help='path to the directory containing the boxes of att feats')
     parser.add_argument('--input_label_h5', type=str, default='data/coco_label.h5',
                     help='path to the h5file containing the preprocessed dataset')
     parser.add_argument('--start_from', type=str, default=None,
@@ -39,6 +41,8 @@ def parse_opt():
     parser.add_argument('--att_feat_size', type=int, default=2048,
                     help='2048 for resnet, 512 for vgg')
 
+    parser.add_argument('--use_box', type=int, default=0,
+                    help='If use box features')
     # Optimization: General
     parser.add_argument('--max_epochs', type=int, default=-1,
                     help='number of epochs')

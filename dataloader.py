@@ -33,7 +33,10 @@ class DataLoader(data.Dataset):
         self.opt = opt
         self.batch_size = self.opt.batch_size
         self.seq_per_img = opt.seq_per_img
+        
+        # feature related options
         self.use_att = getattr(opt, 'use_att', True)
+        self.use_box = getattr(opt, 'use_box', 0)
 
         # load the json file which contains additional information about the dataset
         print('DataLoader loading json file: ', opt.input_json)
@@ -43,11 +46,12 @@ class DataLoader(data.Dataset):
         print('vocab size is ', self.vocab_size)
         
         # open the hdf5 file
-        print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_label_h5)
+        print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_box_dir, opt.input_label_h5)
         self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
 
         self.input_fc_dir = self.opt.input_fc_dir
         self.input_att_dir = self.opt.input_att_dir
+        self.input_box_dir = self.opt.input_box_dir
 
         # load in the sequence data
         seq_size = self.h5_label_file['labels'].shape
@@ -176,8 +180,19 @@ class DataLoader(data.Dataset):
         """This function returns a tuple that is further passed to collate_fn
         """
         ix = index #self.split_ix[index]
+        if self.use_att:
+            att_feat = np.load(os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'))['feat']
+            if self.use_box:
+                box_feat = np.load(os.path.join(self.input_box_dir, str(self.info['images'][ix]['id']) + '.npy'))
+                # devided by image width and height
+                x1,y1,x2,y2 = np.hsplit(box_feat, 4)
+                h,w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
+                box_feat = np.hstack((x1/w, y1/h, x2/w, y2/h, (x2-x1)*(y2-y1)/(w*h))) # question? x2-x1+1??
+                att_feat = np.hstack([att_feat, box_feat])
+        else:
+            att_feat = np.zeros((1,1,1))
         return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
-                np.load(os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'))['feat'] if self.use_att else np.zeros((1,1,1)),
+                att_feat,
                 ix)
 
     def __len__(self):
