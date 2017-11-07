@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import numpy as np
+import torch.optim as optim
 
 def if_use_att(caption_model):
     # Decide if load attention feature according to caption model
@@ -72,3 +73,20 @@ def clip_gradient(optimizer, grad_clip):
     for group in optimizer.param_groups:
         for param in group['params']:
             param.grad.data.clamp_(-grad_clip, grad_clip)
+
+def build_optimizer(params, opt):
+    if opt.optim == 'rmsprop':
+        return optim.RMSprop(params, opt.learning_rate, opt.optim_alpha, opt.optim_epsilon, weight_decay=opt.weight_decay)
+    elif opt.optim == 'adagrad':
+        return optim.Adagrad(params, opt.learning_rate, weight_decay=opt.weight_decay)
+    elif opt.optim == 'sgd':
+        return optim.SGD(params, opt.learning_rate, weight_decay=opt.weight_decay)
+    elif opt.optim == 'sgdm':
+        return optim.SGD(params, opt.learning_rate, opt.optim_alpha, weight_decay=opt.weight_decay)
+    elif opt.optim == 'sgdmom':
+        return optim.SGD(params, opt.learning_rate, opt.optim_alpha, weight_decay=opt.weight_decay, nesterov=True)
+    elif opt.optim == 'adam':
+        return optim.Adam(params, opt.learning_rate, (opt.optim_alpha, opt.optim_beta), opt.optim_epsilon, weight_decay=opt.weight_decay)
+    else:
+        raise Exception("bad option opt.optim: {}".format(opt.optim))
+    
