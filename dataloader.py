@@ -94,6 +94,25 @@ class DataLoader(data.Dataset):
         import atexit
         atexit.register(cleanup)
 
+    def get_captions(self, ix, seq_per_img):
+        # fetch the sequence labels
+        ix1 = self.label_start_ix[ix] - 1 #label_start_ix starts from 1
+        ix2 = self.label_end_ix[ix] - 1
+        ncap = ix2 - ix1 + 1 # number of captions available for this image
+        assert ncap > 0, 'an image does not have any label. this can be handled but right now isn\'t'
+
+        if ncap < seq_per_img:
+            # we need to subsample (with replacement)
+            seq = np.zeros([seq_per_img, self.seq_length], dtype = 'int')
+            for q in range(seq_per_img):
+                ixl = random.randint(ix1,ix2)
+                seq[q, :] = self.h5_label_file['labels'][ixl, :self.seq_length]
+        else:
+            ixl = random.randint(ix1, ix2 - seq_per_img + 1)
+            seq = self.h5_label_file['labels'][ixl: ixl + seq_per_img, :self.seq_length]
+
+        return seq
+
     def get_batch(self, split, batch_size=None, seq_per_img=None):
         batch_size = batch_size or self.batch_size
         seq_per_img = seq_per_img or self.seq_per_img
@@ -109,31 +128,13 @@ class DataLoader(data.Dataset):
         gts = []
 
         for i in range(batch_size):
-            import time
-            t_start = time.time()
             # fetch image
             tmp_fc, tmp_att,\
                 ix, tmp_wrapped = self._prefetch_process[split].get()
             fc_batch += [tmp_fc] * seq_per_img
             att_batch += [tmp_att] * seq_per_img
-
-            # fetch the sequence labels
-            ix1 = self.label_start_ix[ix] - 1 #label_start_ix starts from 1
-            ix2 = self.label_end_ix[ix] - 1
-            ncap = ix2 - ix1 + 1 # number of captions available for this image
-            assert ncap > 0, 'an image does not have any label. this can be handled but right now isn\'t'
-
-            if ncap < seq_per_img:
-                # we need to subsample (with replacement)
-                seq = np.zeros([seq_per_img, self.seq_length], dtype = 'int')
-                for q in range(seq_per_img):
-                    ixl = random.randint(ix1,ix2)
-                    seq[q, :] = self.h5_label_file['labels'][ixl, :self.seq_length]
-            else:
-                ixl = random.randint(ix1, ix2 - seq_per_img + 1)
-                seq = self.h5_label_file['labels'][ixl: ixl + seq_per_img, :self.seq_length]
             
-            label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = seq
+            label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
 
             if tmp_wrapped:
                 wrapped = True
@@ -147,14 +148,11 @@ class DataLoader(data.Dataset):
             info_dict['id'] = self.info['images'][ix]['id']
             info_dict['file_path'] = self.info['images'][ix]['file_path']
             infos.append(info_dict)
-            #print(i, time.time() - t_start)
 
         # generate mask
-        t_start = time.time()
         nonzeros = np.array(list(map(lambda x: (x != 0).sum()+2, label_batch)))
         for ix, row in enumerate(mask_batch):
             row[:nonzeros[ix]] = 1
-        #print('mask', time.time() - t_start)
 
         data = {}
         data['fc_feats'] = np.stack(fc_batch)
@@ -211,17 +209,17 @@ class BlobFetcher():
     # Add more in the queue
     def reset(self):
         """
-        Two cases:
+        Two cases for this function to be triggered:
         1. not hasattr(self, 'split_loader'): Resume from previous training. Create the dataset given the saved split_ix and iterator
         2. wrapped: a new epoch, the split_ix and iterator have been updated in the get_minibatch_inds already.
         """
-        # batch_size is 0, the merge is done in DataLoader class
+        # batch_size is 1, the merge is done in DataLoader class
         self.split_loader = iter(data.DataLoader(dataset=self.dataloader,
                                             batch_size=1,
                                             sampler=self.dataloader.split_ix[self.split][self.dataloader.iterators[self.split]:],
                                             shuffle=False,
                                             pin_memory=True,
-                                            num_workers=multiprocessing.cpu_count(),
+                                            num_workers=4, # 4 is usually enough
                                             collate_fn=lambda x: x[0]))
 
     def _get_next_minibatch_inds(self):
