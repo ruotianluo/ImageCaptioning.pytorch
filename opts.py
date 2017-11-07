@@ -41,8 +41,14 @@ def parse_opt():
     parser.add_argument('--att_feat_size', type=int, default=2048,
                     help='2048 for resnet, 512 for vgg')
 
+    # feature manipulation
+    parser.add_argument('--norm_att_feat', type=int, default=0,
+                    help='If normalize attention features')
     parser.add_argument('--use_box', type=int, default=0,
                     help='If use box features')
+    parser.add_argument('--norm_box_feat', type=int, default=0,
+                    help='If use box, do we normalize box feature')
+
     # Optimization: General
     parser.add_argument('--max_epochs', type=int, default=-1,
                     help='number of epochs')

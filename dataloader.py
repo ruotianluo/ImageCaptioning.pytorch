@@ -37,6 +37,8 @@ class DataLoader(data.Dataset):
         # feature related options
         self.use_att = getattr(opt, 'use_att', True)
         self.use_box = getattr(opt, 'use_box', 0)
+        self.norm_att_feat = getattr(opt, 'norm_att_feat', 0)
+        self.norm_box_feat = getattr(opt, 'norm_box_feat', 0)
 
         # load the json file which contains additional information about the dataset
         print('DataLoader loading json file: ', opt.input_json)
@@ -180,12 +182,16 @@ class DataLoader(data.Dataset):
         ix = index #self.split_ix[index]
         if self.use_att:
             att_feat = np.load(os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'))['feat']
+            if self.norm_att_feat:
+                att_feat = att_feat / np.linalg.norm(att_feat, 2, 1, keepdims=True)
             if self.use_box:
                 box_feat = np.load(os.path.join(self.input_box_dir, str(self.info['images'][ix]['id']) + '.npy'))
                 # devided by image width and height
                 x1,y1,x2,y2 = np.hsplit(box_feat, 4)
                 h,w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
                 box_feat = np.hstack((x1/w, y1/h, x2/w, y2/h, (x2-x1)*(y2-y1)/(w*h))) # question? x2-x1+1??
+                if self.norm_box_feat:
+                    box_feat = box_feat / np.linalg.norm(box_feat, 2, 1, keepdims=True)
                 att_feat = np.hstack([att_feat, box_feat])
         else:
             att_feat = np.zeros((1,1,1))
