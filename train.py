@@ -126,7 +126,7 @@ def train(opt):
             loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
             gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
-            reward = get_self_critical_reward(dp_model, fc_feats, att_feats, data, gen_result, opt)
+            reward = get_self_critical_reward(dp_model, fc_feats, att_feats, att_masks, data, gen_result, opt)
             loss = rl_crit(sample_logprobs, gen_result.data, Variable(torch.from_numpy(reward).float().cuda(), requires_grad=False))
 
         loss.backward()
