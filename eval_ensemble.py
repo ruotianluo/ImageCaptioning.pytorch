@@ -62,6 +62,8 @@ parser.add_argument('--input_fc_dir', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_att_dir', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
+parser.add_argument('--input_box_dir', type=str, default='',
+                help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_label_h5', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_json', type=str, default='', 
@@ -92,6 +94,7 @@ infos = model_infos[0]
 if len(opt.input_fc_dir) == 0:
     opt.input_fc_dir = infos['opt'].input_fc_dir
     opt.input_att_dir = infos['opt'].input_att_dir
+    opt.input_box_dir = infos['opt'].input_box_dir
     opt.input_label_h5 = infos['opt'].input_label_h5
 if len(opt.input_json) == 0:
     opt.input_json = infos['opt'].input_json
@@ -100,6 +103,10 @@ if opt.batch_size == 0:
 if len(opt.id) == 0:
     opt.id = infos['opt'].id
 opt.seq_per_img = infos['opt'].seq_per_img
+
+opt.use_box = max([getattr(infos['opt'], 'use_box', 0) for infos in model_infos])
+assert max([getattr(infos['opt'], 'norm_att_feat', 0) for infos in model_infos]) == max([getattr(infos['opt'], 'norm_att_feat', 0) for infos in model_infos]), 'Not support different norm_att_feat'
+assert max([getattr(infos['opt'], 'norm_box_feat', 0) for infos in model_infos]) == max([getattr(infos['opt'], 'norm_box_feat', 0) for infos in model_infos]), 'Not support different norm_box_feat'
 
 vocab = infos['vocab'] # ix -> word mapping
 

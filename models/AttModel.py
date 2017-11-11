@@ -21,8 +21,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import *
 import misc.utils as utils
+from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence, pad_packed_sequence
 
 from .CaptionModel import CaptionModel
+
+def pack_wrapper(module, att_feats, att_masks):
+    if att_masks is not None:
+        packed = pack_padded_sequence(att_feats, list(att_masks.data.long().sum(1)), batch_first=True)
+        return pad_packed_sequence(PackedSequence(module(packed[0]), packed[1]), batch_first=True)[0]
+    else:
+        return module(att_feats)
 
 class AttModel(CaptionModel):
     def __init__(self, opt):
@@ -66,12 +74,10 @@ class AttModel(CaptionModel):
 
         # embed fc and att feats
         fc_feats = self.fc_embed(fc_feats)
-        _att_feats = self.att_embed(att_feats.view(-1, self.att_feat_size))
-        att_feats = _att_feats.view(*(att_feats.size()[:-1] + (self.rnn_size,)))
+        att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
 
         # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = self.ctx2att(att_feats.view(-1, self.rnn_size))
-        p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
+        p_att_feats = self.ctx2att(att_feats)
 
         for i in range(seq.size(1) - 1):
             if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
@@ -119,12 +125,10 @@ class AttModel(CaptionModel):
 
         # embed fc and att feats
         fc_feats = self.fc_embed(fc_feats)
-        _att_feats = self.att_embed(att_feats.view(-1, self.att_feat_size))
-        att_feats = _att_feats.view(*(att_feats.size()[:-1] + (self.rnn_size,)))
+        att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
 
         # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = self.ctx2att(att_feats.view(-1, self.rnn_size))
-        p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
+        p_att_feats = self.ctx2att(att_feats)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
@@ -166,12 +170,10 @@ class AttModel(CaptionModel):
 
         # embed fc and att feats
         fc_feats = self.fc_embed(fc_feats)
-        _att_feats = self.att_embed(att_feats.view(-1, self.att_feat_size))
-        att_feats = _att_feats.view(*(att_feats.size()[:-1] + (self.rnn_size,)))
+        att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
 
         # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = self.ctx2att(att_feats.view(-1, self.rnn_size))
-        p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
+        p_att_feats = self.ctx2att(att_feats)
 
         # seq = []
         # seqLogprobs = []

@@ -23,6 +23,7 @@ from torch.autograd import *
 import misc.utils as utils
 
 from .CaptionModel import CaptionModel
+from .AttModel import pack_wrapper
 
 class AttEnsemble(CaptionModel):
     def __init__(self, models):
@@ -60,12 +61,10 @@ class AttEnsemble(CaptionModel):
 
         # embed fc and att feats
         fc_feats = [m.fc_embed(fc_feats) for m in self.models]
-        _att_feats = [m.att_embed(att_feats.view(-1, m.att_feat_size)) for m in self.models]
-        att_feats = [_att_feats[i].view(*(att_feats.size()[:-1] + (m.rnn_size,))) for i,m in enumerate(self.models)]
+        att_feats = [pack_wrapper(m.att_embed, att_feats[...,:m.att_feat_size], att_masks) for m in self.models]
 
         # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = [m.ctx2att(att_feats[i].view(-1, m.rnn_size)) for i, m in enumerate(self.models)]
-        p_att_feats = [p_att_feats[i].view(*(att_feats[i].size()[:-1] + (m.att_hid_size,))) for i,m in enumerate(self.models)]
+        p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
 
         for i in range(seq.size(1) - 1):
             if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
@@ -104,12 +103,10 @@ class AttEnsemble(CaptionModel):
 
         # embed fc and att feats
         fc_feats = [m.fc_embed(fc_feats) for m in self.models]
-        _att_feats = [m.att_embed(att_feats.view(-1, m.att_feat_size)) for m in self.models]
-        att_feats = [_att_feats[i].view(*(att_feats.size()[:-1] + (m.rnn_size,))) for i,m in enumerate(self.models)]
+        att_feats = [pack_wrapper(m.att_embed, att_feats[...,:m.att_feat_size], att_masks) for m in self.models]
 
         # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = [m.ctx2att(att_feats[i].view(-1, m.rnn_size)) for i, m in enumerate(self.models)]
-        p_att_feats = [p_att_feats[i].view(*(att_feats[i].size()[:-1] + (m.att_hid_size,))) for i,m in enumerate(self.models)]
+        p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
@@ -151,12 +148,10 @@ class AttEnsemble(CaptionModel):
 
         # embed fc and att feats
         fc_feats = [m.fc_embed(fc_feats) for m in self.models]
-        _att_feats = [m.att_embed(att_feats.view(-1, m.att_feat_size)) for m in self.models]
-        att_feats = [_att_feats[i].view(*(att_feats.size()[:-1] + (m.rnn_size,))) for i,m in enumerate(self.models)]
+        att_feats = [pack_wrapper(m.att_embed, att_feats[...,:m.att_feat_size], att_masks) for m in self.models]
 
         # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = [m.ctx2att(att_feats[i].view(-1, m.rnn_size)) for i, m in enumerate(self.models)]
-        p_att_feats = [p_att_feats[i].view(*(att_feats[i].size()[:-1] + (m.att_hid_size,))) for i,m in enumerate(self.models)]
+        p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
 
         # seq = []
         # seqLogprobs = []

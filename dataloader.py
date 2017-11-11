@@ -133,8 +133,8 @@ class DataLoader(data.Dataset):
             # fetch image
             tmp_fc, tmp_att,\
                 ix, tmp_wrapped = self._prefetch_process[split].get()
-            fc_batch += [tmp_fc] * seq_per_img
-            att_batch += [tmp_att] * seq_per_img
+            fc_batch.append(tmp_fc)
+            att_batch.append(tmp_att)
             
             label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
 
@@ -151,23 +151,28 @@ class DataLoader(data.Dataset):
             info_dict['file_path'] = self.info['images'][ix]['file_path']
             infos.append(info_dict)
 
-        # generate mask
-        nonzeros = np.array(list(map(lambda x: (x != 0).sum()+2, label_batch)))
-        for ix, row in enumerate(mask_batch):
-            row[:nonzeros[ix]] = 1
-
+        #sort by att_feat length
+        fc_batch, att_batch, label_batch, gts, infos = \
+            zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: len(x[1]), reverse=True))
         data = {}
-        data['fc_feats'] = np.stack(fc_batch)
+        data['fc_feats'] = np.stack(reduce(lambda x,y:x+y, [[_]*seq_per_img for _ in fc_batch]))
+        # merge att_feats
         max_att_len = max([_.shape[0] for _ in att_batch])
-        data['att_feats'] = np.zeros([len(att_batch), max_att_len, att_batch[0].shape[1]], dtype = 'float32')
+        data['att_feats'] = np.zeros([len(att_batch)*seq_per_img, max_att_len, att_batch[0].shape[1]], dtype = 'float32')
         for i in range(len(att_batch)):
-            data['att_feats'][i][:att_batch[i].shape[0]] = att_batch[i]
+            data['att_feats'][i*seq_per_img:(i+1)*seq_per_img, :att_batch[i].shape[0]] = att_batch[i]
         data['att_masks'] = np.zeros(data['att_feats'].shape[:2], dtype='float32')
         for i in range(len(att_batch)):
-            data['att_masks'][i][:att_batch[i].shape[0]] = 1
-        data['labels'] = label_batch
-        data['gts'] = gts
-        data['masks'] = mask_batch 
+            data['att_masks'][i*seq_per_img:(i+1)*seq_per_img, :att_batch[i].shape[0]] = 1
+
+        data['labels'] = np.vstack(label_batch)
+        # generate mask
+        nonzeros = np.array(list(map(lambda x: (x != 0).sum()+2, data['labels'])))
+        for ix, row in enumerate(mask_batch):
+            row[:nonzeros[ix]] = 1
+        data['masks'] = mask_batch
+
+        data['gts'] = gts # all ground truth captions of each images
         data['bounds'] = {'it_pos_now': self.iterators[split], 'it_max': len(self.split_ix[split]), 'wrapped': wrapped}
         data['infos'] = infos
 
@@ -193,6 +198,8 @@ class DataLoader(data.Dataset):
                 if self.norm_box_feat:
                     box_feat = box_feat / np.linalg.norm(box_feat, 2, 1, keepdims=True)
                 att_feat = np.hstack([att_feat, box_feat])
+                # sort the features by the size of boxes
+                att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))
         else:
             att_feat = np.zeros((1,1,1))
         return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),

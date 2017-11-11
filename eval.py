@@ -64,6 +64,8 @@ parser.add_argument('--input_fc_dir', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_att_dir', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
+parser.add_argument('--input_box_dir', type=str, default='',
+                help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_label_h5', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_json', type=str, default='', 
@@ -90,6 +92,7 @@ with open(opt.infos_path) as f:
 if len(opt.input_fc_dir) == 0:
     opt.input_fc_dir = infos['opt'].input_fc_dir
     opt.input_att_dir = infos['opt'].input_att_dir
+    opt.input_att_dir = infos['opt'].input_box_dir
     opt.input_label_h5 = infos['opt'].input_label_h5
 if len(opt.input_json) == 0:
     opt.input_json = infos['opt'].input_json
