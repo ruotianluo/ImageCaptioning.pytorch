@@ -41,6 +41,10 @@ def parse_opt():
     parser.add_argument('--att_feat_size', type=int, default=2048,
                     help='2048 for resnet, 512 for vgg')
 
+
+    parser.add_argument('--use_bn', type=int, default=0,
+                    help='If 1, then do batch_normalization first in att_embed')
+
     # feature manipulation
     parser.add_argument('--norm_att_feat', type=int, default=0,
                     help='If normalize attention features')

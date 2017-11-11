@@ -46,6 +46,8 @@ class AttModel(CaptionModel):
         self.att_feat_size = opt.att_feat_size
         self.att_hid_size = opt.att_hid_size
 
+        self.use_bn = getattr(opt, 'use_bn', 0)
+
         self.ss_prob = 0.0 # Schedule sampling probability
 
         self.embed = nn.Sequential(nn.Embedding(self.vocab_size + 1, self.input_encoding_size),
@@ -54,9 +56,11 @@ class AttModel(CaptionModel):
         self.fc_embed = nn.Sequential(nn.Linear(self.fc_feat_size, self.rnn_size),
                                     nn.ReLU(),
                                     nn.Dropout(self.drop_prob_lm))
-        self.att_embed = nn.Sequential(nn.Linear(self.att_feat_size, self.rnn_size),
+        self.att_embed = nn.Sequential(*(
+                                    ((nn.BatchNorm1d(self.att_feat_size),) if self.use_bn else ())+
+                                    (nn.Linear(self.att_feat_size, self.rnn_size),
                                     nn.ReLU(),
-                                    nn.Dropout(self.drop_prob_lm))
+                                    nn.Dropout(self.drop_prob_lm))))
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
         self.ctx2att = nn.Linear(self.rnn_size, self.att_hid_size)
 
