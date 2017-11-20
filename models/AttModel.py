@@ -60,8 +60,15 @@ class AttModel(CaptionModel):
                                     ((nn.BatchNorm1d(self.att_feat_size),) if self.use_bn else ())+
                                     (nn.Linear(self.att_feat_size, self.rnn_size),
                                     nn.ReLU(),
-                                    nn.Dropout(self.drop_prob_lm))))
-        self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
+                                    nn.Dropout(self.drop_prob_lm))+
+                                    ((nn.BatchNorm1d(self.rnn_size),) if self.use_bn==2 else ())))
+
+        self.logit_layers = getattr(opt, 'logit_layers', 1)
+        if self.logit_layers == 1:
+            self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
+        else:
+            self.logit = [[nn.Linear(self.rnn_size, self.rnn_size), nn.ReLU(), nn.Dropout(0.5)] for _ in range(opt.logit_layers - 1)]
+            self.logit = nn.Sequential(*(reduce(lambda x,y:x+y, self.logit) + [nn.Linear(self.rnn_size, self.vocab_size + 1)]))
         self.ctx2att = nn.Linear(self.rnn_size, self.att_hid_size)
 
     def init_hidden(self, bsz):

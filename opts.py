@@ -40,10 +40,12 @@ def parse_opt():
                     help='2048 for resnet, 4096 for vgg')
     parser.add_argument('--att_feat_size', type=int, default=2048,
                     help='2048 for resnet, 512 for vgg')
+    parser.add_argument('--logit_layers', type=int, default=1,
+                    help='number of layers in the RNN')
 
 
     parser.add_argument('--use_bn', type=int, default=0,
-                    help='If 1, then do batch_normalization first in att_embed')
+                    help='If 1, then do batch_normalization first in att_embed, if 2 then do bn both in the beginning and the end of att_embed')
 
     # feature manipulation
     parser.add_argument('--norm_att_feat', type=int, default=0,
