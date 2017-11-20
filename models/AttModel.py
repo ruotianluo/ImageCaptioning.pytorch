@@ -69,7 +69,17 @@ class AttModel(CaptionModel):
         return (Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_()),
                 Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_()))
 
+    def clip_att(self, att_feats, att_masks):
+        # Clip the length of att_masks and att_feats to the maximum length
+        if att_masks is not None:
+            max_len = att_masks.data.long().sum(1).max()
+            att_feats = att_feats[:, :max_len].contiguous()
+            att_masks = att_masks[:, :max_len].contiguous()
+        return att_feats, att_masks
+
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
+        att_feats, att_masks = self.clip_att(att_feats, att_masks)
+
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
 
@@ -162,6 +172,8 @@ class AttModel(CaptionModel):
         return Variable(seq.transpose(0, 1)), Variable(seqLogprobs.transpose(0, 1))
 
     def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
+        att_feats, att_masks = self.clip_att(att_feats, att_masks)
+
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
