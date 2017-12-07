@@ -155,8 +155,8 @@ class AttEnsemble(CaptionModel):
 
         # seq = []
         # seqLogprobs = []
-        seq = Variable(fc_feats.data.new(batch_size, self.seq_length).long().zero_())
-        seqLogprobs = Variable(fc_feats.data.new(batch_size, self.seq_length).zero_())
+        seq = Variable(fc_feats[0].data.new(batch_size, self.seq_length).long().zero_())
+        seqLogprobs = Variable(fc_feats[0].data.new(batch_size, self.seq_length).zero_())
         for t in range(self.seq_length + 1):
             if t == 0: # input <bos>
                 it = fc_feats[0].data.new(batch_size).long().zero_()
