@@ -1,6 +1,6 @@
-# Neuraltalk2-pytorch
+# ImageCaptioning.pytorch
 
-Changes compared to neuraltalk2.
+This is an image captioning codebase in PyTorch. If you are familiar with neuraltalk2, here are the differences compared to neuraltalk2.
 - Instead of using random split, we use [karpathy's train-val-test split](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip).
 - Instead of including the convnet in the model, we use preprocessed features. (finetuneable cnn version is in the branch **with_finetune**)
 - Use resnet instead of vgg; the feature extraction method is the same as in self-critical: run cnn on original image and adaptively average pool the last conv layer feature to fixed size .
@@ -96,6 +96,22 @@ The defualt split to evaluate is test. The default inference method is greedy de
 **Train on other dataset**. It should be trivial to port if you can create a file like `dataset_coco.json` for your own dataset.
 
 **Live demo**. Not supported now. Welcome pull request.
+
+## Reference
+If you find this implementation helpful, please consider citing this repo:
+
+```
+@misc{Luo2017,
+author = {Ruotian Luo},
+title = {An Image Captioning codebase in PyTorch},
+year = {2017},
+publisher = {GitHub},
+journal = {GitHub repository},
+howpublished = {\url{https://github.com/ruotianluo/ImageCaptioning.pytorch}},
+}
+```
+
+Of course, please cite the original paper of models you are using (You can find references in the model files).
 
 ## Acknowledgements
 
