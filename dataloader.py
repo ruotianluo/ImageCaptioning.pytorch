@@ -13,11 +13,6 @@ import torch.utils.data as data
 
 import multiprocessing
 
-def get_npy_data(ix, fc_file, att_file, use_att):
-    if use_att == True:
-        return (np.load(fc_file), np.load(att_file)['feat'], ix)
-    else:
-        return (np.load(fc_file), np.zeros((1,1,1)), ix)
 
 class DataLoader(data.Dataset):
 
@@ -34,6 +29,13 @@ class DataLoader(data.Dataset):
 
     def get_seq_length(self):
         return self.seq_length
+
+    def get_npy_data(self, ix):
+        print(np.array(self.feats_fc[str(ix)]).shape)
+        if self.use_att == True:
+            return (np.array(self.feats_fc[str(ix)]), np.array(self.feats_att[str(ix)]), ix)
+        else:
+            return (np.array(self.feats_fc[str(ix)]), np.zeros((1,1,1)), ix)
 
     def __init__(self, opt):
         self.opt = opt
@@ -89,12 +91,17 @@ class DataLoader(data.Dataset):
         for split in self.iterators.keys():
             self._prefetch_process[split] = BlobFetcher(split, self, split=='train')
             # Terminate the child process when the parent exists
+
         def cleanup():
             print('Terminating BlobFetcher')
             for split in self.iterators.keys():
                 del self._prefetch_process[split]
+
         import atexit
         atexit.register(cleanup)
+
+        self.feats_fc = h5py.File(os.path.join(opt.input_fc_dir, 'feats_fc.h5'))
+        self.feats_att = h5py.File(os.path.join(opt.input_att_dir, 'feats_att.h5'))
 
     def get_batch(self, split, batch_size=None, seq_per_img=None):
         batch_size = batch_size or self.batch_size
@@ -176,11 +183,7 @@ class DataLoader(data.Dataset):
         """This function returns a tuple that is further passed to collate_fn
         """
         ix = index #self.split_ix[index]
-        return get_npy_data(ix, \
-                os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy'),
-                os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'),
-                self.use_att
-                )
+        return self.get_npy_data(ix)
 
     def __len__(self):
         return len(self.info['images'])
