@@ -31,11 +31,11 @@ class DataLoader(data.Dataset):
         return self.seq_length
 
     def get_npy_data(self, ix):
-        print(np.array(self.feats_fc[str(ix)]).shape)
-        if self.use_att == True:
-            return (np.array(self.feats_fc[str(ix)]), np.array(self.feats_att[str(ix)]), ix)
+       index = str(self.info['images'][ix]['id'])
+       if self.use_att == True:
+            return (np.array(self.feats_fc[index]), np.array(self.feats_att[index]), ix)
         else:
-            return (np.array(self.feats_fc[str(ix)]), np.zeros((1,1,1)), ix)
+            return (np.array(self.feats_fc[index]), np.zeros((1,1,1)), ix)
 
     def __init__(self, opt):
         self.opt = opt
@@ -243,3 +243,4 @@ class BlobFetcher():
         assert tmp[2] == ix, "ix not equal"
 
         return tmp + [wrapped]
+
