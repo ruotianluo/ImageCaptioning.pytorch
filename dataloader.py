@@ -36,7 +36,7 @@ class DataLoader(data.Dataset):
         self.feats_att = h5py.File(os.path.join(
             self.opt.input_att_dir, 'feats_att.h5'), 'r')
 
-    def get_npy_data(self, ix):
+    def get_data(self, ix):
         self.read_files()
         index = str(self.info['images'][ix]['id'])
         if self.use_att:
@@ -198,7 +198,7 @@ class DataLoader(data.Dataset):
         """This function returns a tuple that is further passed to collate_fn
         """
         ix = index  # self.split_ix[index]
-        return self.get_npy_data(ix)
+        return self.get_data(ix)
 
     def __len__(self):
         return len(self.info['images'])
