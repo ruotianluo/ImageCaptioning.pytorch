@@ -30,7 +30,14 @@ class DataLoader(data.Dataset):
     def get_seq_length(self):
         return self.seq_length
 
+    def read_files(self):
+        self.feats_fc = h5py.File(os.path.join(
+            self.opt.input_fc_dir, 'feats_fc.h5'), 'r')
+        self.feats_att = h5py.File(os.path.join(
+            self.opt.input_att_dir, 'feats_att.h5'), 'r')
+
     def get_npy_data(self, ix):
+        self.read_files()
         index = str(self.info['images'][ix]['id'])
         if self.use_att:
             return (np.array(self.feats_fc[index]),
@@ -105,10 +112,6 @@ class DataLoader(data.Dataset):
 
         import atexit
         atexit.register(cleanup)
-        self.feats_fc = h5py.File(os.path.join(
-            self.opt.input_fc_dir, 'feats_fc.h5'), 'r')
-        self.feats_att = h5py.File(os.path.join(
-            self.opt.input_att_dir, 'feats_att.h5'), 'r')
 
     def get_batch(self, split, batch_size=None, seq_per_img=None):
         batch_size = batch_size or self.batch_size
