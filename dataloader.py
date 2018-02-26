@@ -40,11 +40,11 @@ class DataLoader(data.Dataset):
         self.read_files()
         index = str(self.info['images'][ix]['id'])
         if self.use_att:
-            return (np.array(self.feats_fc[index]),
-                    np.array(self.feats_att[index]), ix)
+            return (np.array(self.feats_fc[index]).astype('float32'),
+                    np.array(self.feats_att[index]).astype('float32'), ix)
         else:
-            return (np.array(self.feats_fc[index]),
-                    np.zeros((1, 1, 1)), ix)
+            return (np.array(self.feats_fc[index]).astype('float32'),
+                    np.zeros((1, 1, 1)).astype('float32'), ix)
 
     def __init__(self, opt):
         self.opt = opt
