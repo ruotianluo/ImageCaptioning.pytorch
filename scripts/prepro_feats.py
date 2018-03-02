@@ -68,8 +68,6 @@ def main(params):
   if not os.path.isdir(dir_att):
     os.mkdir(dir_att)
 
-  fc_toc = {}
-  att_toc = {}
   with h5py.File(os.path.join(dir_fc, 'feats_fc.h5')) as file_fc,\
        h5py.File(os.path.join(dir_att, 'feats_att.h5')) as file_att:
     for i, img in enumerate(imgs):
@@ -97,13 +95,6 @@ def main(params):
         print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0 / N))
     file_fc.close()
     file_att.close()
-  print('writing table of contents')
-  with open(os.path.join(dir_fc, "toc.json"), 'wt') as fc_toc_file:
-    json.dump(fc_toc, fc_toc_file)
-  with open(os.path.join(dir_att, "toc.json"), 'wt') as att_toc_file:
-    json.dump(att_toc, att_toc_file)
-
-  print('wrote ', params['output_dir'])
 
 
 if __name__ == "__main__":
