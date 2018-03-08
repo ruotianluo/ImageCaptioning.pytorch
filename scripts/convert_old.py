@@ -18,21 +18,19 @@ def main(params):
     with h5py.File(os.path.join(params['fc_output_dir'], 'feats_fc.h5')) as file_fc,\
             h5py.File(os.path.join(params['att_output_dir'], 'feats_att.h5')) as file_att:
         for i, img in enumerate(imgs):
-            d_set_fc = file_fc.create_dataset(
-                str(img['cocoid']), (2048,), dtype="float")
-            d_set_att = file_att.create_dataset(
-                str(img['cocoid']),
-                (params['att_size'], params['att_size'], 2048), dtype="float")
-
             npy_fc_path = os.path.join(
-                params['fc_input_dir'][:-1],
+                params['fc_input_dir'],
                 str(img['cocoid']) + '.npy')
             npy_att_path = os.path.join(
-                params['att_input_dir'][:-1],
+                params['att_input_dir'],
                 str(img['cocoid']) + '.npz')
 
-            d_set_fc[...] = np.load(npy_fc_path)
-            d_set_att[...] = np.load(npy_att_path)['feat']
+            d_set_fc = file_fc.create_dataset(
+                str(img['cocoid']), data=np.load(npy_fc_path))
+            d_set_att = file_att.create_dataset(
+                str(img['cocoid']),
+                data=np.load(npy_att_path)['feat'])
+
             if i % 1000 == 0:
                 print('processing %d/%d (%.2f%% done)' % (i, N, i * 100.0 / N))
         file_fc.close()
@@ -48,7 +46,6 @@ if __name__ == "__main__":
     parser.add_argument('--att_output_dir', default='data', help='output directory for att')
     parser.add_argument('--fc_input_dir', default='data', help='input directory for numpy fc files')
     parser.add_argument('--att_input_dir', default='data', help='input directory for numpy att files')
-    parser.add_argument('--att_size', default=14, type=int, help='14x14 or 7x7')
 
     args = parser.parse_args()
     params = vars(args)  # convert to ordinary dict
