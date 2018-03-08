@@ -30,14 +30,11 @@ from __future__ import print_function
 import os
 import json
 import argparse
-from random import shuffle, seed
-import string
-# non-standard dependencies:
 import h5py
-from six.moves import cPickle
+from random import shuffle, seed
+
 import numpy as np
 import torch
-import torchvision.models as models
 from torch.autograd import Variable
 import skimage.io
 
@@ -49,6 +46,7 @@ preprocess = trn.Compose([
 
 from misc.resnet_utils import myResnet
 import misc.resnet as resnet
+
 
 def main(params):
   net = getattr(resnet, params['model'])()
@@ -70,25 +68,34 @@ def main(params):
   if not os.path.isdir(dir_att):
     os.mkdir(dir_att)
 
-  for i,img in enumerate(imgs):
-    # load the image
-    I = skimage.io.imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
-    # handle grayscale input images
-    if len(I.shape) == 2:
-      I = I[:,:,np.newaxis]
-      I = np.concatenate((I,I,I), axis=2)
+  with h5py.File(os.path.join(dir_fc, 'feats_fc.h5')) as file_fc,\
+       h5py.File(os.path.join(dir_att, 'feats_att.h5')) as file_att:
+    for i, img in enumerate(imgs):
+      # load the image
+      I = skimage.io.imread(os.path.join(params['images_root'], img['filepath'], img['filename']))
+      # handle grayscale input images
+      if len(I.shape) == 2:
+        I = I[:,:,np.newaxis]
+        I = np.concatenate((I,I,I), axis=2)
 
-    I = I.astype('float32')/255.0
-    I = torch.from_numpy(I.transpose([2,0,1])).cuda()
-    I = Variable(preprocess(I), volatile=True)
-    tmp_fc, tmp_att = my_resnet(I, params['att_size'])
-    # write to pkl
-    np.save(os.path.join(dir_fc, str(img['cocoid'])), tmp_fc.data.cpu().float().numpy())
-    np.savez_compressed(os.path.join(dir_att, str(img['cocoid'])), feat=tmp_att.data.cpu().float().numpy())
+      I = I.astype('float32')/255.0
+      I = torch.from_numpy(I.transpose([2,0,1])).cuda()
+      I = Variable(preprocess(I), volatile=True)
+      tmp_fc, tmp_att = my_resnet(I, params['att_size'])
+      # write to hdf5
 
-    if i % 1000 == 0:
-      print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0/N))
-  print('wrote ', params['output_dir'])
+      d_set_fc = file_fc.create_dataset(str(img['cocoid']), 
+        (2048,), dtype="float")
+      d_set_att = file_att.create_dataset(str(img['cocoid']), 
+        (params['att_size'], params['att_size'], 2048), dtype="float")
+
+      d_set_fc[...] = tmp_fc.data.cpu().float().numpy()
+      d_set_att[...] = tmp_att.data.cpu().float().numpy()
+      if i % 1000 == 0:
+        print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0 / N))
+    file_fc.close()
+    file_att.close()
+
 
 if __name__ == "__main__":
 
@@ -96,7 +103,7 @@ if __name__ == "__main__":
 
   # input json
   parser.add_argument('--input_json', required=True, help='input json file to process into hdf5')
-  parser.add_argument('--output_dir', default='data', help='output h5 file')
+  parser.add_argument('--output_dir', default='data', help='output directory')
 
   # options
   parser.add_argument('--images_root', default='', help='root location in which images are stored, to be prepended to file_path in input json')
