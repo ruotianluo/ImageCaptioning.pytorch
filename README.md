@@ -31,6 +31,7 @@ Once we have these, we can now invoke the `prepro_*.py` script, which will read 
 ```bash
 $ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk
 $ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
+
 ```
 
 `prepro_labels.py` will map all words that occur <= 5 times to a special `UNK` token, and create a vocabulary for all the remaining words. The image information and vocabulary are dumped into `data/cocotalk.json` and discretized caption data are dumped into `data/cocotalk_label.h5`.
@@ -38,6 +39,12 @@ $ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_di
 `prepro_feats.py` extract the resnet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB.
 
 (Check the prepro scripts for more options, like other resnet models or other attention sizes.)
+
+**Legacy:** previously we extract features into separate npy/npz files for each image, but it would be slower to load on some NFS and also to copy them around. We now save all the features in h5 file. If you want to convert from previous npy/npz files to h5 file, you can use run
+
+```bash
+$ python scripts/convert_old.py --input_json data/dataset_coco.json --fc_input_dir data/cocotalk_fc/ --att_input_dir data/cocotalk_att/ --fc_output_dir data/cocotalk_fc --att_output_dir data/cocotalk_att/
+```
 
 **Warning**: the prepro script will fail with the default MSCOCO data because one of their images is corrupted. See [this issue](https://github.com/karpathy/neuraltalk2/issues/4) for the fix, it involves manually replacing one image in the dataset.
 
