@@ -37,9 +37,7 @@ class LSTMCore(nn.Module):
         next_c = forget_gate * state[1][-1] + in_gate * in_transform
         next_h = out_gate * F.tanh(next_c)
 
-        next_h = self.dropout(next_h)
-
-        output = next_h
+        output = self.dropout(next_h)
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
@@ -78,7 +76,7 @@ class FCModel(CaptionModel):
         else:
             return Variable(weight.new(self.num_layers, bsz, self.rnn_size).zero_())
 
-    def forward(self, fc_feats, att_feats, seq):
+    def _forward(self, fc_feats, att_feats, seq, att_masks=None):
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
         outputs = []
@@ -122,7 +120,7 @@ class FCModel(CaptionModel):
 
         return logprobs, state
 
-    def sample_beam(self, fc_feats, att_feats, opt={}):
+    def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
@@ -148,9 +146,9 @@ class FCModel(CaptionModel):
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
-        return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
+        return Variable(seq.transpose(0, 1)), Variable(seqLogprobs.transpose(0, 1))
 
-    def sample(self, fc_feats, att_feats, opt={}):
+    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
@@ -159,8 +157,8 @@ class FCModel(CaptionModel):
 
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
-        seq = []
-        seqLogprobs = []
+        seq = Variable(fc_feats.data.new(batch_size, self.seq_length).long().zero_())
+        seqLogprobs = Variable(fc_feats.data.new(batch_size, self.seq_length).zero_())
         for t in range(self.seq_length + 2):
             if t == 0:
                 xt = self.img_embed(fc_feats)
@@ -191,10 +189,10 @@ class FCModel(CaptionModel):
                 if unfinished.sum() == 0:
                     break
                 it = it * unfinished.type_as(it)
-                seq.append(it) #seq[t] the input of t+2 time step
-                seqLogprobs.append(sampleLogprobs.view(-1))
+                seq[:,t-2] = it #seq[t] the input of t+2 time step
+                seqLogprobs[:,t-2] = sampleLogprobs.view(-1)
 
             output, state = self.core(xt, state)
             logprobs = F.log_softmax(self.logit(output))
 
-        return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
+        return seq, seqLogprobs
