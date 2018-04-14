@@ -23,7 +23,7 @@ def language_eval(dataset, preds, model_id, split):
     from pycocotools.coco import COCO
     from pycocoevalcap.eval import COCOEvalCap
 
-    encoder.FLOAT_REPR = lambda o: format(o, '.3f')
+    # encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
     if not os.path.isdir('eval_results'):
         os.mkdir('eval_results')
