@@ -84,6 +84,17 @@ class AttModel(CaptionModel):
             att_masks = att_masks[:, :max_len].contiguous()
         return att_feats, att_masks
 
+    def _prepare_feature(self, fc_feats, att_feats, att_masks):
+
+        # embed fc and att feats
+        fc_feats = self.fc_embed(fc_feats)
+        att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
+
+        # Project the attention feats first to reduce memory and computation comsumptions.
+        p_att_feats = self.ctx2att(att_feats)
+
+        return fc_feats, att_feats, p_att_feats
+
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
         att_feats, att_masks = self.clip_att(att_feats, att_masks)
 
@@ -93,12 +104,7 @@ class AttModel(CaptionModel):
         # outputs = []
         outputs = Variable(fc_feats.data.new(batch_size, seq.size(1) - 1, self.vocab_size+1).zero_())
 
-        # embed fc and att feats
-        fc_feats = self.fc_embed(fc_feats)
-        att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
-
-        # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = self.ctx2att(att_feats)
+        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         for i in range(seq.size(1) - 1):
             if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
@@ -121,21 +127,18 @@ class AttModel(CaptionModel):
             if i >= 1 and seq[:, i].data.sum() == 0:
                 break
 
-            xt = self.embed(it)
-
-            output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
-            output = F.log_softmax(self.logit(output))
+            output, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
             outputs[:, i] = output
             # outputs.append(output)
 
         return outputs
         # return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
-    def get_logprobs_state(self, it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state):
+    def get_logprobs_state(self, it, fc_feats, att_feats, p_att_feats, att_masks, state):
         # 'it' is Variable contraining a word index
         xt = self.embed(it)
 
-        output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, tmp_att_masks)
+        output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
         logprobs = F.log_softmax(self.logit(output))
 
         return logprobs, state
@@ -144,12 +147,7 @@ class AttModel(CaptionModel):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
-        # embed fc and att feats
-        fc_feats = self.fc_embed(fc_feats)
-        att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
-
-        # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = self.ctx2att(att_feats)
+        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
@@ -166,11 +164,9 @@ class AttModel(CaptionModel):
 
             for t in range(1):
                 if t == 0: # input <bos>
-                    it = fc_feats.data.new(beam_size).long().zero_()
-                    xt = self.embed(Variable(it, requires_grad=False))
+                    it = Variable(fc_feats.data.new(beam_size).long().zero_())
 
-                output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, tmp_att_masks)
-                logprobs = F.log_softmax(self.logit(output))
+                logprobs, state = self.get_logprobs_state(it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state)
 
             self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, opt=opt)
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
@@ -191,12 +187,7 @@ class AttModel(CaptionModel):
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
 
-        # embed fc and att feats
-        fc_feats = self.fc_embed(fc_feats)
-        att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
-
-        # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = self.ctx2att(att_feats)
+        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         # seq = []
         # seqLogprobs = []
@@ -218,8 +209,6 @@ class AttModel(CaptionModel):
                 sampleLogprobs = logprobs.gather(1, Variable(it, requires_grad=False)) # gather the logprobs at sampled positions
                 it = it.view(-1).long() # and flatten indices for downstream processing
 
-            xt = self.embed(Variable(it, requires_grad=False))
-
             if t >= 1:
                 # stop when all finished
                 if t == 1:
@@ -235,13 +224,12 @@ class AttModel(CaptionModel):
                 # seqLogprobs.append(sampleLogprobs.view(-1))
                 seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
 
-            output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
+            it = Variable(it)
+            logprobs, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
             if decoding_constraint and t > 0:
                 tmp = output.data.new(output.size(0), self.vocab_size + 1).zero_()
                 tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
-                logprobs = F.log_softmax(self.logit(output)+Variable(tmp))
-            else:
-                logprobs = F.log_softmax(self.logit(output))
+                logprobs = logprobs + Variable(tmp)
 
         return seq, seqLogprobs
         # return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
