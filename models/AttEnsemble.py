@@ -44,11 +44,11 @@ class AttEnsemble(CaptionModel):
         return zip(*[m.core(*_) for m, _ in zip(self.models, zip(*args))])
 
     def get_logprobs_state(self, it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state):
-        # 'it' is Variable contraining a word index
-        xt = self.embed(Variable(it, requires_grad=False))
+        # 'it' contains a word index
+        xt = self.embed(it, requires_grad=False)
 
         output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, tmp_att_masks)
-        logprobs = torch.stack([F.softmax(m.logit(output[i])) for i,m in enumerate(self.models)], 2).mean(2).log()
+        logprobs = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
 
         return logprobs, state
 
@@ -57,7 +57,7 @@ class AttEnsemble(CaptionModel):
         state = self.init_hidden(batch_size)
 
         # outputs = []
-        outputs = Variable(fc_feats.data.new(batch_size, seq.size(1) - 1, self.vocab_size+1).zero_())
+        outputs = fc_feats.new_zeros(batch_size, seq.size(1) - 1, self.vocab_size+1)
 
         # embed fc and att feats
         fc_feats = [m.fc_embed(fc_feats) for m in self.models]
@@ -80,7 +80,6 @@ class AttEnsemble(CaptionModel):
                     # prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
                     prob_prev = torch.exp(outputs[:, i-1].data) # fetch prev distribution: shape Nx(M+1)
                     it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
-                    it = Variable(it, requires_grad=False)
             else:
                 it = seq[:, i].clone()          
             # break if all the sequences end
@@ -90,7 +89,7 @@ class AttEnsemble(CaptionModel):
             xt = self.embed(it)
 
             output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
-            output = torch.stack([F.softmax(m.logit(output[i])) for i,m in enumerate(self.models)], 2).mean(2).log()
+            output = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
             outputs[:, i] = output
             # outputs.append(output)
 
@@ -124,16 +123,16 @@ class AttEnsemble(CaptionModel):
             for t in range(1):
                 if t == 0: # input <bos>
                     it = fc_feats[0].data.new(beam_size).long().zero_()
-                    xt = self.embed(Variable(it, requires_grad=False))
+                    xt = self.embed(it)
 
                 output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, tmp_att_masks)
-                logprobs = torch.stack([F.softmax(m.logit(output[i])) for i,m in enumerate(self.models)], 2).mean(2).log()
+                logprobs = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
 
             self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, opt=opt)
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
-        return Variable(seq.transpose(0, 1)), Variable(seqLogprobs.transpose(0, 1))
+        return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
     def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
         sample_max = opt.get('sample_max', 1)
@@ -155,8 +154,8 @@ class AttEnsemble(CaptionModel):
 
         # seq = []
         # seqLogprobs = []
-        seq = Variable(fc_feats[0].data.new(batch_size, self.seq_length).long().zero_())
-        seqLogprobs = Variable(fc_feats[0].data.new(batch_size, self.seq_length).zero_())
+        seq = fc_feats[0].new_zeros((batch_size, self.seq_length), dtype=torch.long)
+        seqLogprobs = fc_feats[0].new_zeros(batch_size, self.seq_length)
         for t in range(self.seq_length + 1):
             if t == 0: # input <bos>
                 it = fc_feats[0].data.new(batch_size).long().zero_()
@@ -170,10 +169,10 @@ class AttEnsemble(CaptionModel):
                     # scale logprobs by temperature
                     prob_prev = torch.exp(torch.div(logprobs.data, temperature))
                 it = torch.multinomial(prob_prev, 1)
-                sampleLogprobs = logprobs.gather(1, Variable(it, requires_grad=False)) # gather the logprobs at sampled positions
+                sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
                 it = it.view(-1).long() # and flatten indices for downstream processing
 
-            xt = self.embed(Variable(it, requires_grad=False))
+            xt = self.embed(it)
 
             if t >= 1:
                 # stop when all finished
@@ -194,9 +193,9 @@ class AttEnsemble(CaptionModel):
             if decoding_constraint and t > 0:
                 tmp = output.data.new(output.size(0), self.vocab_size + 1).zero_()
                 tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
-                logprobs = torch.stack([F.softmax(m.logit(output[i]+Variable(tmp))) for i,m in enumerate(self.models)], 2).mean(2).log()
+                logprobs = torch.stack([F.softmax(m.logit(output[i]+tmp), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
             else:
-                logprobs = torch.stack([F.softmax(m.logit(output[i])) for i,m in enumerate(self.models)], 2).mean(2).log()
+                logprobs = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
 
         return seq, seqLogprobs
         # return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)

@@ -4,7 +4,6 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 
 import numpy as np
 import json
@@ -83,10 +82,11 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         if data.get('labels', None) is not None and verbose_loss:
             # forward the model to get loss
             tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
-            tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
+            tmp = [torch.from_numpy(_).cuda() for _ in tmp]
             fc_feats, att_feats, labels, masks, att_masks = tmp
 
-            loss = crit(model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:]).data[0]
+            with torch.no_grad():
+                loss = crit(model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:]).item()
             loss_sum = loss_sum + loss
             loss_evals = loss_evals + 1
 
@@ -95,10 +95,11 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
             data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img],
             data['att_masks'][np.arange(loader.batch_size) * loader.seq_per_img]]
-        tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
+        tmp = [torch.from_numpy(_).cuda() for _ in tmp]
         fc_feats, att_feats, att_masks = tmp
         # forward the model to also get generated samples for each image
-        seq = model(fc_feats, att_feats, att_masks, opt=eval_kwargs, mode='sample')[0].data
+        with torch.no_grad():
+            seq = model(fc_feats, att_feats, att_masks, opt=eval_kwargs, mode='sample')[0].data
         
         # Print beam search
         if beam_size > 1 and verbose_beam:

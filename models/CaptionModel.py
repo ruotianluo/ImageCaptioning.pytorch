@@ -169,7 +169,7 @@ class CaptionModel(nn.Module):
                     # move the current group one step forward in time
                     
                     it = beam_seq_table[divm][t-divm]
-                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(Variable(it.cuda()), *(args[divm] + [state_table[divm]]))
+                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(it.cuda(), *(args[divm] + [state_table[divm]]))
 
         # all beams are sorted by their log-probabilities
         done_beams_table = [sorted(done_beams_table[i], key=lambda x: -x['p'])[:bdash] for i in range(group_size)]

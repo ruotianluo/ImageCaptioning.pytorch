@@ -7,7 +7,6 @@ import time
 import misc.utils as utils
 from collections import OrderedDict
 import torch
-from torch.autograd import Variable
 
 import sys
 sys.path.append("cider")
@@ -39,9 +38,8 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
     
     # get greedy decoding baseline
     model.eval()
-    greedy_res, _ = model(Variable(fc_feats.data, volatile=True),
-                          Variable(att_feats.data, volatile=True),
-                          att_masks=Variable(att_masks.data, volatile=True), mode='sample')
+    with torch.no_grad():
+        greedy_res, _ = model(fc_feats, att_feats, att_masks=att_masks, mode='sample')
     model.train()
 
     res = OrderedDict()

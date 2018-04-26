@@ -5,7 +5,6 @@ from __future__ import print_function
 import collections
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import numpy as np
 import torch.optim as optim
 
@@ -26,7 +25,7 @@ def decode_sequence(ix_to_word, seq):
             if ix > 0 :
                 if j >= 1:
                     txt = txt + ' '
-                txt = txt + ix_to_word[str(ix)]
+                txt = txt + ix_to_word[str(ix.item())]
             else:
                 break
         out.append(txt)
@@ -51,6 +50,7 @@ class RewardCriterion(nn.Module):
         output = torch.sum(output) / torch.sum(mask)
 
         return output
+
 class LanguageModelCriterion(nn.Module):
     def __init__(self):
         super(LanguageModelCriterion, self).__init__()
