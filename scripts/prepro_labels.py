@@ -37,7 +37,6 @@ import h5py
 import numpy as np
 import torch
 import torchvision.models as models
-from torch.autograd import Variable
 import skimage.io
 from PIL import Image
 
