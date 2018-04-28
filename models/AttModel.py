@@ -11,6 +11,7 @@
 
 # TopDown is from Bottom-Up and Top-Down Attention for Image Captioning and VQA
 # https://arxiv.org/abs/1707.07998
+# However, it may not be identical to the author's architecture.
 
 from __future__ import absolute_import
 from __future__ import division
@@ -423,6 +424,12 @@ class TopDownCore(nn.Module):
         return output, state
 
 
+############################################################################
+# Notice:
+# StackAtt and DenseAtt are models that I randomly designed.
+# They are not related to any paper.
+############################################################################
+
 from .FCModel import LSTMCore
 class StackAttCore(nn.Module):
     def __init__(self, opt, use_maxout=False):
@@ -567,6 +574,11 @@ class Att2in2Core(nn.Module):
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
+
+"""
+Note this is my attempt to replicate att2all model in self-critical paper.
+However, this is not a correct replication actually. Will fix it.
+"""
 class Att2all2Core(nn.Module):
     def __init__(self, opt):
         super(Att2all2Core, self).__init__()
