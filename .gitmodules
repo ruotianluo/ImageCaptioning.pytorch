@@ -1,0 +1,3 @@
+[submodule "cider"]
+	path = cider
+	url = https://github.com/ruotianluo/cider.git
