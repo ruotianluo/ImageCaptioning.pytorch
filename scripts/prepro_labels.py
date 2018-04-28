@@ -171,8 +171,9 @@ def main(params):
     if 'filename' in img: jimg['file_path'] = os.path.join(img['filepath'], img['filename']) # copy it over, might need
     if 'cocoid' in img: jimg['id'] = img['cocoid'] # copy over & mantain an id, if present (e.g. coco ids, useful)
     
-    with Image.open(os.path.join(params['images_root'], img['filepath'], img['filename'])) as _img:
-      jimg['width'], jimg['height'] = _img.size
+    if params['images_root'] != '':
+      with Image.open(os.path.join(params['images_root'], img['filepath'], img['filename'])) as _img:
+        jimg['width'], jimg['height'] = _img.size
 
     out['images'].append(jimg)
   
