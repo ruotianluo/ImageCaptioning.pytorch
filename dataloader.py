@@ -164,6 +164,9 @@ class DataLoader(data.Dataset):
         data['att_masks'] = np.zeros(data['att_feats'].shape[:2], dtype='float32')
         for i in range(len(att_batch)):
             data['att_masks'][i*seq_per_img:(i+1)*seq_per_img, :att_batch[i].shape[0]] = 1
+        # set att_masks to None if attention features have same length
+        if data['att_masks'].sum() == data['att_masks'].size:
+            data['att_masks'] = None
 
         data['labels'] = np.vstack(label_batch)
         # generate mask
@@ -187,6 +190,8 @@ class DataLoader(data.Dataset):
         ix = index #self.split_ix[index]
         if self.use_att:
             att_feat = np.load(os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'))['feat']
+            # Reshape to K x C
+            att_feat = att_feat.reshape(-1, att_feat.shape[-1])
             if self.norm_att_feat:
                 att_feat = att_feat / np.linalg.norm(att_feat, 2, 1, keepdims=True)
             if self.use_box:
