@@ -13,12 +13,6 @@ import torch.utils.data as data
 
 import multiprocessing
 
-def get_npy_data(ix, fc_file, att_file, use_att):
-    if use_att == True:
-        return (np.load(fc_file), np.load(att_file)['feat'], ix)
-    else:
-        return (np.load(fc_file), np.zeros((1,1,1)), ix)
-
 class DataLoader(data.Dataset):
 
     def reset_iterator(self, split):
@@ -39,7 +33,12 @@ class DataLoader(data.Dataset):
         self.opt = opt
         self.batch_size = self.opt.batch_size
         self.seq_per_img = opt.seq_per_img
+        
+        # feature related options
         self.use_att = getattr(opt, 'use_att', True)
+        self.use_box = getattr(opt, 'use_box', 0)
+        self.norm_att_feat = getattr(opt, 'norm_att_feat', 0)
+        self.norm_box_feat = getattr(opt, 'norm_box_feat', 0)
 
         # load the json file which contains additional information about the dataset
         print('DataLoader loading json file: ', opt.input_json)
@@ -49,11 +48,12 @@ class DataLoader(data.Dataset):
         print('vocab size is ', self.vocab_size)
         
         # open the hdf5 file
-        print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_label_h5)
+        print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_box_dir, opt.input_label_h5)
         self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
 
         self.input_fc_dir = self.opt.input_fc_dir
         self.input_att_dir = self.opt.input_att_dir
+        self.input_box_dir = self.opt.input_box_dir
 
         # load in the sequence data
         seq_size = self.h5_label_file['labels'].shape
@@ -96,6 +96,25 @@ class DataLoader(data.Dataset):
         import atexit
         atexit.register(cleanup)
 
+    def get_captions(self, ix, seq_per_img):
+        # fetch the sequence labels
+        ix1 = self.label_start_ix[ix] - 1 #label_start_ix starts from 1
+        ix2 = self.label_end_ix[ix] - 1
+        ncap = ix2 - ix1 + 1 # number of captions available for this image
+        assert ncap > 0, 'an image does not have any label. this can be handled but right now isn\'t'
+
+        if ncap < seq_per_img:
+            # we need to subsample (with replacement)
+            seq = np.zeros([seq_per_img, self.seq_length], dtype = 'int')
+            for q in range(seq_per_img):
+                ixl = random.randint(ix1,ix2)
+                seq[q, :] = self.h5_label_file['labels'][ixl, :self.seq_length]
+        else:
+            ixl = random.randint(ix1, ix2 - seq_per_img + 1)
+            seq = self.h5_label_file['labels'][ixl: ixl + seq_per_img, :self.seq_length]
+
+        return seq
+
     def get_batch(self, split, batch_size=None, seq_per_img=None):
         batch_size = batch_size or self.batch_size
         seq_per_img = seq_per_img or self.seq_per_img
@@ -111,31 +130,13 @@ class DataLoader(data.Dataset):
         gts = []
 
         for i in range(batch_size):
-            import time
-            t_start = time.time()
             # fetch image
             tmp_fc, tmp_att,\
                 ix, tmp_wrapped = self._prefetch_process[split].get()
-            fc_batch += [tmp_fc] * seq_per_img
-            att_batch += [tmp_att] * seq_per_img
-
-            # fetch the sequence labels
-            ix1 = self.label_start_ix[ix] - 1 #label_start_ix starts from 1
-            ix2 = self.label_end_ix[ix] - 1
-            ncap = ix2 - ix1 + 1 # number of captions available for this image
-            assert ncap > 0, 'an image does not have any label. this can be handled but right now isn\'t'
-
-            if ncap < seq_per_img:
-                # we need to subsample (with replacement)
-                seq = np.zeros([seq_per_img, self.seq_length], dtype = 'int')
-                for q in range(seq_per_img):
-                    ixl = random.randint(ix1,ix2)
-                    seq[q, :] = self.h5_label_file['labels'][ixl, :self.seq_length]
-            else:
-                ixl = random.randint(ix1, ix2 - seq_per_img + 1)
-                seq = self.h5_label_file['labels'][ixl: ixl + seq_per_img, :self.seq_length]
+            fc_batch.append(tmp_fc)
+            att_batch.append(tmp_att)
             
-            label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = seq
+            label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
 
             if tmp_wrapped:
                 wrapped = True
@@ -149,21 +150,34 @@ class DataLoader(data.Dataset):
             info_dict['id'] = self.info['images'][ix]['id']
             info_dict['file_path'] = self.info['images'][ix]['file_path']
             infos.append(info_dict)
-            #print(i, time.time() - t_start)
 
+        # #sort by att_feat length
+        # fc_batch, att_batch, label_batch, gts, infos = \
+        #     zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: len(x[1]), reverse=True))
+        fc_batch, att_batch, label_batch, gts, infos = \
+            zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
+        data = {}
+        data['fc_feats'] = np.stack(reduce(lambda x,y:x+y, [[_]*seq_per_img for _ in fc_batch]))
+        # merge att_feats
+        max_att_len = max([_.shape[0] for _ in att_batch])
+        data['att_feats'] = np.zeros([len(att_batch)*seq_per_img, max_att_len, att_batch[0].shape[1]], dtype = 'float32')
+        for i in range(len(att_batch)):
+            data['att_feats'][i*seq_per_img:(i+1)*seq_per_img, :att_batch[i].shape[0]] = att_batch[i]
+        data['att_masks'] = np.zeros(data['att_feats'].shape[:2], dtype='float32')
+        for i in range(len(att_batch)):
+            data['att_masks'][i*seq_per_img:(i+1)*seq_per_img, :att_batch[i].shape[0]] = 1
+        # set att_masks to None if attention features have same length
+        if data['att_masks'].sum() == data['att_masks'].size:
+            data['att_masks'] = None
+
+        data['labels'] = np.vstack(label_batch)
         # generate mask
-        t_start = time.time()
-        nonzeros = np.array(list(map(lambda x: (x != 0).sum()+2, label_batch)))
+        nonzeros = np.array(list(map(lambda x: (x != 0).sum()+2, data['labels'])))
         for ix, row in enumerate(mask_batch):
             row[:nonzeros[ix]] = 1
-        #print('mask', time.time() - t_start)
+        data['masks'] = mask_batch
 
-        data = {}
-        data['fc_feats'] = np.stack(fc_batch)
-        data['att_feats'] = np.stack(att_batch)
-        data['labels'] = label_batch
-        data['gts'] = gts
-        data['masks'] = mask_batch 
+        data['gts'] = gts # all ground truth captions of each images
         data['bounds'] = {'it_pos_now': self.iterators[split], 'it_max': len(self.split_ix[split]), 'wrapped': wrapped}
         data['infos'] = infos
 
@@ -176,14 +190,46 @@ class DataLoader(data.Dataset):
         """This function returns a tuple that is further passed to collate_fn
         """
         ix = index #self.split_ix[index]
-        return get_npy_data(ix, \
-                os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy'),
-                os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'),
-                self.use_att
-                )
+        if self.use_att:
+            att_feat = np.load(os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'))['feat']
+            # Reshape to K x C
+            att_feat = att_feat.reshape(-1, att_feat.shape[-1])
+            if self.norm_att_feat:
+                att_feat = att_feat / np.linalg.norm(att_feat, 2, 1, keepdims=True)
+            if self.use_box:
+                box_feat = np.load(os.path.join(self.input_box_dir, str(self.info['images'][ix]['id']) + '.npy'))
+                # devided by image width and height
+                x1,y1,x2,y2 = np.hsplit(box_feat, 4)
+                h,w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
+                box_feat = np.hstack((x1/w, y1/h, x2/w, y2/h, (x2-x1)*(y2-y1)/(w*h))) # question? x2-x1+1??
+                if self.norm_box_feat:
+                    box_feat = box_feat / np.linalg.norm(box_feat, 2, 1, keepdims=True)
+                att_feat = np.hstack([att_feat, box_feat])
+                # sort the features by the size of boxes
+                att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))
+        else:
+            att_feat = np.zeros((1,1,1))
+        return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
+                att_feat,
+                ix)
 
     def __len__(self):
         return len(self.info['images'])
+
+class SubsetSampler(torch.utils.data.sampler.Sampler):
+    r"""Samples elements randomly from a given list of indices, without replacement.
+    Arguments:
+        indices (list): a list of indices
+    """
+
+    def __init__(self, indices):
+        self.indices = indices
+
+    def __iter__(self):
+        return (self.indices[i] for i in range(len(self.indices)))
+
+    def __len__(self):
+        return len(self.indices)
 
 class BlobFetcher():
     """Experimental class for prefetching blobs in a separate process."""
@@ -198,17 +244,17 @@ class BlobFetcher():
     # Add more in the queue
     def reset(self):
         """
-        Two cases:
+        Two cases for this function to be triggered:
         1. not hasattr(self, 'split_loader'): Resume from previous training. Create the dataset given the saved split_ix and iterator
         2. wrapped: a new epoch, the split_ix and iterator have been updated in the get_minibatch_inds already.
         """
-        # batch_size is 0, the merge is done in DataLoader class
+        # batch_size is 1, the merge is done in DataLoader class
         self.split_loader = iter(data.DataLoader(dataset=self.dataloader,
                                             batch_size=1,
-                                            sampler=self.dataloader.split_ix[self.split][self.dataloader.iterators[self.split]:],
+                                            sampler=SubsetSampler(self.dataloader.split_ix[self.split][self.dataloader.iterators[self.split]:]),
                                             shuffle=False,
                                             pin_memory=True,
-                                            num_workers=multiprocessing.cpu_count(),
+                                            num_workers=4, # 4 is usually enough
                                             collate_fn=lambda x: x[0]))
 
     def _get_next_minibatch_inds(self):

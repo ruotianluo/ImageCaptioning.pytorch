@@ -1,45 +1,77 @@
-# Self-critical Sequence Training for Image Captioning
+# Self-critical Sequence Training for Image Captioning (+ misc.)
 
-This is an unofficial implementation for [Self-critical Sequence Training for Image Captioning](https://arxiv.org/abs/1612.00563). The result of FC model can be replicated. (Not able to replicate Att2in result.)
+This repository includes the unofficial implementation [Self-critical Sequence Training for Image Captioning](https://arxiv.org/abs/1612.00563) and [Bottom-Up and Top-Down Attention for Image Captioning and Visual Question Answering](https://arxiv.org/abs/1707.07998).
 
-The author helped me a lot when I tried to replicate the result. Great thanks. The latest topdown and att2in2 model can achieve 1.12 Cider score on Karpathy's test split after self-critical training.
+The author of SCST helped me a lot when I tried to replicate the result. Great thanks. The att2in2 model can achieve more than 1.20 Cider score on Karpathy's test split (with self-critical training, bottom-up feature, large rnn hidden size, without ensemble)
 
-This is based on my [neuraltalk2.pytorch](https://github.com/ruotianluo/neuraltalk2.pytorch) repository. The modifications is:
-- Add self critical training.
+This is based on my [ImageCaptioning.pytorch](https://github.com/ruotianluo/ImageCaptioning.pytorch) repository. The modifications is:
+- Self critical training.
+- Bottom up feature support from [ref](https://arxiv.org/abs/1707.07998). (Evaluation on arbitrary images is not supported.)
+- Ensemble
+- Multi-GPU training
 
 ## Requirements
 Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)
-PyTorch 0.2 (along with torchvision)
+PyTorch 0.4 (along with torchvision)
+cider (already been added as a submodule)
 
-You need to download pretrained resnet model for both training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
+(**Skip if you are using bottom-up feature**): If you want to use resnet to extract image features, you need to download pretrained resnet model for both training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
 
-## Pretrained models
+## Pretrained models (using resnet101 feature)
 Pretrained models are provided [here](https://drive.google.com/open?id=0B7fNdx_jAqhtdE1JRXpmeGJudTg). And the performances of each model will be maintained in this [issue](https://github.com/ruotianluo/neuraltalk2.pytorch/issues/10).
 
-If you want to do evaluation only, then you can follow [this section](#generate-image-captions) after downloading the pretrained models.
+If you want to do evaluation only, you can then follow [this section](#generate-image-captions) after downloading the pretrained models (and also the pretrained resnet101).
 
 ## Train your own network on COCO
 
-### Download COCO dataset and preprocessing
-
-First, download the coco images from [link](http://mscoco.org/dataset/#download). We need 2014 training images and 2014 val. images. You should put the `train2014/` and `val2014/` in the same directory, denoted as `$IMAGE_ROOT`.
+### Download COCO captions and preprocess them
 
 Download preprocessed coco captions from [link](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip) from Karpathy's homepage. Extract `dataset_coco.json` from the zip file and copy it in to `data/`. This file provides preprocessed captions and also standard train-val-test splits.
 
-Once we have these, we can now invoke the `prepro_*.py` script, which will read all of this in and create a dataset (two feature folders, a hdf5 label file and a json file).
+Then do:
 
 ```bash
 $ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk
-$ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
 ```
 
 `prepro_labels.py` will map all words that occur <= 5 times to a special `UNK` token, and create a vocabulary for all the remaining words. The image information and vocabulary are dumped into `data/cocotalk.json` and discretized caption data are dumped into `data/cocotalk_label.h5`.
+
+### Download COCO dataset and pre-extract the image features (Skip if you are using bottom-up feature)
+
+Download the coco images from [link](http://mscoco.org/dataset/#download). We need 2014 training images and 2014 val. images. You should put the `train2014/` and `val2014/` in the same directory, denoted as `$IMAGE_ROOT`.
+
+Then:
+
+```
+$ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
+```
+
 
 `prepro_feats.py` extract the resnet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB.
 
 (Check the prepro scripts for more options, like other resnet models or other attention sizes.)
 
 **Warning**: the prepro script will fail with the default MSCOCO data because one of their images is corrupted. See [this issue](https://github.com/karpathy/neuraltalk2/issues/4) for the fix, it involves manually replacing one image in the dataset.
+
+### Download Bottom-up features (Skip if you are using resnet features)
+
+Download pre-extracted feature from [link](https://github.com/peteanderson80/bottom-up-attention). You can either download adaptive one or fixed one.
+
+For example:
+```
+mkdir data/bu_data; cd data/bu_data
+wget https://storage.googleapis.com/bottom-up-attention/trainval.zip
+unzip trainval.zip
+
+```
+
+Then:
+
+```bash
+python script/make_bu_data.py --output_dir data/cocobu
+```
+
+This will create `data/cocobu_fc`, `data/cocobu_att` and `data/cocobu_box`. If you want to use bottom-up feature, you can just follow the following steps and replace all cocotalk with cocobu.
 
 ### Start training
 
@@ -67,8 +99,6 @@ First you should preprocess the dataset and get the cache for calculating cider 
 ```
 $ python scripts/prepro_ngrams.py --input_json .../dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
 ```
-
-And also you need to clone my forked [cider](https://github.com/ruotianluo/cider) repository.
 
 Then, copy the model from the pretrained model using cross entropy. (It's not mandatory to copy the model, just for back-up)
 ```
@@ -121,6 +151,25 @@ The defualt split to evaluate is test. The default inference method is greedy de
 **Train on other dataset**. It should be trivial to port if you can create a file like `dataset_coco.json` for your own dataset.
 
 **Live demo**. Not supported now. Welcome pull request.
+
+## For more advanced features:
+
+Checkout `ADVANCED.md`.
+
+## Reference
+
+If you find this repo useful, please consider citing (no obligation at all):
+
+```
+@article{luo2018discriminability,
+  title={Discriminability objective for training descriptive captions},
+  author={Luo, Ruotian and Price, Brian and Cohen, Scott and Shakhnarovich, Gregory},
+  journal={arXiv preprint arXiv:1803.04376},
+  year={2018}
+}
+```
+
+Of course, please cite the original paper of models you are using (You can find references in the model files).
 
 ## Acknowledgements
 

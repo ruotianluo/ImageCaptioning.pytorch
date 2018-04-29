@@ -4,7 +4,6 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 
 import numpy as np
 import json
@@ -23,7 +22,7 @@ def language_eval(dataset, preds, model_id, split):
     from pycocotools.coco import COCO
     from pycocoevalcap.eval import COCOEvalCap
 
-    encoder.FLOAT_REPR = lambda o: format(o, '.3f')
+    # encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
     if not os.path.isdir('eval_results'):
         os.mkdir('eval_results')
@@ -58,6 +57,8 @@ def language_eval(dataset, preds, model_id, split):
 
 def eval_split(model, crit, loader, eval_kwargs={}):
     verbose = eval_kwargs.get('verbose', True)
+    verbose_beam = eval_kwargs.get('verbose_beam', 1)
+    verbose_loss = eval_kwargs.get('verbose_loss', 1)
     num_images = eval_kwargs.get('num_images', eval_kwargs.get('val_images_use', -1))
     split = eval_kwargs.get('split', 'val')
     lang_eval = eval_kwargs.get('language_eval', 0)
@@ -78,26 +79,33 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         data = loader.get_batch(split)
         n = n + loader.batch_size
 
-        if data.get('labels', None) is not None:
+        if data.get('labels', None) is not None and verbose_loss:
             # forward the model to get loss
-            tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
-            tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-            fc_feats, att_feats, labels, masks = tmp
+            tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
+            tmp = [torch.from_numpy(_).cuda() for _ in tmp]
+            fc_feats, att_feats, labels, masks, att_masks = tmp
 
-            loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:]).data[0]
+            with torch.no_grad():
+                loss = crit(model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:]).item()
             loss_sum = loss_sum + loss
             loss_evals = loss_evals + 1
 
         # forward the model to also get generated samples for each image
         # Only leave one feature for each image, in case duplicate sample
         tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
-            data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img]]
-        tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-        fc_feats, att_feats = tmp
+            data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img],
+            data['att_masks'][np.arange(loader.batch_size) * loader.seq_per_img]]
+        tmp = [torch.from_numpy(_).cuda() for _ in tmp]
+        fc_feats, att_feats, att_masks = tmp
         # forward the model to also get generated samples for each image
-        seq, _ = model.sample(fc_feats, att_feats, eval_kwargs)
+        with torch.no_grad():
+            seq = model(fc_feats, att_feats, att_masks, opt=eval_kwargs, mode='sample')[0].data
         
-        #set_trace()
+        # Print beam search
+        if beam_size > 1 and verbose_beam:
+            for i in range(loader.batch_size):
+                print('\n'.join([utils.decode_sequence(loader.get_vocab(), _['seq'].unsqueeze(0))[0] for _ in model.done_beams[i]]))
+                print('--' * 10)
         sents = utils.decode_sequence(loader.get_vocab(), seq)
 
         for k, sent in enumerate(sents):

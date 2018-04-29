@@ -4,7 +4,6 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.optim as optim
 
 import numpy as np
@@ -18,7 +17,7 @@ import models
 from dataloader import *
 import eval_utils
 import misc.utils as utils
-from misc.rewards import init_cider_scorer, get_self_critical_reward
+from misc.rewards import init_scorer, get_self_critical_reward
 
 try:
     import tensorflow as tf
@@ -31,7 +30,10 @@ def add_summary_value(writer, key, value, iteration):
     writer.add_summary(summary, iteration)
 
 def train(opt):
+    # Deal with feature things before anything
     opt.use_att = utils.if_use_att(opt.caption_model)
+    if opt.use_box: opt.att_feat_size = opt.att_feat_size + 5
+
     loader = DataLoader(opt)
     opt.vocab_size = loader.vocab_size
     opt.seq_length = loader.seq_length
@@ -66,18 +68,17 @@ def train(opt):
     if opt.load_best_score == 1:
         best_val_score = infos.get('best_val_score', None)
 
-    model = models.setup(opt)
-    model.cuda()
+    model = models.setup(opt).cuda()
+    dp_model = torch.nn.DataParallel(model)
 
     update_lr_flag = True
     # Assure in training mode
-    model.train()
+    dp_model.train()
 
     crit = utils.LanguageModelCriterion()
     rl_crit = utils.RewardCriterion()
 
-    optimizer = optim.Adam(model.parameters(), lr=opt.learning_rate, weight_decay=opt.weight_decay)
-
+    optimizer = utils.build_optimizer(model.parameters(), opt)
     # Load the optimizer
     if vars(opt).get('start_from', None) is not None and os.path.isfile(os.path.join(opt.start_from,"optimizer.pth")):
         optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
@@ -101,7 +102,7 @@ def train(opt):
             # If start self critical training
             if opt.self_critical_after != -1 and epoch >= opt.self_critical_after:
                 sc_flag = True
-                init_cider_scorer(opt.cached_tokens)
+                init_scorer(opt.cached_tokens)
             else:
                 sc_flag = False
 
@@ -115,22 +116,22 @@ def train(opt):
         torch.cuda.synchronize()
         start = time.time()
 
-        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
-        tmp = [Variable(torch.from_numpy(_), requires_grad=False).cuda() for _ in tmp]
-        fc_feats, att_feats, labels, masks = tmp
+        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
+        tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
+        fc_feats, att_feats, labels, masks, att_masks = tmp
         
         optimizer.zero_grad()
         if not sc_flag:
-            loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:])
+            loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
-            gen_result, sample_logprobs = model.sample(fc_feats, att_feats, {'sample_max':0})
-            reward = get_self_critical_reward(model, fc_feats, att_feats, data, gen_result)
-            loss = rl_crit(sample_logprobs, gen_result, Variable(torch.from_numpy(reward).float().cuda(), requires_grad=False))
+            gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
+            reward = get_self_critical_reward(dp_model, fc_feats, att_feats, att_masks, data, gen_result, opt)
+            loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float().cuda())
 
         loss.backward()
         utils.clip_gradient(optimizer, opt.grad_clip)
         optimizer.step()
-        train_loss = loss.data[0]
+        train_loss = loss.item()
         torch.cuda.synchronize()
         end = time.time()
         if not sc_flag:
@@ -166,7 +167,7 @@ def train(opt):
             eval_kwargs = {'split': 'val',
                             'dataset': opt.input_json}
             eval_kwargs.update(vars(opt))
-            val_loss, predictions, lang_stats = eval_utils.eval_split(model, crit, loader, eval_kwargs)
+            val_loss, predictions, lang_stats = eval_utils.eval_split(dp_model, crit, loader, eval_kwargs)
 
             # Write validation result into summary
             if tf is not None:

@@ -25,6 +25,8 @@ def setup(opt):
     # Att2in model with two-layer MLP img embedding and word embedding
     elif opt.caption_model == 'att2in2':
         model = Att2in2Model(opt)
+    elif opt.caption_model == 'att2all2':
+        model = Att2all2Model(opt)
     # Adaptive Attention model from Knowing when to look
     elif opt.caption_model == 'adaatt':
         model = AdaAttModel(opt)
@@ -34,6 +36,12 @@ def setup(opt):
     # Top-down attention model
     elif opt.caption_model == 'topdown':
         model = TopDownModel(opt)
+    # StackAtt
+    elif opt.caption_model == 'stackatt':
+        model = StackAttModel(opt)
+    # DenseAtt
+    elif opt.caption_model == 'denseatt':
+        model = DenseAttModel(opt)
     else:
         raise Exception("Caption model not supported: {}".format(opt.caption_model))
 

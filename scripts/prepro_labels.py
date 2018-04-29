@@ -37,8 +37,8 @@ import h5py
 import numpy as np
 import torch
 import torchvision.models as models
-from torch.autograd import Variable
 import skimage.io
+from PIL import Image
 
 def build_vocab(imgs, params):
   count_thr = params['word_count_threshold']
@@ -171,6 +171,10 @@ def main(params):
     if 'filename' in img: jimg['file_path'] = os.path.join(img['filepath'], img['filename']) # copy it over, might need
     if 'cocoid' in img: jimg['id'] = img['cocoid'] # copy over & mantain an id, if present (e.g. coco ids, useful)
     
+    if params['images_root'] != '':
+      with Image.open(os.path.join(params['images_root'], img['filepath'], img['filename'])) as _img:
+        jimg['width'], jimg['height'] = _img.size
+
     out['images'].append(jimg)
   
   json.dump(out, open(params['output_json'], 'w'))
@@ -184,6 +188,7 @@ if __name__ == "__main__":
   parser.add_argument('--input_json', required=True, help='input json file to process into hdf5')
   parser.add_argument('--output_json', default='data.json', help='output json file')
   parser.add_argument('--output_h5', default='data', help='output h5 file')
+  parser.add_argument('--images_root', default='', help='root location in which images are stored, to be prepended to file_path in input json')
 
   # options
   parser.add_argument('--max_length', default=16, type=int, help='max length of a caption, in number of words. captions longer than this get clipped.')

@@ -38,7 +38,6 @@ from six.moves import cPickle
 import numpy as np
 import torch
 import torchvision.models as models
-from torch.autograd import Variable
 import skimage.io
 
 from torchvision import transforms as trn
@@ -80,8 +79,9 @@ def main(params):
 
     I = I.astype('float32')/255.0
     I = torch.from_numpy(I.transpose([2,0,1])).cuda()
-    I = Variable(preprocess(I), volatile=True)
-    tmp_fc, tmp_att = my_resnet(I, params['att_size'])
+    I = preprocess(I)
+    with torch.no_grad():
+      tmp_fc, tmp_att = my_resnet(I, params['att_size'])
     # write to pkl
     np.save(os.path.join(dir_fc, str(img['cocoid'])), tmp_fc.data.cpu().float().numpy())
     np.savez_compressed(os.path.join(dir_att, str(img['cocoid'])), feat=tmp_att.data.cpu().float().numpy())

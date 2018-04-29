@@ -20,11 +20,32 @@ class CaptionModel(nn.Module):
     def __init__(self):
         super(CaptionModel, self).__init__()
 
-    def beam_search(self, state, logprobs, *args, **kwargs):
-        # args are the miscelleous inputs to the core in addition to embedded word and state
-        # kwargs only accept opt
+    # implements beam search
+    # calls beam_step and returns the final set of beams
+    # augments log-probabilities with diversity terms when number of groups > 1
 
-        def beam_step(logprobsf, beam_size, t, beam_seq, beam_seq_logprobs, beam_logprobs_sum, state):
+    def forward(self, *args, **kwargs):
+        mode = kwargs.get('mode', 'forward')
+        if 'mode' in kwargs:
+            del kwargs['mode']
+        return getattr(self, '_'+mode)(*args, **kwargs)
+
+    def beam_search(self, init_state, init_logprobs, *args, **kwargs):
+
+        # function computes the similarity score to be augmented
+        def add_diversity(beam_seq_table, logprobsf, t, divm, diversity_lambda, bdash):
+            local_time = t - divm
+            unaug_logprobsf = logprobsf.clone()
+            for prev_choice in range(divm):
+                prev_decisions = beam_seq_table[prev_choice][local_time]
+                for sub_beam in range(bdash):
+                    for prev_labels in range(bdash):
+                        logprobsf[sub_beam][prev_decisions[prev_labels]] = logprobsf[sub_beam][prev_decisions[prev_labels]] - diversity_lambda
+            return unaug_logprobsf
+
+        # does one step of classical beam search
+
+        def beam_step(logprobsf, unaug_logprobsf, beam_size, t, beam_seq, beam_seq_logprobs, beam_logprobs_sum, state):
             #INPUTS:
             #logprobsf: probabilities augmented after diversity
             #beam_size: obvious
@@ -48,7 +69,8 @@ class CaptionModel(nn.Module):
                     #compute logprob of expanding beam q with word in (sorted) position c
                     local_logprob = ys[q,c]
                     candidate_logprob = beam_logprobs_sum[q] + local_logprob
-                    candidates.append({'c':ix[q,c], 'q':q, 'p':candidate_logprob, 'r':local_logprob})
+                    local_unaug_logprob = unaug_logprobsf[q,ix[q,c]]
+                    candidates.append({'c':ix[q,c], 'q':q, 'p':candidate_logprob, 'r':local_unaug_logprob})
             candidates = sorted(candidates,  key=lambda x: -x['p'])
             
             new_state = [_.clone() for _ in state]
@@ -72,53 +94,84 @@ class CaptionModel(nn.Module):
                 beam_seq_logprobs[t, vix] = v['r'] # the raw logprob here
                 beam_logprobs_sum[vix] = v['p'] # the new (sum) logprob along this beam
             state = new_state
-            return beam_seq, beam_seq_logprobs, beam_logprobs_sum, state, candidates
+            return beam_seq,beam_seq_logprobs,beam_logprobs_sum,state,candidates
 
-        # start beam search
+        # Start diverse_beam_search
         opt = kwargs['opt']
         beam_size = opt.get('beam_size', 10)
+        group_size = opt.get('group_size', 1)
+        diversity_lambda = opt.get('diversity_lambda', 0.5)
+        decoding_constraint = opt.get('decoding_constraint', 0)
+        max_ppl = opt.get('max_ppl', 0)
+        bdash = beam_size // group_size # beam per group
 
-        beam_seq = torch.LongTensor(self.seq_length, beam_size).zero_()
-        beam_seq_logprobs = torch.FloatTensor(self.seq_length, beam_size).zero_()
-        beam_logprobs_sum = torch.zeros(beam_size) # running sum of logprobs for each beam
-        done_beams = []
+        # INITIALIZATIONS
+        beam_seq_table = [torch.LongTensor(self.seq_length, bdash).zero_() for _ in range(group_size)]
+        beam_seq_logprobs_table = [torch.FloatTensor(self.seq_length, bdash).zero_() for _ in range(group_size)]
+        beam_logprobs_sum_table = [torch.zeros(bdash) for _ in range(group_size)]
 
-        for t in range(self.seq_length):
-            """pem a beam merge. that is,
-            for every previous beam we now many new possibilities to branch out
-            we need to resort our beams to maintain the loop invariant of keeping
-            the top beam_size most likely sequences."""
-            logprobsf = logprobs.data.float() # lets go to CPU for more efficiency in indexing operations
-            # suppress UNK tokens in the decoding
-            logprobsf[:,logprobsf.size(1)-1] =  logprobsf[:, logprobsf.size(1)-1] - 1000  
-        
-            beam_seq,\
-            beam_seq_logprobs,\
-            beam_logprobs_sum,\
-            state,\
-            candidates_divm = beam_step(logprobsf,
-                                        beam_size,
-                                        t,
-                                        beam_seq,
-                                        beam_seq_logprobs,
-                                        beam_logprobs_sum,
-                                        state)
+        # logprobs # logprobs predicted in last time step, shape (beam_size, vocab_size+1)
+        done_beams_table = [[] for _ in range(group_size)]
+        state_table = [list(torch.unbind(_)) for _ in torch.stack(init_state).chunk(group_size, 2)]
+        logprobs_table = list(init_logprobs.chunk(group_size, 0))
+        # END INIT
 
-            for vix in range(beam_size):
-                # if time's up... or if end token is reached then copy beams
-                if beam_seq[t, vix] == 0 or t == self.seq_length - 1:
-                    final_beam = {
-                        'seq': beam_seq[:, vix].clone(), 
-                        'logps': beam_seq_logprobs[:, vix].clone(),
-                        'p': beam_logprobs_sum[vix]
-                    }
-                    done_beams.append(final_beam)
-                    # don't continue beams from finished sequences
-                    beam_logprobs_sum[vix] = -1000
+        # Chunk elements in the args
+        args = list(args)
+        args = [_.chunk(group_size) for _ in args]
+        args = [[args[i][j] for i in range(len(args))] for j in range(group_size)]
 
-            # encode as vectors
-            it = beam_seq[t]
-            logprobs, state = self.get_logprobs_state(Variable(it.cuda()), *(args + (state,)))
+        for t in range(self.seq_length + group_size - 1):
+            for divm in range(group_size): 
+                if t >= divm and t <= self.seq_length + divm - 1:
+                    # add diversity
+                    logprobsf = logprobs_table[divm].data.float()
+                    # suppress previous word
+                    if decoding_constraint and t-divm > 0:
+                        logprobsf.scatter_(1, beam_seq_table[divm][t-divm-1].unsqueeze(1).cuda(), float('-inf'))
+                    # suppress UNK tokens in the decoding
+                    logprobsf[:,logprobsf.size(1)-1] = logprobsf[:, logprobsf.size(1)-1] - 1000  
+                    # diversity is added here
+                    # the function directly modifies the logprobsf values and hence, we need to return
+                    # the unaugmented ones for sorting the candidates in the end. # for historical
+                    # reasons :-)
+                    unaug_logprobsf = add_diversity(beam_seq_table,logprobsf,t,divm,diversity_lambda,bdash)
 
-        done_beams = sorted(done_beams, key=lambda x: -x['p'])[:beam_size]
+                    # infer new beams
+                    beam_seq_table[divm],\
+                    beam_seq_logprobs_table[divm],\
+                    beam_logprobs_sum_table[divm],\
+                    state_table[divm],\
+                    candidates_divm = beam_step(logprobsf,
+                                                unaug_logprobsf,
+                                                bdash,
+                                                t-divm,
+                                                beam_seq_table[divm],
+                                                beam_seq_logprobs_table[divm],
+                                                beam_logprobs_sum_table[divm],
+                                                state_table[divm])
+
+                    # if time's up... or if end token is reached then copy beams
+                    for vix in range(bdash):
+                        if beam_seq_table[divm][t-divm,vix] == 0 or t == self.seq_length + divm - 1:
+                            final_beam = {
+                                'seq': beam_seq_table[divm][:, vix].clone(), 
+                                'logps': beam_seq_logprobs_table[divm][:, vix].clone(),
+                                'unaug_p': beam_seq_logprobs_table[divm][:, vix].sum(),
+                                'p': beam_logprobs_sum_table[divm][vix]
+                            }
+                            if max_ppl:
+                                final_beam['p'] = final_beam['p'] / (t-divm+1)
+                            done_beams_table[divm].append(final_beam)
+                            # don't continue beams from finished sequences
+                            beam_logprobs_sum_table[divm][vix] = -1000
+
+                    # move the current group one step forward in time
+                    
+                    it = beam_seq_table[divm][t-divm]
+                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(it.cuda(), *(args[divm] + [state_table[divm]]))
+
+        # all beams are sorted by their log-probabilities
+        done_beams_table = [sorted(done_beams_table[i], key=lambda x: -x['p'])[:bdash] for i in range(group_size)]
+        done_beams = reduce(lambda a,b:a+b, done_beams_table)
         return done_beams

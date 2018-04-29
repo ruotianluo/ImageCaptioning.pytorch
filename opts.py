@@ -9,6 +9,8 @@ def parse_opt():
                     help='path to the directory containing the preprocessed fc feats')
     parser.add_argument('--input_att_dir', type=str, default='data/cocotalk_att',
                     help='path to the directory containing the preprocessed att feats')
+    parser.add_argument('--input_box_dir', type=str, default='data/cocotalk_box',
+                    help='path to the directory containing the boxes of att feats')
     parser.add_argument('--input_label_h5', type=str, default='data/coco_label.h5',
                     help='path to the h5file containing the preprocessed dataset')
     parser.add_argument('--start_from', type=str, default=None,
@@ -23,7 +25,7 @@ def parse_opt():
 
     # Model settings
     parser.add_argument('--caption_model', type=str, default="show_tell",
-                    help='show_tell, show_attend_tell, all_img, fc, att2in, att2in2, adaatt, adaattmo, topdown')
+                    help='show_tell, show_attend_tell, all_img, fc, att2in, att2in2, att2all2, adaatt, adaattmo, topdown, stackatt, denseatt')
     parser.add_argument('--rnn_size', type=int, default=512,
                     help='size of the rnn in number of hidden nodes in each layer')
     parser.add_argument('--num_layers', type=int, default=1,
@@ -38,6 +40,20 @@ def parse_opt():
                     help='2048 for resnet, 4096 for vgg')
     parser.add_argument('--att_feat_size', type=int, default=2048,
                     help='2048 for resnet, 512 for vgg')
+    parser.add_argument('--logit_layers', type=int, default=1,
+                    help='number of layers in the RNN')
+
+
+    parser.add_argument('--use_bn', type=int, default=0,
+                    help='If 1, then do batch_normalization first in att_embed, if 2 then do bn both in the beginning and the end of att_embed')
+
+    # feature manipulation
+    parser.add_argument('--norm_att_feat', type=int, default=0,
+                    help='If normalize attention features')
+    parser.add_argument('--use_box', type=int, default=0,
+                    help='If use box features')
+    parser.add_argument('--norm_box_feat', type=int, default=0,
+                    help='If use box, do we normalize box feature')
 
     # Optimization: General
     parser.add_argument('--max_epochs', type=int, default=-1,
@@ -104,6 +120,13 @@ def parse_opt():
                     help='an id identifying this run/job. used in cross-val and appended when writing progress files')
     parser.add_argument('--train_only', type=int, default=0,
                     help='if true then use 80k, else use 110k')
+
+
+    # Reward
+    parser.add_argument('--cider_reward_weight', type=float, default=1,
+                    help='The reward weight from cider')
+    parser.add_argument('--bleu_reward_weight', type=float, default=0,
+                    help='The reward weight from bleu4')
 
     args = parser.parse_args()
 
