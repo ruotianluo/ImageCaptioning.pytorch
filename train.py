@@ -82,7 +82,9 @@ def train(opt):
     rl_crit = utils.RewardCriterion()
 
     if opt.noamopt:
-        optimizer = utils.get_std_opt(model.model)
+        assert opt.caption_model == 'transformer', 'noamopt can only work with transformer'
+        optimizer = utils.get_std_opt(model, factor=opt.noamopt_factor, warmup=opt.noamopt_warmup)
+        optimizer._step = iteration
     else:
         optimizer = utils.build_optimizer(model.parameters(), opt)
     # Load the optimizer

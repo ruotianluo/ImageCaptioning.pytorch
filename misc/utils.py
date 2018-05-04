@@ -153,9 +153,9 @@ class NoamOpt(object):
     def __getattr__(self, name):
         return getattr(self.optimizer, name)
         
-def get_std_opt(model):
+def get_std_opt(model, factor=1, warmup=2000):
     # return NoamOpt(model.tgt_embed[0].d_model, 2, 4000,
     #         torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
-    return NoamOpt(model.tgt_embed[0].d_model, 1, 2000,
+    return NoamOpt(model.model.tgt_embed[0].d_model, factor, warmup,
             torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
     

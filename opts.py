@@ -133,6 +133,10 @@ def parse_opt():
                     help='')
     parser.add_argument('--noamopt', action='store_true',
                     help='')
+    parser.add_argument('--noamopt_warmup', type=int, default=2000,
+                    help='')
+    parser.add_argument('--noamopt_factor', type=float, default=1,
+                    help='')
 
     args = parser.parse_args()
 
