@@ -23,7 +23,6 @@ import torch.nn.functional as F
 import misc.utils as utils
 
 import copy
-from torch.autograd import Variable
 import math
 import numpy as np
 
@@ -161,7 +160,6 @@ def attention(query, key, value, mask=None, dropout=None):
     d_k = query.size(-1)
     scores = torch.matmul(query, key.transpose(-2, -1)) \
              / math.sqrt(d_k)
-
     if mask is not None:
         scores = scores.masked_fill(mask == 0, -1e9)
     p_attn = F.softmax(scores, dim = -1)
@@ -187,7 +185,7 @@ class MultiHeadedAttention(nn.Module):
             # Same mask applied to all h heads.
             mask = mask.unsqueeze(1)
         nbatches = query.size(0)
-
+        
         # 1) Do all the linear projections in batch from d_model => h x d_k 
         query, key, value = \
             [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
@@ -239,8 +237,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
         
     def forward(self, x):
-        x = x + Variable(self.pe[:, :x.size(1)], 
-                         requires_grad=False)
+        x = x + self.pe[:, :x.size(1)]
         return self.dropout(x)
 
 class TransformerModel(CaptionModel):
