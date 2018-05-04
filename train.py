@@ -71,28 +71,35 @@ def train(opt):
     model = models.setup(opt).cuda()
     dp_model = torch.nn.DataParallel(model)
 
-    update_lr_flag = True
+    epoch_done = True
     # Assure in training mode
     dp_model.train()
 
-    crit = utils.LanguageModelCriterion()
+    if opt.label_smoothing > 0:
+        crit = utils.LabelSmoothing(smoothing=opt.label_smoothing)
+    else:
+        crit = utils.LanguageModelCriterion()
     rl_crit = utils.RewardCriterion()
 
-    optimizer = utils.build_optimizer(model.parameters(), opt)
+    if opt.noamopt:
+        optimizer = utils.get_std_opt(model.model)
+    else:
+        optimizer = utils.build_optimizer(model.parameters(), opt)
     # Load the optimizer
     if vars(opt).get('start_from', None) is not None and os.path.isfile(os.path.join(opt.start_from,"optimizer.pth")):
         optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
 
     while True:
-        if update_lr_flag:
+        if epoch_done:
+            if not opt.noamopt:
                 # Assign the learning rate
-            if epoch > opt.learning_rate_decay_start and opt.learning_rate_decay_start >= 0:
-                frac = (epoch - opt.learning_rate_decay_start) // opt.learning_rate_decay_every
-                decay_factor = opt.learning_rate_decay_rate  ** frac
-                opt.current_lr = opt.learning_rate * decay_factor
-            else:
-                opt.current_lr = opt.learning_rate
-            utils.set_lr(optimizer, opt.current_lr) # set the decayed rate
+                if epoch > opt.learning_rate_decay_start and opt.learning_rate_decay_start >= 0:
+                    frac = (epoch - opt.learning_rate_decay_start) // opt.learning_rate_decay_every
+                    decay_factor = opt.learning_rate_decay_rate  ** frac
+                    opt.current_lr = opt.learning_rate * decay_factor
+                else:
+                    opt.current_lr = opt.learning_rate
+                utils.set_lr(optimizer, opt.current_lr) # set the decayed rate
             # Assign the scheduled sampling prob
             if epoch > opt.scheduled_sampling_start and opt.scheduled_sampling_start >= 0:
                 frac = (epoch - opt.scheduled_sampling_start) // opt.scheduled_sampling_increase_every
@@ -106,7 +113,7 @@ def train(opt):
             else:
                 sc_flag = False
 
-            update_lr_flag = False
+            epoch_done = False
                 
         start = time.time()
         # Load data from train split (0)
@@ -145,11 +152,13 @@ def train(opt):
         iteration += 1
         if data['bounds']['wrapped']:
             epoch += 1
-            update_lr_flag = True
+            epoch_done = True
 
         # Write the training loss summary
         if (iteration % opt.losses_log_every == 0):
             add_summary_value(tb_summary_writer, 'train_loss', train_loss, iteration)
+            if opt.noamopt:
+                opt.current_lr = optimizer.rate()
             add_summary_value(tb_summary_writer, 'learning_rate', opt.current_lr, iteration)
             add_summary_value(tb_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
             if sc_flag:
