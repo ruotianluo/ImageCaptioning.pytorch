@@ -468,48 +468,60 @@ class TransformerModel(CaptionModel):
             ys = torch.cat([ys, next_word.unsqueeze(1)], dim=1)
         return seq, seqLogprobs
 
-        # batch_size = fc_feats.size(0)
-        # state = self.init_hidden(batch_size)
+    def _sample_(self, fc_feats, att_feats, att_masks=None, opt={}):
+        att_feats, att_masks = self.clip_att(att_feats, att_masks)
 
-        # fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
+        sample_max = opt.get('sample_max', 1)
+        beam_size = opt.get('beam_size', 1)
+        temperature = opt.get('temperature', 1.0)
+        decoding_constraint = opt.get('decoding_constraint', 0)
+        if beam_size > 1:
+            return self._sample_beam(fc_feats, att_feats, att_masks, opt)
 
-        # seq = fc_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
-        # seqLogprobs = fc_feats.new_zeros(batch_size, self.seq_length)
-        # for t in range(self.seq_length + 1):
-        #     if t == 0: # input <bos>
-        #         it = fc_feats.new_zeros(batch_size, dtype=torch.long)
-        #     elif sample_max:
-        #         sampleLogprobs, it = torch.max(logprobs.data, 1)
-        #         it = it.view(-1).long()
-        #     else:
-        #         if temperature == 1.0:
-        #             prob_prev = torch.exp(logprobs.data) # fetch prev distribution: shape Nx(M+1)
-        #         else:
-        #             # scale logprobs by temperature
-        #             prob_prev = torch.exp(torch.div(logprobs.data, temperature))
-        #         it = torch.multinomial(prob_prev, 1)
-        #         sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
-        #         it = it.view(-1).long() # and flatten indices for downstream processing
+        batch_size = fc_feats.size(0)
+        state = self.init_hidden(batch_size)
 
-        #     if t >= 1:
-        #         # stop when all finished
-        #         if t == 1:
-        #             unfinished = it > 0
-        #         else:
-        #             unfinished = unfinished * (it > 0)
-        #         if unfinished.sum() == 0:
-        #             break
-        #         it = it * unfinished.type_as(it)
-        #         seq[:,t-1] = it
-        #         # seq.append(it) #seq[t] the input of t+2 time step
+        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
 
-        #         # seqLogprobs.append(sampleLogprobs.view(-1))
-        #         seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
+        # seq = []
+        # seqLogprobs = []
+        seq = fc_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
+        seqLogprobs = fc_feats.new_zeros(batch_size, self.seq_length)
+        for t in range(self.seq_length + 1):
+            if t == 0: # input <bos>
+                it = fc_feats.new_zeros(batch_size, dtype=torch.long)
+            elif sample_max:
+                sampleLogprobs, it = torch.max(logprobs.data, 1)
+                it = it.view(-1).long()
+            else:
+                if temperature == 1.0:
+                    prob_prev = torch.exp(logprobs.data) # fetch prev distribution: shape Nx(M+1)
+                else:
+                    # scale logprobs by temperature
+                    prob_prev = torch.exp(torch.div(logprobs.data, temperature))
+                it = torch.multinomial(prob_prev, 1)
+                sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
+                it = it.view(-1).long() # and flatten indices for downstream processing
 
-        #     logprobs, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
-        #     if decoding_constraint and t > 0:
-        #         tmp = output.new_zeros(output.size(0), self.vocab_size + 1)
-        #         tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
-        #         logprobs = logprobs + tmp
+            if t >= 1:
+                # stop when all finished
+                if t == 1:
+                    unfinished = it > 0
+                else:
+                    unfinished = unfinished * (it > 0)
+                if unfinished.sum() == 0:
+                    break
+                it = it * unfinished.type_as(it)
+                seq[:,t-1] = it
+                # seq.append(it) #seq[t] the input of t+2 time step
 
-        # return seq, seqLogprobs
+                # seqLogprobs.append(sampleLogprobs.view(-1))
+                seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
+
+            logprobs, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
+            if decoding_constraint and t > 0:
+                tmp = output.new_zeros(output.size(0), self.vocab_size + 1)
+                tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
+                logprobs = logprobs + tmp
+
+        return seq, seqLogprobs
