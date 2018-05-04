@@ -397,11 +397,28 @@ class TransformerModel(CaptionModel):
         return outputs
         # return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
+    def get_logprobs_state(self, it, memory, mask, state):
+        """
+        state = [ys.unsqueeze(0)]
+        """
+        if state is None:
+            ys = it.unsqueeze(1)
+        else:
+            ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
+        out = self.model.decode(memory, mask, 
+                               ys, 
+                               subsequent_mask(ys.size(1))
+                                        .to(memory.device))
+        logprobs = self.model.generator(out[:, -1])
+
+        return logprobs, [ys.unsqueeze(0)]
+
     def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
-        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
+        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks)
+        memory = self.model.encode(att_feats, att_masks)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
@@ -410,31 +427,33 @@ class TransformerModel(CaptionModel):
 
         self.done_beams = [[] for _ in range(batch_size)]
         for k in range(batch_size):
-            state = self.init_hidden(beam_size)
-            tmp_fc_feats = fc_feats[k:k+1].expand(beam_size, fc_feats.size(1))
-            tmp_att_feats = att_feats[k:k+1].expand(*((beam_size,)+att_feats.size()[1:])).contiguous()
-            tmp_p_att_feats = p_att_feats[k:k+1].expand(*((beam_size,)+p_att_feats.size()[1:])).contiguous()
+            state = None
+            tmp_memory = memory[k:k+1].expand(*((beam_size,)+memory.size()[1:])).contiguous()
             tmp_att_masks = att_masks[k:k+1].expand(*((beam_size,)+att_masks.size()[1:])).contiguous() if att_masks is not None else None
 
             for t in range(1):
                 if t == 0: # input <bos>
                     it = fc_feats.new_zeros([beam_size], dtype=torch.long)
 
-                logprobs, state = self.get_logprobs_state(it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state)
+                logprobs, state = self.get_logprobs_state(it, tmp_memory, tmp_att_masks, state)
 
-            self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, opt=opt)
+            self.done_beams[k] = self.beam_search(state, logprobs, tmp_memory, tmp_att_masks, opt=opt)
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
+    def _sample_(self, fc_feats, att_feats, att_masks=None, opt={}):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
         decoding_constraint = opt.get('decoding_constraint', 0)
         if beam_size > 1:
             return self._sample_beam(fc_feats, att_feats, att_masks, opt)
+
+        if sample_max:
+            with torch.no_grad():
+                seq_, seqLogprobs_ = self._sample_(fc_feats, att_feats, att_masks, opt)
 
         batch_size = att_feats.shape[0]
 
@@ -466,11 +485,11 @@ class TransformerModel(CaptionModel):
             seq[:,i] = next_word
             seqLogprobs[:,i] = sampleLogprobs
             ys = torch.cat([ys, next_word.unsqueeze(1)], dim=1)
+        assert (seq*((seq_>0).long())==seq_).all(), 'seq doens\'t match'
+        assert (seqLogprobs*((seq_>0).float()) - seqLogprobs_*((seq_>0).float())).abs().max() < 1e-5, 'logprobs doens\'t match'
         return seq, seqLogprobs
 
-    def _sample_(self, fc_feats, att_feats, att_masks=None, opt={}):
-        att_feats, att_masks = self.clip_att(att_feats, att_masks)
-
+    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
@@ -478,19 +497,30 @@ class TransformerModel(CaptionModel):
         if beam_size > 1:
             return self._sample_beam(fc_feats, att_feats, att_masks, opt)
 
-        batch_size = fc_feats.size(0)
-        state = self.init_hidden(batch_size)
+        batch_size = att_feats.shape[0]
 
-        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
+        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks)
 
-        # seq = []
-        # seqLogprobs = []
-        seq = fc_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
-        seqLogprobs = fc_feats.new_zeros(batch_size, self.seq_length)
+        state = None
+        memory = self.model.encode(att_feats, att_masks)
+
+        seq = att_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
+        seqLogprobs = att_feats.new_zeros(batch_size, self.seq_length)
+
         for t in range(self.seq_length + 1):
             if t == 0: # input <bos>
                 it = fc_feats.new_zeros(batch_size, dtype=torch.long)
-            elif sample_max:
+
+            logprobs, state = self.get_logprobs_state(it, memory, att_masks, state)
+            if decoding_constraint and t > 0:
+                tmp = output.new_zeros(output.size(0), self.vocab_size + 1)
+                tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
+                logprobs = logprobs + tmp
+
+            # sample the next word
+            if t == self.seq_length: # skip if we achieve maximum length
+                break
+            if sample_max:
                 sampleLogprobs, it = torch.max(logprobs.data, 1)
                 it = it.view(-1).long()
             else:
@@ -503,25 +533,16 @@ class TransformerModel(CaptionModel):
                 sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
                 it = it.view(-1).long() # and flatten indices for downstream processing
 
-            if t >= 1:
-                # stop when all finished
-                if t == 1:
-                    unfinished = it > 0
-                else:
-                    unfinished = unfinished * (it > 0)
-                if unfinished.sum() == 0:
-                    break
-                it = it * unfinished.type_as(it)
-                seq[:,t-1] = it
-                # seq.append(it) #seq[t] the input of t+2 time step
-
-                # seqLogprobs.append(sampleLogprobs.view(-1))
-                seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
-
-            logprobs, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
-            if decoding_constraint and t > 0:
-                tmp = output.new_zeros(output.size(0), self.vocab_size + 1)
-                tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
-                logprobs = logprobs + tmp
+            # stop when all finished
+            if t == 0:
+                unfinished = it > 0
+            else:
+                unfinished = unfinished * (it > 0)
+            it = it * unfinished.type_as(it)
+            seq[:,t] = it
+            seqLogprobs[:,t] = sampleLogprobs.view(-1)
+            # quit loop if all sequences have finished
+            if unfinished.sum() == 0:
+                break
 
         return seq, seqLogprobs
