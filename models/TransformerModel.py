@@ -271,10 +271,9 @@ class TransformerModel(CaptionModel):
         # d_model = self.input_encoding_size # 512
 
         self.vocab_size = opt.vocab_size
-        # self.input_encoding_size = opt.input_encoding_size
+        self.input_encoding_size = opt.input_encoding_size
         # #self.rnn_type = opt.rnn_type
         self.rnn_size = opt.rnn_size
-        self.rnn_size = 512
         # self.num_layers = opt.num_layers
         self.drop_prob_lm = opt.drop_prob_lm
         self.seq_length = opt.seq_length
@@ -294,10 +293,10 @@ class TransformerModel(CaptionModel):
         #                             nn.Dropout(self.drop_prob_lm))
         self.att_embed = nn.Sequential(*(
                                     ((nn.BatchNorm1d(self.att_feat_size),) if self.use_bn else ())+
-                                    (nn.Linear(self.att_feat_size, self.rnn_size),
+                                    (nn.Linear(self.att_feat_size, self.input_encoding_size),
                                     nn.ReLU(),
                                     nn.Dropout(self.drop_prob_lm))+
-                                    ((nn.BatchNorm1d(self.rnn_size),) if self.use_bn==2 else ())))
+                                    ((nn.BatchNorm1d(self.input_encoding_size),) if self.use_bn==2 else ())))
 
         # self.logit_layers = getattr(opt, 'logit_layers', 1)
         # if self.logit_layers == 1:
@@ -308,7 +307,10 @@ class TransformerModel(CaptionModel):
         # self.ctx2att = nn.Linear(self.rnn_size, self.att_hid_size)
 
         tgt_vocab = self.vocab_size + 1
-        self.model = self.make_model(0, tgt_vocab)
+        self.model = self.make_model(0, tgt_vocab,
+            N=opt.num_layers,
+            d_model=opt.input_encoding_size,
+            d_ff=opt.rnn_size)
 
     # def init_hidden(self, bsz):
     #     weight = next(self.parameters())
