@@ -67,7 +67,7 @@ class CaptionModel(nn.Module):
             for c in range(cols): # for each column (word, essentially)
                 for q in range(rows): # for each beam expansion
                     #compute logprob of expanding beam q with word in (sorted) position c
-                    local_logprob = ys[q,c]
+                    local_logprob = ys[q,c].item()
                     candidate_logprob = beam_logprobs_sum[q] + local_logprob
                     local_unaug_logprob = unaug_logprobsf[q,ix[q,c]]
                     candidates.append({'c':ix[q,c], 'q':q, 'p':candidate_logprob, 'r':local_unaug_logprob})
@@ -157,8 +157,8 @@ class CaptionModel(nn.Module):
                             final_beam = {
                                 'seq': beam_seq_table[divm][:, vix].clone(), 
                                 'logps': beam_seq_logprobs_table[divm][:, vix].clone(),
-                                'unaug_p': beam_seq_logprobs_table[divm][:, vix].sum(),
-                                'p': beam_logprobs_sum_table[divm][vix]
+                                'unaug_p': beam_seq_logprobs_table[divm][:, vix].sum().item(),
+                                'p': beam_logprobs_sum_table[divm][vix].item()
                             }
                             if max_ppl:
                                 final_beam['p'] = final_beam['p'] / (t-divm+1)
