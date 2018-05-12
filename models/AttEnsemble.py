@@ -45,19 +45,14 @@ class AttEnsemble(CaptionModel):
 
     def get_logprobs_state(self, it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state):
         # 'it' contains a word index
-        xt = self.embed(it, requires_grad=False)
+        xt = self.embed(it)
 
         output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, tmp_att_masks)
         logprobs = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
 
         return logprobs, state
 
-    def _forward(self, fc_feats, att_feats, seq, att_masks=None):
-        batch_size = fc_feats.size(0)
-        state = self.init_hidden(batch_size)
-
-        # outputs = []
-        outputs = fc_feats.new_zeros(batch_size, seq.size(1) - 1, self.vocab_size+1)
+    def _prepare_feature(self, fc_feats, att_feats, att_masks):
 
         # embed fc and att feats
         fc_feats = [m.fc_embed(fc_feats) for m in self.models]
@@ -65,6 +60,16 @@ class AttEnsemble(CaptionModel):
 
         # Project the attention feats first to reduce memory and computation comsumptions.
         p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
+
+        return fc_feats, att_feats, p_att_feats
+
+    def _forward(self, fc_feats, att_feats, seq, att_masks=None):
+        batch_size = fc_feats.size(0)
+        state = self.init_hidden(batch_size)
+
+        outputs = fc_feats.new_zeros(batch_size, seq.size(1) - 1, self.vocab_size+1)
+
+        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         for i in range(seq.size(1) - 1):
             if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
@@ -86,26 +91,16 @@ class AttEnsemble(CaptionModel):
             if i >= 1 and seq[:, i].data.sum() == 0:
                 break
 
-            xt = self.embed(it)
-
-            output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
-            output = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
+            output, state = get_logprobs_state(self, it, fc_feats, att_feats, p_att_feats, [att_masks] * len(self.models), state)
             outputs[:, i] = output
-            # outputs.append(output)
 
         return outputs
-        # return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
     def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
-        # embed fc and att feats
-        fc_feats = [m.fc_embed(fc_feats) for m in self.models]
-        att_feats = [pack_wrapper(m.att_embed, att_feats[...,:m.att_feat_size], att_masks) for m in self.models]
-
-        # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
+        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
@@ -120,13 +115,8 @@ class AttEnsemble(CaptionModel):
             tmp_p_att_feats = [p_att_feats[i][k:k+1].expand(*((beam_size,)+p_att_feats[i].size()[1:])).contiguous() for i,m in enumerate(self.models)]
             tmp_att_masks = [att_masks[k:k+1].expand(*((beam_size,)+att_masks.size()[1:])).contiguous() if att_masks is not None else None] * len(self.models)
 
-            for t in range(1):
-                if t == 0: # input <bos>
-                    it = fc_feats[0].data.new(beam_size).long().zero_()
-                    xt = self.embed(it)
-
-                output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, tmp_att_masks)
-                logprobs = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
+            it = fc_feats[0].data.new(beam_size).long().zero_()
+            logprobs, state = self.get_logprobs_state(it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state)
 
             self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, opt=opt)
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
@@ -145,15 +135,8 @@ class AttEnsemble(CaptionModel):
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
 
-        # embed fc and att feats
-        fc_feats = [m.fc_embed(fc_feats) for m in self.models]
-        att_feats = [pack_wrapper(m.att_embed, att_feats[...,:m.att_feat_size], att_masks) for m in self.models]
+        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
 
-        # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
-
-        # seq = []
-        # seqLogprobs = []
         seq = fc_feats[0].new_zeros((batch_size, self.seq_length), dtype=torch.long)
         seqLogprobs = fc_feats[0].new_zeros(batch_size, self.seq_length)
         for t in range(self.seq_length + 1):
@@ -172,8 +155,6 @@ class AttEnsemble(CaptionModel):
                 sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
                 it = it.view(-1).long() # and flatten indices for downstream processing
 
-            xt = self.embed(it)
-
             if t >= 1:
                 # stop when all finished
                 if t == 1:
@@ -184,21 +165,15 @@ class AttEnsemble(CaptionModel):
                     break
                 it = it * unfinished.type_as(it)
                 seq[:,t-1] = it
-                # seq.append(it) #seq[t] the input of t+2 time step
-
-                # seqLogprobs.append(sampleLogprobs.view(-1))
                 seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
 
-            output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, [att_masks] * len(self.models))
+            logprobs, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, [att_masks] * len(self.models), state)
             if decoding_constraint and t > 0:
-                tmp = output.data.new(output.size(0), self.vocab_size + 1).zero_()
+                tmp = logprobs.new_zeros(logprobs.size())
                 tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
-                logprobs = torch.stack([F.softmax(m.logit(output[i]+tmp), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
-            else:
-                logprobs = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
+                logprobs = logprobs + tmp
 
         return seq, seqLogprobs
-        # return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
 
     def beam_search(self, init_state, init_logprobs, *args, **kwargs):
 
