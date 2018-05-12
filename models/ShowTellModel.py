@@ -46,7 +46,7 @@ class ShowTellModel(CaptionModel):
         else:
             return weight.new_zeros(self.num_layers, bsz, self.rnn_size)
 
-    def forward(self, fc_feats, att_feats, seq):
+    def _forward(self, fc_feats, att_feats, seq, att_masks=None):
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
         outputs = []
@@ -89,7 +89,7 @@ class ShowTellModel(CaptionModel):
 
         return logprobs, state
 
-    def sample_beam(self, fc_feats, att_feats, opt={}):
+    def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
@@ -117,7 +117,7 @@ class ShowTellModel(CaptionModel):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def sample(self, fc_feats, att_feats, opt={}):
+    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
