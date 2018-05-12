@@ -523,7 +523,7 @@ class Attention(nn.Module):
 
     def forward(self, h, att_feats, p_att_feats, att_masks=None):
         # The p_att_feats here is already projected
-        att_size = att_feats.numel() // att_feats.size(0) // self.rnn_size
+        att_size = att_feats.numel() // att_feats.size(0) // att_feats.size(-1)
         att = p_att_feats.view(-1, att_size, self.att_hid_size)
         
         att_h = self.h2att(h)                        # batch * att_hid_size
@@ -538,11 +538,10 @@ class Attention(nn.Module):
         if att_masks is not None:
             weight = weight * att_masks.view(-1, att_size).float()
             weight = weight / weight.sum(1, keepdim=True) # normalize to 1
-        att_feats_ = att_feats.view(-1, att_size, self.rnn_size) # batch * att_size * att_feat_size
+        att_feats_ = att_feats.view(-1, att_size, att_feats.size(-1)) # batch * att_size * att_feat_size
         att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1) # batch * att_feat_size
 
         return att_res
-
 
 class Att2in2Core(nn.Module):
     def __init__(self, opt):
@@ -586,6 +585,11 @@ class Att2in2Core(nn.Module):
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
+class Att2inCore(Att2in2Core):
+    def __init__(self, opt):
+        super(Att2inCore, self).__init__(opt)
+        del self.a2c
+        self.a2c = nn.Linear(self.att_feat_size, 2 * self.rnn_size)
 
 """
 Note this is my attempt to replicate att2all model in self-critical paper.
@@ -674,3 +678,20 @@ class DenseAttModel(AttModel):
         super(DenseAttModel, self).__init__(opt)
         self.num_layers = 3
         self.core = DenseAttCore(opt)
+
+class Att2inModel(AttModel):
+    def __init__(self, opt):
+        super(Att2inModel, self).__init__(opt)
+        del self.embed, self.fc_embed, self.att_embed
+        self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
+        self.fc_embed = self.att_embed = lambda x: x
+        del self.ctx2att
+        self.ctx2att = nn.Linear(self.att_feat_size, self.att_hid_size)
+        self.core = Att2inCore(opt)
+        self.init_weights()
+
+    def init_weights(self):
+        initrange = 0.1
+        self.embed.weight.data.uniform_(-initrange, initrange)
+        self.logit.bias.data.fill_(0)
+        self.logit.weight.data.uniform_(-initrange, initrange)
