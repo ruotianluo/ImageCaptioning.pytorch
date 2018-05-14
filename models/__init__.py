@@ -19,6 +19,8 @@ def setup(opt):
     
     if opt.caption_model == 'fc':
         model = FCModel(opt)
+    if opt.caption_model == 'show_tell':
+        model = ShowTellModel(opt)
     # Att2in model in self-critical
     elif opt.caption_model == 'att2in':
         model = Att2inModel(opt)
