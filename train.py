@@ -85,6 +85,9 @@ def train(opt):
         assert opt.caption_model == 'transformer', 'noamopt can only work with transformer'
         optimizer = utils.get_std_opt(model, factor=opt.noamopt_factor, warmup=opt.noamopt_warmup)
         optimizer._step = iteration
+    elif opt.reduce_on_plateau:
+        optimizer = utils.build_optimizer(model.parameters(), opt)
+        optimizer = utils.ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
     else:
         optimizer = utils.build_optimizer(model.parameters(), opt)
     # Load the optimizer
@@ -93,7 +96,7 @@ def train(opt):
 
     while True:
         if epoch_done:
-            if not opt.noamopt:
+            if not opt.noamopt and not opt.reduce_on_plateau:
                 # Assign the learning rate
                 if epoch > opt.learning_rate_decay_start and opt.learning_rate_decay_start >= 0:
                     frac = (epoch - opt.learning_rate_decay_start) // opt.learning_rate_decay_every
@@ -161,6 +164,8 @@ def train(opt):
             add_summary_value(tb_summary_writer, 'train_loss', train_loss, iteration)
             if opt.noamopt:
                 opt.current_lr = optimizer.rate()
+            elif opt.reduce_on_plateau:
+                opt.current_lr = optimizer.current_lr
             add_summary_value(tb_summary_writer, 'learning_rate', opt.current_lr, iteration)
             add_summary_value(tb_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
             if sc_flag:
@@ -177,6 +182,12 @@ def train(opt):
                             'dataset': opt.input_json}
             eval_kwargs.update(vars(opt))
             val_loss, predictions, lang_stats = eval_utils.eval_split(dp_model, crit, loader, eval_kwargs)
+
+            if opt.reduce_on_plateau:
+                if 'CIDEr' in lang_stats:
+                    optimizer.scheduler_step(-lang_stats['CIDEr'])
+                else:
+                    optimizer.scheduler_step(val_loss)
 
             # Write validation result into summary
             add_summary_value(tb_summary_writer, 'validation loss', val_loss, iteration)

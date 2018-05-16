@@ -138,6 +138,9 @@ def parse_opt():
     parser.add_argument('--noamopt_factor', type=float, default=1,
                     help='')
 
+    parser.add_argument('--reduce_on_plateau', action='store_true',
+                    help='')
+
     args = parser.parse_args()
 
     # Check if args are valid
