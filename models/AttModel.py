@@ -200,14 +200,23 @@ class AttModel(CaptionModel):
 
         fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
 
-        # seq = []
-        # seqLogprobs = []
         seq = fc_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
         seqLogprobs = fc_feats.new_zeros(batch_size, self.seq_length)
         for t in range(self.seq_length + 1):
             if t == 0: # input <bos>
                 it = fc_feats.new_zeros(batch_size, dtype=torch.long)
-            elif sample_max:
+
+            logprobs, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
+            
+            if decoding_constraint and t > 0:
+                tmp = logprobs.new_zeros(logprobs.size())
+                tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
+                logprobs = logprobs + tmp
+
+            # sample the next word
+            if t == self.seq_length: # skip if we achieve maximum length
+                break
+            if sample_max:
                 sampleLogprobs, it = torch.max(logprobs.data, 1)
                 it = it.view(-1).long()
             else:
@@ -220,29 +229,19 @@ class AttModel(CaptionModel):
                 sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
                 it = it.view(-1).long() # and flatten indices for downstream processing
 
-            if t >= 1:
-                # stop when all finished
-                if t == 1:
-                    unfinished = it > 0
-                else:
-                    unfinished = unfinished * (it > 0)
-                if unfinished.sum() == 0:
-                    break
-                it = it * unfinished.type_as(it)
-                seq[:,t-1] = it
-                # seq.append(it) #seq[t] the input of t+2 time step
-
-                # seqLogprobs.append(sampleLogprobs.view(-1))
-                seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
-
-            logprobs, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
-            if decoding_constraint and t > 0:
-                tmp = output.new_zeros(output.size(0), self.vocab_size + 1)
-                tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
-                logprobs = logprobs + tmp
+            # stop when all finished
+            if t == 0:
+                unfinished = it > 0
+            else:
+                unfinished = unfinished * (it > 0)
+            it = it * unfinished.type_as(it)
+            seq[:,t] = it
+            seqLogprobs[:,t] = sampleLogprobs.view(-1)
+            # quit loop if all sequences have finished
+            if unfinished.sum() == 0:
+                break
 
         return seq, seqLogprobs
-        # return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
 
 class AdaAtt_lstm(nn.Module):
     def __init__(self, opt, use_maxout=True):
