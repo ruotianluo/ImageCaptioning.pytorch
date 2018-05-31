@@ -97,6 +97,7 @@ class AttModel(CaptionModel):
         return att_feats, att_masks
 
     def _prepare_feature(self, fc_feats, att_feats, att_masks):
+        att_feats, att_masks = self.clip_att(att_feats, att_masks)
 
         # embed fc and att feats
         fc_feats = self.fc_embed(fc_feats)
@@ -105,18 +106,17 @@ class AttModel(CaptionModel):
         # Project the attention feats first to reduce memory and computation comsumptions.
         p_att_feats = self.ctx2att(att_feats)
 
-        return fc_feats, att_feats, p_att_feats
+        return fc_feats, att_feats, p_att_feats, att_masks
 
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
-        att_feats, att_masks = self.clip_att(att_feats, att_masks)
-
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
 
-        # outputs = []
         outputs = fc_feats.new_zeros(batch_size, seq.size(1) - 1, self.vocab_size+1)
 
-        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
+        # Prepare the features
+        p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
+        # pp_att_feats is used for attention, we cache it in advance to reduce computation cost
 
         for i in range(seq.size(1) - 1):
             if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
@@ -138,12 +138,10 @@ class AttModel(CaptionModel):
             if i >= 1 and seq[:, i].sum() == 0:
                 break
 
-            output, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
+            output, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state)
             outputs[:, i] = output
-            # outputs.append(output)
 
         return outputs
-        # return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
     def get_logprobs_state(self, it, fc_feats, att_feats, p_att_feats, att_masks, state):
         # 'it' contains a word index
@@ -158,7 +156,7 @@ class AttModel(CaptionModel):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
-        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
+        p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
@@ -168,10 +166,10 @@ class AttModel(CaptionModel):
         self.done_beams = [[] for _ in range(batch_size)]
         for k in range(batch_size):
             state = self.init_hidden(beam_size)
-            tmp_fc_feats = fc_feats[k:k+1].expand(beam_size, fc_feats.size(1))
-            tmp_att_feats = att_feats[k:k+1].expand(*((beam_size,)+att_feats.size()[1:])).contiguous()
-            tmp_p_att_feats = p_att_feats[k:k+1].expand(*((beam_size,)+p_att_feats.size()[1:])).contiguous()
-            tmp_att_masks = att_masks[k:k+1].expand(*((beam_size,)+att_masks.size()[1:])).contiguous() if att_masks is not None else None
+            tmp_fc_feats = p_fc_feats[k:k+1].expand(beam_size, p_fc_feats.size(1))
+            tmp_att_feats = p_att_feats[k:k+1].expand(*((beam_size,)+p_att_feats.size()[1:])).contiguous()
+            tmp_p_att_feats = pp_att_feats[k:k+1].expand(*((beam_size,)+pp_att_feats.size()[1:])).contiguous()
+            tmp_att_masks = p_att_masks[k:k+1].expand(*((beam_size,)+p_att_masks.size()[1:])).contiguous() if att_masks is not None else None
 
             for t in range(1):
                 if t == 0: # input <bos>
@@ -186,7 +184,6 @@ class AttModel(CaptionModel):
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
     def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
-        att_feats, att_masks = self.clip_att(att_feats, att_masks)
 
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
@@ -198,7 +195,7 @@ class AttModel(CaptionModel):
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
 
-        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
+        p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         seq = fc_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
         seqLogprobs = fc_feats.new_zeros(batch_size, self.seq_length)
@@ -206,7 +203,7 @@ class AttModel(CaptionModel):
             if t == 0: # input <bos>
                 it = fc_feats.new_zeros(batch_size, dtype=torch.long)
 
-            logprobs, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
+            logprobs, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state)
             
             if decoding_constraint and t > 0:
                 tmp = logprobs.new_zeros(logprobs.size())
