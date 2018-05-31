@@ -1,3 +1,42 @@
+# Transformer for captioning
+
+This is an experiment to use transformer model to do captioning. Most of the code is copy from [Harvard detailed tutorial for transformer(http://nlp.seas.harvard.edu/2018/04/03/attention.html).
+
+Also, notice, this repository is a fork of my [self-critical.pytorch](https://github.com/ruotianluo/self-critical.pytorch) repository. Most of the code are shared.
+
+The addition to self-critical.pytorch is following:
+- transformer model
+- Add warmup adam for training transformer (important)
+- Add reduce_on_paltaeu (not really useful)
+
+A training script that could achieve 1.25 on validation set without beam search.
+
+```bash
+id="transformer"
+ckpt_path="log_"$id
+if [ ! -d $ckpt_path ]; then
+  mkdir $ckpt_path
+fi
+if [ ! -f $ckpt_path"/infos_"$id".pkl" ]; then
+start_from=""
+else
+start_from="--start_from "$ckpt_path
+fi
+
+python train.py --id $id --caption_model transformer --noamopt --noamopt_warmup 20000 --label_smoothing 0.0 --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5 --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --seq_per_img 5 --batch_size 10 --beam_size 1 --learning_rate 5e-4 --num_layers 6 --input_encoding_size 512 --rnn_size 2048 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --checkpoint_path $ckpt_path $start_from --save_checkpoint_every 3000 --language_eval 1 --val_images_use 5000 --max_epochs 15
+
+python train.py --id $id --caption_model transformer --reduce_on_plateau --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5 --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --seq_per_img 5 --batch_size 10 --beam_size 1 --learning_rate 1e-5 --num_layers 6 --input_encoding_size 512 --rnn_size 2048 --checkpoint_path $ckpt_path $start_from --save_checkpoint_every 3000 --language_eval 1 --val_images_use 5000 --self_critical_after 10
+```
+
+**Notice**: because I'm to lazy, I reuse the option name for RNNs to set the hyperparameters for transformer:
+```
+N=num_layers
+d_model=input_encoding_size
+d_ff=rnn_size
+h is always 8
+```
+
+
 # Self-critical Sequence Training for Image Captioning (+ misc.)
 
 This repository includes the unofficial implementation [Self-critical Sequence Training for Image Captioning](https://arxiv.org/abs/1612.00563) and [Bottom-Up and Top-Down Attention for Image Captioning and Visual Question Answering](https://arxiv.org/abs/1707.07998).
