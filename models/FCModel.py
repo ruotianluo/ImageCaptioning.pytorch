@@ -164,34 +164,37 @@ class FCModel(CaptionModel):
             else:
                 if t == 1: # input <bos>
                     it = fc_feats.data.new(batch_size).long().zero_()
-                elif sample_max:
-                    sampleLogprobs, it = torch.max(logprobs.data, 1)
-                    it = it.view(-1).long()
-                else:
-                    if temperature == 1.0:
-                        prob_prev = torch.exp(logprobs.data).cpu() # fetch prev distribution: shape Nx(M+1)
-                    else:
-                        # scale logprobs by temperature
-                        prob_prev = torch.exp(torch.div(logprobs.data, temperature)).cpu()
-                    it = torch.multinomial(prob_prev, 1).cuda()
-                    sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
-                    it = it.view(-1).long() # and flatten indices for downstream processing
-
                 xt = self.embed(it)
-
-            if t >= 2:
-                # stop when all finished
-                if t == 2:
-                    unfinished = it > 0
-                else:
-                    unfinished = unfinished * (it > 0)
-                if unfinished.sum() == 0:
-                    break
-                it = it * unfinished.type_as(it)
-                seq[:,t-2] = it #seq[t] the input of t+2 time step
-                seqLogprobs[:,t-2] = sampleLogprobs.view(-1)
 
             output, state = self.core(xt, state)
             logprobs = F.log_softmax(self.logit(output), dim=1)
+
+            # sample the next_word
+            if t == self.seq_length + 1: # skip if we achieve maximum length
+                break
+            if sample_max:
+                sampleLogprobs, it = torch.max(logprobs.data, 1)
+                it = it.view(-1).long()
+            else:
+                if temperature == 1.0:
+                    prob_prev = torch.exp(logprobs.data).cpu() # fetch prev distribution: shape Nx(M+1)
+                else:
+                    # scale logprobs by temperature
+                    prob_prev = torch.exp(torch.div(logprobs.data, temperature)).cpu()
+                it = torch.multinomial(prob_prev, 1).cuda()
+                sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
+                it = it.view(-1).long() # and flatten indices for downstream processing
+
+            if t >= 1:
+                # stop when all finished
+                if t == 1:
+                    unfinished = it > 0
+                else:
+                    unfinished = unfinished * (it > 0)
+                it = it * unfinished.type_as(it)
+                seq[:,t-1] = it #seq[t] the input of t+2 time step
+                seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
+                if unfinished.sum() == 0:
+                    break
 
         return seq, seqLogprobs

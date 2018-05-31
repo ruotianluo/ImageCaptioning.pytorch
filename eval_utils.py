@@ -82,7 +82,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         if data.get('labels', None) is not None and verbose_loss:
             # forward the model to get loss
             tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
-            tmp = [torch.from_numpy(_).cuda() for _ in tmp]
+            tmp = [torch.from_numpy(_).cuda() if _ is not None else _ for _ in tmp]
             fc_feats, att_feats, labels, masks, att_masks = tmp
 
             with torch.no_grad():
@@ -94,8 +94,8 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         # Only leave one feature for each image, in case duplicate sample
         tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
             data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img],
-            data['att_masks'][np.arange(loader.batch_size) * loader.seq_per_img]]
-        tmp = [torch.from_numpy(_).cuda() for _ in tmp]
+            data['att_masks'][np.arange(loader.batch_size) * loader.seq_per_img] if data['att_masks'] is not None else None]
+        tmp = [torch.from_numpy(_).cuda() if _ is not None else _ for _ in tmp]
         fc_feats, att_feats, att_masks = tmp
         # forward the model to also get generated samples for each image
         with torch.no_grad():

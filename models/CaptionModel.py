@@ -118,7 +118,7 @@ class CaptionModel(nn.Module):
 
         # Chunk elements in the args
         args = list(args)
-        args = [_.chunk(group_size) for _ in args]
+        args = [_.chunk(group_size) if _ is not None else [None]*group_size for _ in args]
         args = [[args[i][j] for i in range(len(args))] for j in range(group_size)]
 
         for t in range(self.seq_length + group_size - 1):

@@ -23,11 +23,12 @@ from torch.autograd import *
 import misc.utils as utils
 
 from .CaptionModel import CaptionModel
-from .AttModel import pack_wrapper
+from .AttModel import pack_wrapper, AttModel
 
-class AttEnsemble(CaptionModel):
+class AttEnsemble(AttModel):
     def __init__(self, models):
-        super(AttEnsemble, self).__init__()
+        CaptionModel.__init__(self)
+        # super(AttEnsemble, self).__init__()
 
         self.models = nn.ModuleList(models)
         self.vocab_size = models[0].vocab_size
@@ -53,6 +54,7 @@ class AttEnsemble(CaptionModel):
         return logprobs, state
 
     def _prepare_feature(self, fc_feats, att_feats, att_masks):
+        att_feats, att_masks = self.clip_att(att_feats, att_masks)
 
         # embed fc and att feats
         fc_feats = [m.fc_embed(fc_feats) for m in self.models]
@@ -61,46 +63,13 @@ class AttEnsemble(CaptionModel):
         # Project the attention feats first to reduce memory and computation comsumptions.
         p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
 
-        return fc_feats, att_feats, p_att_feats
-
-    def _forward(self, fc_feats, att_feats, seq, att_masks=None):
-        batch_size = fc_feats.size(0)
-        state = self.init_hidden(batch_size)
-
-        outputs = fc_feats.new_zeros(batch_size, seq.size(1) - 1, self.vocab_size+1)
-
-        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
-
-        for i in range(seq.size(1) - 1):
-            if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
-                sample_prob = fc_feats.data.new(batch_size).uniform_(0, 1)
-                sample_mask = sample_prob < self.ss_prob
-                if sample_mask.sum() == 0:
-                    it = seq[:, i].clone()
-                else:
-                    sample_ind = sample_mask.nonzero().view(-1)
-                    it = seq[:, i].data.clone()
-                    #prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
-                    #it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
-                    # prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
-                    prob_prev = torch.exp(outputs[:, i-1].data) # fetch prev distribution: shape Nx(M+1)
-                    it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
-            else:
-                it = seq[:, i].clone()          
-            # break if all the sequences end
-            if i >= 1 and seq[:, i].data.sum() == 0:
-                break
-
-            output, state = get_logprobs_state(self, it, fc_feats, att_feats, p_att_feats, [att_masks] * len(self.models), state)
-            outputs[:, i] = output
-
-        return outputs
+        return fc_feats, att_feats, p_att_feats, [att_masks] * len(self.models)
 
     def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
-        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
+        fc_feats, att_feats, p_att_feats, att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
@@ -113,7 +82,7 @@ class AttEnsemble(CaptionModel):
             tmp_fc_feats = [fc_feats[i][k:k+1].expand(beam_size, fc_feats[i].size(1)) for i,m in enumerate(self.models)]
             tmp_att_feats = [att_feats[i][k:k+1].expand(*((beam_size,)+att_feats[i].size()[1:])).contiguous() for i,m in enumerate(self.models)]
             tmp_p_att_feats = [p_att_feats[i][k:k+1].expand(*((beam_size,)+p_att_feats[i].size()[1:])).contiguous() for i,m in enumerate(self.models)]
-            tmp_att_masks = [att_masks[k:k+1].expand(*((beam_size,)+att_masks.size()[1:])).contiguous() if att_masks is not None else None] * len(self.models)
+            tmp_att_masks = [att_masks[k:k+1].expand(*((beam_size,)+att_masks.size()[1:])).contiguous() for i,m in enumerate(self.models)] if att_masks[0] is not None else att_masks
 
             it = fc_feats[0].data.new(beam_size).long().zero_()
             logprobs, state = self.get_logprobs_state(it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state)
@@ -123,57 +92,6 @@ class AttEnsemble(CaptionModel):
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
-
-    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
-        sample_max = opt.get('sample_max', 1)
-        beam_size = opt.get('beam_size', 1)
-        temperature = opt.get('temperature', 1.0)
-        decoding_constraint = opt.get('decoding_constraint', 0)
-        if beam_size > 1:
-            return self._sample_beam(fc_feats, att_feats, att_masks, opt)
-
-        batch_size = fc_feats.size(0)
-        state = self.init_hidden(batch_size)
-
-        fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
-
-        seq = fc_feats[0].new_zeros((batch_size, self.seq_length), dtype=torch.long)
-        seqLogprobs = fc_feats[0].new_zeros(batch_size, self.seq_length)
-        for t in range(self.seq_length + 1):
-            if t == 0: # input <bos>
-                it = fc_feats[0].data.new(batch_size).long().zero_()
-            elif sample_max:
-                sampleLogprobs, it = torch.max(logprobs.data, 1)
-                it = it.view(-1).long()
-            else:
-                if temperature == 1.0:
-                    prob_prev = torch.exp(logprobs.data) # fetch prev distribution: shape Nx(M+1)
-                else:
-                    # scale logprobs by temperature
-                    prob_prev = torch.exp(torch.div(logprobs.data, temperature))
-                it = torch.multinomial(prob_prev, 1)
-                sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
-                it = it.view(-1).long() # and flatten indices for downstream processing
-
-            if t >= 1:
-                # stop when all finished
-                if t == 1:
-                    unfinished = it > 0
-                else:
-                    unfinished = unfinished * (it > 0)
-                if unfinished.sum() == 0:
-                    break
-                it = it * unfinished.type_as(it)
-                seq[:,t-1] = it
-                seqLogprobs[:,t-1] = sampleLogprobs.view(-1)
-
-            logprobs, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, [att_masks] * len(self.models), state)
-            if decoding_constraint and t > 0:
-                tmp = logprobs.new_zeros(logprobs.size())
-                tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
-                logprobs = logprobs + tmp
-
-        return seq, seqLogprobs
 
     def beam_search(self, init_state, init_logprobs, *args, **kwargs):
 
@@ -263,7 +181,7 @@ class AttEnsemble(CaptionModel):
         # END INIT
 
         # Chunk elements in the args
-        args = [[_.chunk(group_size) for _ in args_] for args_ in args] # arg_name, model_name, group_name
+        args = [[_.chunk(group_size) if _ is not None else [None]*group_size for _ in args_] for args_ in args] # arg_name, model_name, group_name
         args = [[[args[j][i][k] for i in range(len(self.models))] for j in range(len(args))] for k in range(group_size)] # group_name, arg_name, model_name
 
         for t in range(self.seq_length + group_size - 1):
