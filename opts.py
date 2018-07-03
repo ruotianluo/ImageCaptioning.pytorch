@@ -151,6 +151,17 @@ def parse_opt():
     parser.add_argument('--bleu_reward_weight', type=float, default=0,
                     help='The reward weight from bleu4')
 
+
+    # Structure_loss
+    parser.add_argument('--structure_loss_weight', type=float, default=1,
+                    help='The reward weight from cider')
+    parser.add_argument('--structure_after', type=float, default=-1,
+                    help='The reward weight from cider')
+    parser.add_argument('--structure_sample_n', type=float, default=16,
+                    help='The reward weight from cider')
+    parser.add_argument('--structure_loss_type', type=str, default='seqnll',
+                    help='The reward weight from cider')
+
     args = parser.parse_args()
 
     # Check if args are valid

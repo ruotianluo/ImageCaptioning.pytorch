@@ -143,12 +143,15 @@ class AttModel(CaptionModel):
 
         return outputs
 
-    def get_logprobs_state(self, it, fc_feats, att_feats, p_att_feats, att_masks, state):
+    def get_logprobs_state(self, it, fc_feats, att_feats, p_att_feats, att_masks, state, output_logsoftmax=1):
         # 'it' contains a word index
         xt = self.embed(it)
 
         output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
-        logprobs = F.log_softmax(self.logit(output), dim=1)
+        if output_logsoftmax:
+            logprobs = F.log_softmax(self.logit(output), dim=1)
+        else:
+            logprobs = self.logit(output)
 
         return logprobs, state
 
@@ -188,25 +191,33 @@ class AttModel(CaptionModel):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
+        sample_n = int(opt.get('sample_n', 1))
+        output_logsoftmax = opt.get('output_logsoftmax', 1)
         decoding_constraint = opt.get('decoding_constraint', 0)
         block_trigrams = opt.get('block_trigrams', 0)
         if beam_size > 1:
             return self._sample_beam(fc_feats, att_feats, att_masks, opt)
 
         batch_size = fc_feats.size(0)
-        state = self.init_hidden(batch_size)
+        state = self.init_hidden(batch_size*sample_n)
 
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
 
-        trigrams = [] # will be a list of batch_size dictionaries
+        if sample_n > 1:
+            p_fc_feats = p_fc_feats.unsqueeze(1).repeat(1,sample_n,1).reshape((batch_size*sample_n,)+p_fc_feats.shape[1:])
+            p_att_feats = p_att_feats.unsqueeze(1).repeat(1,sample_n,1,1).reshape((batch_size*sample_n,)+p_att_feats.shape[1:])
+            pp_att_feats = pp_att_feats.unsqueeze(1).repeat(1,sample_n,1,1).reshape((batch_size*sample_n,)+pp_att_feats.shape[1:])
+            p_att_masks = p_att_masks.unsqueeze(1).repeat(1,sample_n,1,1).reshape((batch_size*sample_n,)+p_att_masks.shape[1:]) if att_masks is not None else None
 
-        seq = fc_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
-        seqLogprobs = fc_feats.new_zeros(batch_size, self.seq_length)
+        trigrams = [] # will be a list of batch_size dictionaries
+        
+        seq = fc_feats.new_zeros((batch_size*sample_n, self.seq_length), dtype=torch.long)
+        seqLogprobs = fc_feats.new_zeros(batch_size*sample_n, self.seq_length)
         for t in range(self.seq_length + 1):
             if t == 0: # input <bos>
-                it = fc_feats.new_zeros(batch_size, dtype=torch.long)
+                it = fc_feats.new_zeros(batch_size*sample_n, dtype=torch.long)
 
-            logprobs, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state)
+            logprobs, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state, output_logsoftmax=output_logsoftmax)
             
             if decoding_constraint and t > 0:
                 tmp = logprobs.new_zeros(logprobs.size())
@@ -247,14 +258,8 @@ class AttModel(CaptionModel):
                 sampleLogprobs, it = torch.max(logprobs.data, 1)
                 it = it.view(-1).long()
             else:
-                if temperature == 1.0:
-                    prob_prev = torch.exp(logprobs.data) # fetch prev distribution: shape Nx(M+1)
-                else:
-                    # scale logprobs by temperature
-                    prob_prev = torch.exp(torch.div(logprobs.data, temperature))
-                it = torch.multinomial(prob_prev, 1)
-                sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
-                it = it.view(-1).long() # and flatten indices for downstream processing
+                it = torch.distributions.Categorical(logits=logprobs.detach() / temperature).sample()
+                sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
 
             # stop when all finished
             if t == 0:

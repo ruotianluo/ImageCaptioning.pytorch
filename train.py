@@ -81,6 +81,7 @@ def train(opt):
     else:
         crit = utils.LanguageModelCriterion()
     rl_crit = utils.RewardCriterion()
+    struc_crit = utils.StructureLosses(opt)
 
     if opt.noamopt:
         assert opt.caption_model == 'transformer', 'noamopt can only work with transformer'
@@ -118,6 +119,11 @@ def train(opt):
                 init_scorer(opt.cached_tokens)
             else:
                 sc_flag = False
+            if opt.structure_after != -1 and epoch >= opt.structure_after:
+                struc_flag = True
+                init_scorer(opt.cached_tokens)
+            else:
+                struc_flag = False
 
             epoch_done = False
                 
@@ -134,7 +140,20 @@ def train(opt):
         fc_feats, att_feats, labels, masks, att_masks = tmp
         
         optimizer.zero_grad()
-        if not sc_flag:
+        if struc_flag:
+            if opt.structure_loss_weight < 1:
+                lm_loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
+            else:
+                lm_loss = torch.tensor(0).cuda()
+            gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks,
+                opt={'sample_max':0,
+                     'output_logsoftmax':'margin' in opt.structure_loss_type,
+                     'sample_n': opt.structure_sample_n},
+                mode='sample')
+            struc_loss = struc_crit(sample_logprobs, gen_result, data)
+
+            loss = (1-opt.structure_loss_weight) * lm_loss + opt.structure_loss_weight * struc_loss
+        elif not sc_flag:
             loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
             gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
@@ -147,7 +166,10 @@ def train(opt):
         train_loss = loss.item()
         torch.cuda.synchronize()
         end = time.time()
-        if not sc_flag:
+        if struc_flag:
+            print("iter {} (epoch {}), train_loss = {:.3f}, lm_loss = {:.3f}, struc_loss = {:.3f}, time/batch = {:.3f}" \
+                .format(iteration, epoch, train_loss, lm_loss.item(), struc_loss.item(), end - start))
+        elif not sc_flag:
             print("iter {} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" \
                 .format(iteration, epoch, train_loss, end - start))
         else:
@@ -171,6 +193,9 @@ def train(opt):
             add_summary_value(tb_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
             if sc_flag:
                 add_summary_value(tb_summary_writer, 'avg_reward', np.mean(reward[:,0]), iteration)
+            elif struc_flag:
+                add_summary_value(tb_summary_writer, 'lm_loss', lm_loss.item(), iteration)
+                add_summary_value(tb_summary_writer, 'struc_loss', struc_loss.item(), iteration)
 
             loss_history[iteration] = train_loss if not sc_flag else np.mean(reward[:,0])
             lr_history[iteration] = opt.current_lr

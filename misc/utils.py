@@ -9,6 +9,9 @@ import numpy as np
 import torch.optim as optim
 import os
 
+from .rewards import get_scores
+import torch.nn.functional as F
+
 import six
 from six.moves import cPickle
 
@@ -91,6 +94,77 @@ class RewardCriterion(nn.Module):
         mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
         output = - input * reward * mask
         output = torch.sum(output) / torch.sum(mask)
+
+        return output
+
+class StructureLosses(nn.Module):
+    def __init__(self, opt):
+        super(StructureLosses, self).__init__()
+        self.opt = opt
+        self.loss_type = opt.structure_loss_type
+
+    def forward(self, input, seq, data):
+        batch_size = input.size(0)# batch_size = sample_size * seq_per_img
+        seq_per_img = batch_size // len(data['gts'])
+
+        assert seq_per_img == self.opt.seq_per_img * self.opt.structure_sample_n, seq_per_img
+
+        mask = (seq>0).float()
+        mask = torch.cat([mask.new_full((mask.size(0), 1), 1), mask[:, :-1]], 1)
+        
+        scores = get_scores(data, seq, self.opt)
+        scores = torch.from_numpy(scores).type_as(input).view(-1, seq_per_img)
+        # rescale cost to [0,1]
+        costs = - scores
+        costs = costs - costs.min(1, keepdim=True)[0]
+        costs = costs / costs.max(1, keepdim=True)[0]
+
+        if self.loss_type == 'seqnll':
+            # input is logsoftmax
+            input = input * mask
+            input = input.sum(1)
+            input = input.view(-1, seq_per_img)
+
+            target = costs.min(1)[1]
+            output = F.cross_entropy(input, target)
+
+        if self.loss_type == 'risk':
+            # input is logsoftmax
+            input = input * mask
+            input = input.sum(1)
+            input = input.view(-1, seq_per_img)
+
+            output = (F.softmax(input) * costs).sum(1).mean()
+        elif self.loss_type == 'max_margin':
+            # input is logits
+            input = input * mask
+            input = input.sum(1) / mask.sum(1)
+            input = input.view(-1, seq_per_img)
+            _, __ = costs.min(1, keepdim=True)
+            costs_star = _
+            input_star = input.gather(1, __)
+            output = F.relu(costs - costs_star - input_star + input).max(1)[0]
+            output = output.mean()
+        elif self.loss_type == 'multi_margin':
+            # input is logits
+            input = input * mask
+            input = input.sum(1) / mask.sum(1)
+            input = input.view(-1, seq_per_img)
+            _, __ = costs.min(1, keepdim=True)
+            costs_star = _
+            input_star = input.gather(1, __)
+            output = F.relu(costs - costs_star - input_star + input)
+            output = output.mean()
+        elif self.loss_type == 'softmax_margin':
+            print('Need to check softmax_margin real definition'+'!'*10)
+            # input is logits
+            input = input * mask
+            input = input.sum(1) / mask.sum(1)
+            input = input.view(-1, seq_per_img)
+
+            input = input + costs
+            target = costs.min(1)[1]
+            output = F.cross_entropy(input, target)
 
         return output
 
