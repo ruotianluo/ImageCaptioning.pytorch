@@ -50,6 +50,10 @@ parser.add_argument('--max_length', type=int, default=20,
                 help='Maximum length during sampling')
 parser.add_argument('--length_penalty', type=str, default='',
                 help='wu_X or avg_X, X is the alpha')
+parser.add_argument('--sample_n', type=int, default=1,
+                help='Diverse sampling')
+parser.add_argument('--sample_n_method', type=str, default='sample',
+                help='sample, bs, dbs')
 parser.add_argument('--group_size', type=int, default=1,
                 help='used for diverse beam search. if group_size is 1, then it\'s normal beam search')
 parser.add_argument('--diversity_lambda', type=float, default=0.5,
@@ -108,7 +112,7 @@ if opt.batch_size == 0:
     opt.batch_size = infos['opt'].batch_size
 if len(opt.id) == 0:
     opt.id = infos['opt'].id
-ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval", "block_trigrams"]
+ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval", "block_trigrams", "sample_n"]
 
 for k in vars(infos['opt']).keys():
     if k not in ignore:
