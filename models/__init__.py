@@ -12,14 +12,13 @@ import torch
 from .ShowTellModel import ShowTellModel
 from .FCModel import FCModel
 from .OldModel import ShowAttendTellModel, AllImgModel
-from .Att2inModel import Att2inModel
+# from .Att2inModel import Att2inModel
 from .AttModel import *
 
 def setup(opt):
-    
     if opt.caption_model == 'fc':
         model = FCModel(opt)
-    if opt.caption_model == 'show_tell':
+    elif opt.caption_model == 'show_tell':
         model = ShowTellModel(opt)
     # Att2in model in self-critical
     elif opt.caption_model == 'att2in':
