@@ -14,6 +14,7 @@ import time
 import os
 import sys
 import misc.utils as utils
+import eval_multi
 
 bad_endings = ['a','an','the','in','for','at','of','with','before','after','on','upon','near','to','is','are','am']
 bad_endings += ['the']
@@ -25,20 +26,21 @@ def count_bad(sen):
     else:
         return 0
 
-def language_eval(dataset, preds, preds_n, model_id, split):
+def language_eval(dataset, preds, preds_n, eval_kwargs, split):
+    model_id = eval_kwargs['id']
+    eval_oracle = eval_kwargs.get('eval_oracle', 0)
+    
     import sys
     sys.path.append("coco-caption")
     annFile = 'coco-caption/annotations/captions_val2014.json'
     from pycocotools.coco import COCO
     from pycocoevalcap.eval import COCOEvalCap
-    from pycocoevalcap.eval_spice import COCOEvalCapSpice
 
     # encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
     if not os.path.isdir('eval_results'):
         os.mkdir('eval_results')
     cache_path = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '.json')
-    cache_path_n = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '_n.json')
 
     coco = COCO(annFile)
     valids = coco.getImgIds()
@@ -59,35 +61,30 @@ def language_eval(dataset, preds, preds_n, model_id, split):
         out[metric] = score
 
     imgToEval = cocoEval.imgToEval
+    for k in list(imgToEval.values())[0]['SPICE'].keys():
+        if k != 'All':
+            out['SPICE_'+k] = np.array([v['SPICE'][k]['f'] for v in imgToEval.values()])
+            out['SPICE_'+k] = (out['SPICE_'+k][out['SPICE_'+k]==out['SPICE_'+k]]).mean()
     for p in preds_filt:
         image_id, caption = p['image_id'], p['caption']
         imgToEval[image_id]['caption'] = caption
-    
+
+    if len(preds_n) > 0:
+        cache_path_n = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '_n.json')
+        spice_n = eval_multi.eval_spice_n(preds_n, model_id, split)
+        out.update(spice_n['overall'])
+        div_stats = eval_multi.eval_div_stats(preds_n, model_id, split)
+        out.update(div_stats['overall'])
+        if eval_oracle:
+            oracle = eval_multi.eval_oracle(preds_n, model_id, split)
+        out.update(oracle['overall'])
+        with open(cache_path_n, 'w') as outfile:
+            json.dump({'spice_n': spice_n, 'div_stats': div_stats, 'oracle': oracle}, outfile)
+        
     out['bad_count_rate'] = sum([count_bad(_['caption']) for _ in preds_filt]) / float(len(preds_filt))
     outfile_path = os.path.join('eval_results/', model_id + '_' + split + '.json')
     with open(outfile_path, 'w') as outfile:
         json.dump({'overall': out, 'imgToEval': imgToEval}, outfile)
-
-    if len(preds_n) > 0:
-        # filter results to only those in MSCOCO validation set (will be about a third)
-        preds_filt_n = [p for p in preds_n if p['image_id'] in valids]
-        print('using %d/%d predictions_n' % (len(preds_filt_n), len(preds_n)))
-        json.dump(preds_filt_n, open(cache_path_n, 'w')) # serialize to temporary json file. Sigh, COCO API...
-
-        cocoRes_n = coco.loadRes(cache_path_n)
-        cocoEval_n = COCOEvalCapSpice(coco, cocoRes_n)
-        cocoEval_n.params['image_id'] = cocoRes_n.getImgIds()
-        cocoEval_n.evaluate()
-
-        for metric, score in cocoEval_n.eval.items():
-            out[metric+'_n'] = score
-
-        imgToEval_n = cocoEval_n.imgToEval
-        for p in preds_filt_n:
-            image_id, caption = p['image_id'], p['caption']
-            imgToEval_n[image_id]['caption'] = caption
-        with open(cache_path_n, 'w') as outfile:
-            json.dump({'overall': out['SPICE_n'], 'imgToEval': imgToEval_n}, outfile)
 
     return out
 
@@ -216,7 +213,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
     lang_stats = None
     if lang_eval == 1:
-        lang_stats = language_eval(dataset, predictions, n_predictions, eval_kwargs['id'], split)
+        lang_stats = language_eval(dataset, predictions, n_predictions, eval_kwargs, split)
 
     # Switch back to training mode
     model.train()
