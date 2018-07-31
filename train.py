@@ -79,7 +79,11 @@ def train(opt):
     crit = utils.LanguageModelCriterion()
     rl_crit = utils.RewardCriterion()
 
-    optimizer = utils.build_optimizer(model.parameters(), opt)
+    if opt.reduce_on_plateau:
+         optimizer = utils.build_optimizer(model.parameters(), opt)
+         optimizer = utils.ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
+    else:
+        optimizer = utils.build_optimizer(model.parameters(), opt)
     # Load the optimizer
     if vars(opt).get('start_from', None) is not None and os.path.isfile(os.path.join(opt.start_from,"optimizer.pth")):
         optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
@@ -87,13 +91,14 @@ def train(opt):
     while True:
         if update_lr_flag:
                 # Assign the learning rate
-            if epoch > opt.learning_rate_decay_start and opt.learning_rate_decay_start >= 0:
-                frac = (epoch - opt.learning_rate_decay_start) // opt.learning_rate_decay_every
-                decay_factor = opt.learning_rate_decay_rate  ** frac
-                opt.current_lr = opt.learning_rate * decay_factor
-            else:
-                opt.current_lr = opt.learning_rate
-            utils.set_lr(optimizer, opt.current_lr)
+            if not opt.reduce_on_plateau:
+                if epoch > opt.learning_rate_decay_start and opt.learning_rate_decay_start >= 0:
+                    frac = (epoch - opt.learning_rate_decay_start) // opt.learning_rate_decay_every
+                    decay_factor = opt.learning_rate_decay_rate  ** frac
+                    opt.current_lr = opt.learning_rate * decay_factor
+                else:
+                    opt.current_lr = opt.learning_rate
+                utils.set_lr(optimizer, opt.current_lr) # set the decayed rate
             # Assign the scheduled sampling prob
             if epoch > opt.scheduled_sampling_start and opt.scheduled_sampling_start >= 0:
                 frac = (epoch - opt.scheduled_sampling_start) // opt.scheduled_sampling_increase_every
@@ -151,6 +156,8 @@ def train(opt):
         # Write the training loss summary
         if (iteration % opt.losses_log_every == 0):
             add_summary_value(tb_summary_writer, 'train_loss', train_loss, iteration)
+            if opt.reduce_on_plateau:
+                opt.current_lr = optimizer.current_lr
             add_summary_value(tb_summary_writer, 'learning_rate', opt.current_lr, iteration)
             add_summary_value(tb_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
             if sc_flag:
@@ -168,6 +175,11 @@ def train(opt):
             eval_kwargs.update(vars(opt))
             val_loss, predictions, lang_stats = eval_utils.eval_split(dp_model, crit, loader, eval_kwargs)
 
+            if opt.reduce_on_plateau:
+                if 'CIDEr' in lang_stats:
+                    optimizer.scheduler_step(-lang_stats['CIDEr'])
+                else:
+                    optimizer.scheduler_step(val_loss)
             # Write validation result into summary
             add_summary_value(tb_summary_writer, 'validation loss', val_loss, iteration)
             if lang_stats is not None:
