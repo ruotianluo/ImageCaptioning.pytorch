@@ -161,6 +161,7 @@ def parse_opt():
                     help='The reward weight from cider')
     parser.add_argument('--structure_loss_type', type=str, default='seqnll',
                     help='The reward weight from cider')
+    parser.add_argument('--struc_use_logsoftmax', action='store_true', help='')
 
     args = parser.parse_args()
 

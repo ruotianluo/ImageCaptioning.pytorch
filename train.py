@@ -147,7 +147,8 @@ def train(opt):
                 lm_loss = torch.tensor(0).cuda()
             gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks,
                 opt={'sample_max':0,
-                     'output_logsoftmax':'margin' in opt.structure_loss_type,
+                     'output_logsoftmax': opt.struc_use_logsoftmax or opt.structure_loss_type == 'softmax_margin'\
+                        or not 'margin' in opt.structure_loss_type,
                      'sample_n': opt.structure_sample_n},
                 mode='sample')
             struc_loss = struc_crit(sample_logprobs, gen_result, data)
