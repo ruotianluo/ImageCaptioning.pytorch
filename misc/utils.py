@@ -116,25 +116,34 @@ class StructureLosses(nn.Module):
         scores = torch.from_numpy(scores).type_as(input).view(-1, seq_per_img)
         # rescale cost to [0,1]
         costs = - scores
-        costs = costs - costs.min(1, keepdim=True)[0]
-        costs = costs / costs.max(1, keepdim=True)[0]
+        if self.loss_type == 'risk' or self.loss_type == 'softmax_margin': 
+            costs = costs - costs.min(1, keepdim=True)[0]
+            costs = costs / costs.max(1, keepdim=True)[0]
+        # in principle
+        # Only risk need such rescale
+        # margin should be alright; Let's try.
 
         if self.loss_type == 'seqnll':
             # input is logsoftmax
             input = input * mask
-            input = input.sum(1)
+            input = input.sum(1) / mask.sum(1)
             input = input.view(-1, seq_per_img)
 
             target = costs.min(1)[1]
             output = F.cross_entropy(input, target)
-
-        if self.loss_type == 'risk':
+        elif self.loss_type == 'risk':
             # input is logsoftmax
             input = input * mask
             input = input.sum(1)
             input = input.view(-1, seq_per_img)
 
-            output = (F.softmax(input) * costs).sum(1).mean()
+            output = (F.softmax(input.exp()) * costs).sum(1).mean()
+
+            # avg_scores = input
+            # probs = F.softmax(avg_scores.exp_())
+            # loss = (probs * costs.type_as(probs)).sum() / input.size(0)
+            # print(output.item(), loss.item())            
+
         elif self.loss_type == 'max_margin':
             # input is logits
             input = input * mask
@@ -143,8 +152,20 @@ class StructureLosses(nn.Module):
             _, __ = costs.min(1, keepdim=True)
             costs_star = _
             input_star = input.gather(1, __)
-            output = F.relu(costs - costs_star - input_star + input).max(1)[0]
+            output = F.relu(costs - costs_star - input_star + input).max(1)[0] / 2
             output = output.mean()
+
+            # sanity
+            # avg_scores = input + costs
+            # scores_with_high_target = avg_scores.clone()
+            # scores_with_high_target.scatter_(1, costs.min(1)[1].view(-1, 1), 1e10)
+
+            # target_and_offender_index = scores_with_high_target.sort(1, True)[1][:, 0:2]
+            # avg_scores = avg_scores.gather(1, target_and_offender_index)
+            # target_index = avg_scores.new_zeros(avg_scores.size(0), dtype=torch.long)
+            # loss = F.multi_margin_loss(avg_scores, target_index, size_average=True, margin=0)
+            # print(loss.item() * 2, output.item()) 
+
         elif self.loss_type == 'multi_margin':
             # input is logits
             input = input * mask
@@ -155,8 +176,23 @@ class StructureLosses(nn.Module):
             input_star = input.gather(1, __)
             output = F.relu(costs - costs_star - input_star + input)
             output = output.mean()
+
+            # sanity
+            # avg_scores = input + costs
+            # loss = F.multi_margin_loss(avg_scores, costs.min(1)[1], margin=0)
+            # print(output, loss)
+
         elif self.loss_type == 'softmax_margin':
-            print('Need to check softmax_margin real definition'+'!'*10)
+            # input is logsoftmax
+            input = input * mask
+            input = input.sum(1) / mask.sum(1)
+            input = input.view(-1, seq_per_img)
+
+            input = input + costs
+            target = costs.min(1)[1]
+            output = F.cross_entropy(input, target)
+
+        elif self.loss_type == 'real_softmax_margin':
             # input is logits
             input = input * mask
             input = input.sum(1) / mask.sum(1)
@@ -165,6 +201,21 @@ class StructureLosses(nn.Module):
             input = input + costs
             target = costs.min(1)[1]
             output = F.cross_entropy(input, target)
+
+        elif self.loss_type == 'policy_gradient':
+            # None:
+            # This is not standard pg, because the baseline is dependant on the reward
+            # This is eccenstially a rescaled reward. See how it works.
+            # output = input * mask * (costs - costs.mean(1, keepdim=True)).view(-1, 1) not working
+            # output = input * mask * ((costs - costs.mean(1, keepdim=True))/(costs.std(1, keepdim=True)+1e-7)).view(-1, 1)
+            # output = input * mask * costs.view(-1, 1)
+            # output = input * mask * (costs.view(-1, 1)-0.5)
+            # costs = -scores
+            # output = input * mask * ((costs - costs.mean())/costs.std()).view(-1, 1)
+            # output = - input * mask * scores.view(-1, 1)
+            # output = - input * mask * (scores - scores.min(1, keepdim=True)[0]).view(-1, 1)
+            output = - input * mask * (scores - scores.median(1, keepdim=True)[0]).view(-1, 1)
+            output = torch.sum(output) / torch.sum(mask)
 
         return output
 
