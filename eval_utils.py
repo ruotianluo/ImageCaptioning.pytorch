@@ -36,7 +36,7 @@ def language_eval(dataset, preds, model_id, split):
 
     if not os.path.isdir('eval_results'):
         os.mkdir('eval_results')
-    cache_path = os.path.join('eval_results/', model_id + '_' + split + '.json')
+    cache_path = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '.json')
 
     coco = COCO(annFile)
     valids = coco.getImgIds()
@@ -62,7 +62,8 @@ def language_eval(dataset, preds, model_id, split):
         imgToEval[image_id]['caption'] = caption
     
     out['bad_count_rate'] = sum([count_bad(_['caption']) for _ in preds_filt]) / float(len(preds_filt))
-    with open(cache_path, 'w') as outfile:
+    outfile_path = os.path.join('eval_results/', model_id + '_' + split + '.json')
+    with open(outfile_path, 'w') as outfile:
         json.dump({'overall': out, 'imgToEval': imgToEval}, outfile)
 
     return out
