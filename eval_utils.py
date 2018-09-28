@@ -85,10 +85,11 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         if data.get('labels', None) is not None:
             # forward the model to get loss
             tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks']]
-            tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-            fc_feats, att_feats, labels, masks = tmp
+            with torch.no_grad():
+                tmp = [Variable(torch.from_numpy(_)).cuda() for _ in tmp]
+                fc_feats, att_feats, labels, masks = tmp
 
-            loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:]).data[0]
+                loss = crit(model(fc_feats, att_feats, labels), labels[:,1:], masks[:,1:]).item()
             loss_sum = loss_sum + loss
             loss_evals = loss_evals + 1
 
@@ -96,10 +97,12 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         # Only leave one feature for each image, in case duplicate sample
         tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
             data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img]]
-        tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-        fc_feats, att_feats = tmp
-        # forward the model to also get generated samples for each image
-        seq, _ = model.sample(fc_feats, att_feats, eval_kwargs)
+        with torch.no_grad():
+            tmp = [Variable(torch.from_numpy(_)).cuda() for _ in tmp]
+            fc_feats, att_feats = tmp
+            # forward the model to also get generated samples for each image
+            seq, _ = model.sample(fc_feats, att_feats, eval_kwargs)
+        seq = seq.cpu().numpy()
         
         #set_trace()
         sents = utils.decode_sequence(loader.get_vocab(), seq)

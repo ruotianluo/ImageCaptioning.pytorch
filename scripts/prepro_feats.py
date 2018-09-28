@@ -80,17 +80,20 @@ def main(params):
 
       I = I.astype('float32')/255.0
       I = torch.from_numpy(I.transpose([2,0,1])).cuda()
-      I = Variable(preprocess(I), volatile=True)
-      tmp_fc, tmp_att = my_resnet(I, params['att_size'])
+      with torch.no_grad():
+          I = Variable(preprocess(I))
+          tmp_fc, tmp_att = my_resnet(I, params['att_size'])
+
       # write to hdf5
+      d_set_fc = file_fc.create_dataset(
+          str(img['cocoid']), 
+          (2048,), dtype="float")
+      d_set_att = file_att.create_dataset(
+          str(img['cocoid']), 
+          (params['att_size'], params['att_size'], 2048), dtype="float")
 
-      d_set_fc = file_fc.create_dataset(str(img['cocoid']), 
-        (2048,), dtype="float")
-      d_set_att = file_att.create_dataset(str(img['cocoid']), 
-        (params['att_size'], params['att_size'], 2048), dtype="float")
-
-      d_set_fc[...] = tmp_fc.data.cpu().float().numpy()
-      d_set_att[...] = tmp_att.data.cpu().float().numpy()
+      d_set_fc[...] = tmp_fc.cpu().float().numpy()
+      d_set_att[...] = tmp_att.cpu().float().numpy()
       if i % 1000 == 0:
         print('processing %d/%d (%.2f%% done)' % (i, N, i*100.0 / N))
     file_fc.close()
