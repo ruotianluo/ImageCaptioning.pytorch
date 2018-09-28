@@ -8,7 +8,7 @@ This is an image captioning codebase in PyTorch. If you are familiar with neural
 
 ## Requirements
 Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)
-PyTorch 0.2 (along with torchvision)
+PyTorch 0.4.1 (along with torchvision)
 
 You need to download pretrained resnet model for both training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
 
