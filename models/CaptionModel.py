@@ -37,7 +37,7 @@ class CaptionModel(nn.Module):
             #beam_seq_logprobs : log-probability of each decision made, same size as beam_seq
             #beam_logprobs_sum : joint log-probability of each beam
 
-            ys,ix = torch.sort(logprobsf,1,True)
+            ys, ix = torch.sort(logprobsf, 1, True)
             candidates = []
             cols = min(beam_size, ys.size(1))
             rows = beam_size
@@ -45,10 +45,12 @@ class CaptionModel(nn.Module):
                 rows = 1
             for c in range(cols): # for each column (word, essentially)
                 for q in range(rows): # for each beam expansion
-                    #compute logprob of expanding beam q with word in (sorted) position c
-                    local_logprob = ys[q,c]
-                    candidate_logprob = beam_logprobs_sum[q] + local_logprob
-                    candidates.append({'c':ix[q,c], 'q':q, 'p':candidate_logprob, 'r':local_logprob})
+                    # compute logprob of expanding beam q with word in (sorted) position c
+                    local_logprob = ys[q, c]
+                    candidate_logprob = beam_logprobs_sum[q] + local_logprob.cpu()
+                    candidates.append(dict(c=ix[q, c], q=q,
+                                           p=candidate_logprob,
+                                           r=local_logprob))
             candidates = sorted(candidates,  key=lambda x: -x['p'])
             
             new_state = [_.clone() for _ in state]
@@ -80,7 +82,8 @@ class CaptionModel(nn.Module):
 
         beam_seq = torch.LongTensor(self.seq_length, beam_size).zero_()
         beam_seq_logprobs = torch.FloatTensor(self.seq_length, beam_size).zero_()
-        beam_logprobs_sum = torch.zeros(beam_size) # running sum of logprobs for each beam
+        # running sum of logprobs for each beam
+        beam_logprobs_sum = torch.zeros(beam_size)
         done_beams = []
 
         for t in range(self.seq_length):
