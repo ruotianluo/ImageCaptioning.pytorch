@@ -119,3 +119,29 @@ def build_optimizer(params, opt):
     else:
         raise Exception("bad option opt.optim: {}".format(opt.optim))
     
+
+def penalty_builder(penalty_config):
+    if penalty_config == '':
+        return lambda x,y: y
+    pen_type, alpha = penalty_config.split('_')
+    alpha = float(alpha)
+    if pen_type == 'wu':
+        return lambda x,y: length_wu(x,y,alpha)
+    if pen_type == 'avg':
+        return lambda x,y: length_average(x,y,alpha)
+
+def length_wu(length, logprobs, alpha=0.):
+    """
+    NMT length re-ranking score from
+    "Google's Neural Machine Translation System" :cite:`wu2016google`.
+    """
+
+    modifier = (((5 + length) ** alpha) /
+                ((5 + 1) ** alpha))
+    return (logprobs / modifier)
+
+def length_average(length, logprobs, alpha=0.):
+    """
+    Returns the average probability of tokens in a sequence.
+    """
+    return logprobs / length
