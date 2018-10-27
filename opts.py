@@ -68,8 +68,12 @@ def parse_opt():
                     help='After what epoch do we start finetuning the CNN? (-1 = disable; never finetune, 0 = finetune from start)')
     parser.add_argument('--seq_per_img', type=int, default=5,
                     help='number of captions to sample for each image during training. Done for efficiency since CNN forward pass is expensive. E.g. coco has 5 sents/image')
+
+    # Sample related
     parser.add_argument('--beam_size', type=int, default=1,
                     help='used when sample_max = 1, indicates number of beams in beam search. Usually 2 or 3 works well. More is not better. Set this to 1 for faster runtime but a bit worse performance.')
+    parser.add_argument('--max_length', type=int, default=20,
+                    help='Maximum length during sampling')
     parser.add_argument('--length_penalty', type=str, default='',
                     help='wu_X or avg_X, X is the alpha')
 
