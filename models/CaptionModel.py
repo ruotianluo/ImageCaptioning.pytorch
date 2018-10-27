@@ -69,8 +69,8 @@ class CaptionModel(nn.Module):
                     #compute logprob of expanding beam q with word in (sorted) position c
                     local_logprob = ys[q,c].item()
                     candidate_logprob = beam_logprobs_sum[q] + local_logprob
-                    local_unaug_logprob = unaug_logprobsf[q,ix[q,c]]
-                    candidates.append({'c':ix[q,c], 'q':q, 'p':candidate_logprob, 'r':local_unaug_logprob})
+                    # local_unaug_logprob = unaug_logprobsf[q,ix[q,c]]
+                    candidates.append({'c':ix[q,c], 'q':q, 'p':candidate_logprob, 'r':unaug_logprobsf[q]})
             candidates = sorted(candidates,  key=lambda x: -x['p'])
             
             new_state = [_.clone() for _ in state]
@@ -108,7 +108,7 @@ class CaptionModel(nn.Module):
 
         # INITIALIZATIONS
         beam_seq_table = [torch.LongTensor(self.seq_length, bdash).zero_() for _ in range(group_size)]
-        beam_seq_logprobs_table = [torch.FloatTensor(self.seq_length, bdash).zero_() for _ in range(group_size)]
+        beam_seq_logprobs_table = [torch.FloatTensor(self.seq_length, bdash, self.vocab_size + 1).zero_() for _ in range(group_size)]
         beam_logprobs_sum_table = [torch.zeros(bdash) for _ in range(group_size)]
 
         # logprobs # logprobs predicted in last time step, shape (beam_size, vocab_size+1)

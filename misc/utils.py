@@ -88,6 +88,8 @@ class RewardCriterion(nn.Module):
         super(RewardCriterion, self).__init__()
 
     def forward(self, input, seq, reward):
+        input = input.gather(2, seq.unsqueeze(2)).squeeze(2)
+        
         input = to_contiguous(input).view(-1)
         reward = to_contiguous(reward).view(-1)
         mask = (seq>0).float()
@@ -122,6 +124,9 @@ class StructureLosses(nn.Module):
         # in principle
         # Only risk need such rescale
         # margin should be alright; Let's try.
+
+        # Gather input: BxTxD -> BxT
+        input = input.gather(2, seq.unsqueeze(2)).squeeze(2)
 
         if self.loss_type == 'seqnll':
             # input is logsoftmax

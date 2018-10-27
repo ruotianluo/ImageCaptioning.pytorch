@@ -163,7 +163,7 @@ class AttModel(CaptionModel):
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
-        seqLogprobs = torch.FloatTensor(self.seq_length, batch_size)
+        seqLogprobs = torch.FloatTensor(self.seq_length, batch_size, self.vocab_size + 1)
         # lets process every image independently for now, for simplicity
 
         self.done_beams = [[] for _ in range(batch_size)]
@@ -212,7 +212,7 @@ class AttModel(CaptionModel):
         trigrams = [] # will be a list of batch_size dictionaries
         
         seq = fc_feats.new_zeros((batch_size*sample_n, self.seq_length), dtype=torch.long)
-        seqLogprobs = fc_feats.new_zeros(batch_size*sample_n, self.seq_length)
+        seqLogprobs = fc_feats.new_zeros(batch_size*sample_n, self.seq_length, self.vocab_size + 1)
         for t in range(self.seq_length + 1):
             if t == 0: # input <bos>
                 it = fc_feats.new_zeros(batch_size*sample_n, dtype=torch.long)
@@ -279,7 +279,7 @@ class AttModel(CaptionModel):
                 unfinished = unfinished * (it > 0)
             it = it * unfinished.type_as(it)
             seq[:,t] = it
-            seqLogprobs[:,t] = sampleLogprobs.view(-1)
+            seqLogprobs[:,t] = logprobs
             # quit loop if all sequences have finished
             if unfinished.sum() == 0:
                 break

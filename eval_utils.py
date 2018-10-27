@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 import numpy as np
 import json
@@ -48,6 +49,7 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
     # filter results to only those in MSCOCO validation set (will be about a third)
     preds_filt = [p for p in preds if p['image_id'] in valids]
     mean_perplexity = sum([_['perplexity'] for _ in preds_filt]) / len(preds_filt)
+    mean_entropy = sum([_['entropy'] for _ in preds_filt]) / len(preds_filt)
     print('using %d/%d predictions' % (len(preds_filt), len(preds)))
     json.dump(preds_filt, open(cache_path, 'w')) # serialize to temporary json file. Sigh, COCO API...
 
@@ -62,6 +64,7 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
         out[metric] = score
     # Add mean perplexity
     out['perplexity'] = mean_perplexity
+    out['entropy'] = mean_entropy
 
     imgToEval = cocoEval.imgToEval
     for k in list(imgToEval.values())[0]['SPICE'].keys():
@@ -142,7 +145,8 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         with torch.no_grad():
             seq, seq_logprobs = model(fc_feats, att_feats, att_masks, opt=eval_kwargs, mode='sample')
             seq = seq.data
-            perplexity = seq_logprobs.sum(1) / ((seq>0).float().sum(1)+1)
+            entropy = - (F.softmax(seq_logprobs, dim=2) * seq_logprobs).sum(2).sum(1) / ((seq>0).float().sum(1)+1)
+            perplexity = - seq_logprobs.gather(2, seq.unsqueeze(2)).squeeze(2).sum(1) / ((seq>0).float().sum(1)+1)
         
         # Print beam search
         if beam_size > 1 and verbose_beam:
@@ -152,7 +156,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         sents = utils.decode_sequence(loader.get_vocab(), seq)
 
         for k, sent in enumerate(sents):
-            entry = {'image_id': data['infos'][k]['id'], 'caption': sent, 'perplexity': perplexity[k].item()}
+            entry = {'image_id': data['infos'][k]['id'], 'caption': sent, 'perplexity': perplexity[k].item(), 'entropy': entropy[k].item()}
             if eval_kwargs.get('dump_path', 0) == 1:
                 entry['file_name'] = data['infos'][k]['file_path']
             predictions.append(entry)
