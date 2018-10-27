@@ -162,6 +162,8 @@ def parse_opt():
     parser.add_argument('--structure_loss_type', type=str, default='seqnll',
                     help='The reward weight from cider')
     parser.add_argument('--struc_use_logsoftmax', action='store_true', help='')
+    parser.add_argument('--entropy_reward_weight', type=float, default=0,
+                    help='Entropy reward, seems very interesting')
 
     args = parser.parse_args()
 
