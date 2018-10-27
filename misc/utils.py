@@ -39,7 +39,7 @@ def pickle_dump(obj, f):
 
 def if_use_att(caption_model):
     # Decide if load attention feature according to caption model
-    if caption_model in ['show_tell', 'all_img', 'fc']:
+    if caption_model in ['show_tell', 'all_img', 'fc', 'newfc']:
         return False
     return True
 

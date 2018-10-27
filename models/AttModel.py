@@ -691,3 +691,45 @@ class Att2inModel(AttModel):
         self.embed.weight.data.uniform_(-initrange, initrange)
         self.logit.bias.data.fill_(0)
         self.logit.weight.data.uniform_(-initrange, initrange)
+
+
+class NewFCModel(AttModel):
+    def __init__(self, opt):
+        super(NewFCModel, self).__init__(opt)
+        self.fc_embed = nn.Linear(self.fc_feat_size, self.input_encoding_size)
+        self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
+        self._core = LSTMCore(opt)
+        delattr(self, 'att_embed')
+        self.att_embed = lambda x : x
+        delattr(self, 'ctx2att')
+        self.ctx2att = lambda x: x
+    
+    def core(self, xt, fc_feats, att_feats, p_att_feats, state, att_masks):
+        # Step 0, feed the input image
+        # if (self.training and state[0].is_leaf) or \
+        #     (not self.training and state[0].sum() == 0):
+        #     _, state = self._core(fc_feats, state)
+        # three cases
+        # normal mle training
+        # Sample
+        # beam search (diverse beam search)
+        # fixed captioning module.
+        # is_first_step = (state[0]==0).all(2).all(0)
+        # if is_first_step.all():
+        #     _, state = self._core(fc_feats, state)
+        # elif is_first_step.any():
+        #     # This is mostly for diverse beam search I think
+        #     new_state = torch.zeros_like(state)
+        #     new_state[~is_first_step] = state[~is_first_step]
+        #     _, state = self._core(fc_feats, state)
+        #     new_state[is_first_step] = state[is_first_step]
+        #     state = new_state
+        if (state[0]==0).all():
+            # Let's forget about diverse beam search first
+            _, state = self._core(fc_feats, state)
+        return self._core(xt, state)
+    
+    def _prepare_feature(self, fc_feats, att_feats, att_masks):
+        fc_feats = self.fc_embed(fc_feats)
+
+        return fc_feats, None, None, None
