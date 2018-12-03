@@ -18,6 +18,8 @@ from .AttModel import *
 def setup(opt):
     if opt.caption_model == 'fc':
         model = FCModel(opt)
+    elif opt.caption_model == 'language_model':
+        model = LMModel(opt)
     elif opt.caption_model == 'newfc':
         model = NewFCModel(opt)
     elif opt.caption_model == 'show_tell':

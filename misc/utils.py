@@ -37,11 +37,14 @@ def pickle_dump(obj, f):
         return cPickle.dump(obj, f)
 
 
-def if_use_att(caption_model):
+def if_use_feat(caption_model):
     # Decide if load attention feature according to caption model
-    if caption_model in ['show_tell', 'all_img', 'fc', 'newfc']:
-        return False
-    return True
+    use_fc, use_att = True, True
+    if caption_model in ['show_tell', 'all_img', 'fc', 'newfc', 'language_model']:
+        use_att = False
+    if caption_model in ['language_model']:
+        use_fc = False
+    return use_fc, use_att
 
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
 def decode_sequence(ix_to_word, seq):

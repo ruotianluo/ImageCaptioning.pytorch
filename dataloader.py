@@ -35,6 +35,7 @@ class DataLoader(data.Dataset):
         self.seq_per_img = opt.seq_per_img
         
         # feature related options
+        self.use_fc = getattr(opt, 'use_fc', True)
         self.use_att = getattr(opt, 'use_att', True)
         self.use_box = getattr(opt, 'use_box', 0)
         self.norm_att_feat = getattr(opt, 'norm_att_feat', 0)
@@ -208,8 +209,12 @@ class DataLoader(data.Dataset):
                 # sort the features by the size of boxes
                 att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))
         else:
-            att_feat = np.zeros((1,1,1))
-        return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
+            att_feat = np.zeros((1,1,1), dtype='float32')
+        if self.use_fc:
+            fc_feat = np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy'))
+        else:
+            fc_feat = np.zeros((1), dtype='float32')
+        return (fc_feat,
                 att_feat,
                 ix)
 
