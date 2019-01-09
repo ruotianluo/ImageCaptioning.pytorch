@@ -58,6 +58,8 @@ parser.add_argument('--temperature', type=float, default=1.0,
                 help='temperature when sampling from distributions (i.e. when sample_max = 0). Lower = "safer" predictions.')
 parser.add_argument('--decoding_constraint', type=int, default=0,
                 help='If 1, not allowing same word in a row')
+parser.add_argument('--block_trigrams', type=int, default=0,
+                help='block repeated trigram.')
 # For evaluation on a folder of images:
 parser.add_argument('--image_folder', type=str, default='', 
                 help='If this is nonempty then will predict on the images in this folder path')
@@ -104,7 +106,8 @@ if opt.batch_size == 0:
     opt.batch_size = infos['opt'].batch_size
 if len(opt.id) == 0:
     opt.id = infos['opt'].id
-ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval"]
+ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval", "block_trigrams"]
+
 for k in vars(infos['opt']).keys():
     if k not in ignore:
         if k in vars(opt):
