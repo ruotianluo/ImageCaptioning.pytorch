@@ -22,6 +22,7 @@ import torch
 parser = argparse.ArgumentParser()
 # Input paths
 parser.add_argument('--ids', nargs='+', required=True, help='id of the models to ensemble')
+parser.add_argument('--weights', nargs='+', required=True, default=None, help='id of the models to ensemble')
 # parser.add_argument('--models', nargs='+', required=True
 #                 help='path to model to evaluate')
 # parser.add_argument('--infos_paths', nargs='+', required=True, help='path to infos to evaluate')
@@ -122,12 +123,13 @@ for i in range(len(model_infos)):
     model_infos[i]['opt'].start_from = None
     tmp = models.setup(model_infos[i]['opt'])
     tmp.load_state_dict(torch.load(model_paths[i]))
-    tmp.cuda()
-    tmp.eval()
     _models.append(tmp)
 
-model = AttEnsemble(_models)
+if opt.weights:
+    opt.weights = [float(_) for _ in opt.weights]
+model = AttEnsemble(_models, weights=opt.weights)
 model.seq_length = opt.seq_length
+model.cuda()
 model.eval()
 crit = utils.LanguageModelCriterion()
 

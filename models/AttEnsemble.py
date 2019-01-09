@@ -26,7 +26,7 @@ from .CaptionModel import CaptionModel
 from .AttModel import pack_wrapper, AttModel
 
 class AttEnsemble(AttModel):
-    def __init__(self, models):
+    def __init__(self, models, weights=None):
         CaptionModel.__init__(self)
         # super(AttEnsemble, self).__init__()
 
@@ -34,6 +34,8 @@ class AttEnsemble(AttModel):
         self.vocab_size = models[0].vocab_size
         self.seq_length = models[0].seq_length
         self.ss_prob = 0
+        weights = weights or [1] * len(self.models)
+        self.register_buffer('weights', torch.tensor(weights))
 
     def init_hidden(self, batch_size):
         return [m.init_hidden(batch_size) for m in self.models]
@@ -49,7 +51,7 @@ class AttEnsemble(AttModel):
         xt = self.embed(it)
 
         output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state, tmp_att_masks)
-        logprobs = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mean(2).log()
+        logprobs = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mul(self.weights).div(self.weights.sum()).sum(-1).log()
 
         return logprobs, state
 
@@ -82,7 +84,7 @@ class AttEnsemble(AttModel):
             tmp_fc_feats = [fc_feats[i][k:k+1].expand(beam_size, fc_feats[i].size(1)) for i,m in enumerate(self.models)]
             tmp_att_feats = [att_feats[i][k:k+1].expand(*((beam_size,)+att_feats[i].size()[1:])).contiguous() for i,m in enumerate(self.models)]
             tmp_p_att_feats = [p_att_feats[i][k:k+1].expand(*((beam_size,)+p_att_feats[i].size()[1:])).contiguous() for i,m in enumerate(self.models)]
-            tmp_att_masks = [att_masks[k:k+1].expand(*((beam_size,)+att_masks.size()[1:])).contiguous() for i,m in enumerate(self.models)] if att_masks[0] is not None else att_masks
+            tmp_att_masks = [att_masks[i][k:k+1].expand(*((beam_size,)+att_masks[i].size()[1:])).contiguous() for i,m in enumerate(self.models)] if att_masks[0] is not None else att_masks
 
             it = fc_feats[0].data.new(beam_size).long().zero_()
             logprobs, state = self.get_logprobs_state(it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state)
