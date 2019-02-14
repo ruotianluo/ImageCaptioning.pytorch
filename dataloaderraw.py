@@ -106,7 +106,7 @@ class DataLoaderRaw():
                 img = img[:,:,np.newaxis]
                 img = np.concatenate((img, img, img), axis=2)
 
-            img = img.astype('float32')/255.0
+            img = img[:,:,:3].astype('float32')/255.0
             img = torch.from_numpy(img.transpose([2,0,1])).cuda()
             img = preprocess(img)
             with torch.no_grad():
