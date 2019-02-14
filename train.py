@@ -92,7 +92,7 @@ def train(opt):
                 opt.current_lr = opt.learning_rate * decay_factor
             else:
                 opt.current_lr = opt.learning_rate
-            utils.set_lr(optimizer, opt.current_lr) # set the decayed rate
+            utils.set_lr(optimizer, opt.current_lr)
             # Assign the scheduled sampling prob
             if epoch > opt.scheduled_sampling_start and opt.scheduled_sampling_start >= 0:
                 frac = (epoch - opt.scheduled_sampling_start) // opt.scheduled_sampling_increase_every
@@ -169,8 +169,9 @@ def train(opt):
 
             # Write validation result into summary
             add_summary_value(tb_summary_writer, 'validation loss', val_loss, iteration)
-            for k,v in lang_stats.items():
-                add_summary_value(tb_summary_writer, k, v, iteration)
+            if lang_stats is not None:
+                for k,v in lang_stats.items():
+                    add_summary_value(tb_summary_writer, k, v, iteration)
             val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
 
             # Save model if is improving on validation result
