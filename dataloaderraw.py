@@ -122,7 +122,7 @@ class DataLoaderRaw():
 
         data = {}
         data['fc_feats'] = fc_batch
-        data['att_feats'] = att_batch
+        data['att_feats'] = att_batch.reshape(batch_size, -1, 2048)
         data['att_masks'] = None
         data['bounds'] = {'it_pos_now': self.iterator, 'it_max': self.N, 'wrapped': wrapped}
         data['infos'] = infos
