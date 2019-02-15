@@ -8,6 +8,35 @@ import torch.nn as nn
 import numpy as np
 import torch.optim as optim
 
+import six
+from six.moves import cPickle
+
+
+def pickle_load(f):
+    """ Load a pickle.
+    Parameters
+    ----------
+    f: file-like object
+    """
+    if six.PY3:
+        return cPickle.load(f, encoding='latin-1')
+    else:
+        return cPickle.load(f)
+
+
+def pickle_dump(obj, f):
+    """ Dump a pickle.
+    Parameters
+    ----------
+    obj: pickled object
+    f: file-like object
+    """
+    if six.PY3:
+        return cPickle.dump(obj, f, protocol=2)
+    else:
+        return cPickle.dump(obj, f)
+
+
 def if_use_att(caption_model):
     # Decide if load attention feature according to caption model
     if caption_model in ['show_tell', 'all_img', 'fc']:

@@ -87,7 +87,7 @@ parser.add_argument('--verbose_loss', type=int, default=0,
 
 opt = parser.parse_args()
 
-model_infos = [cPickle.load(open('log_%s/infos_%s-best.pkl' %(id, id))) for id in opt.ids]
+model_infos = [utils.pickle_load(open('log_%s/infos_%s-best.pkl' %(id, id))) for id in opt.ids]
 model_paths = ['log_%s/model-best.pth' %(id) for id in opt.ids]
 
 # Load one infos

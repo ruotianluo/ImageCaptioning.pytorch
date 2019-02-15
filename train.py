@@ -15,6 +15,7 @@ from six.moves import cPickle
 import opts
 import models
 from dataloader import *
+import skimage.io
 import eval_utils
 import misc.utils as utils
 from misc.rewards import init_scorer, get_self_critical_reward
@@ -44,16 +45,16 @@ def train(opt):
     histories = {}
     if opt.start_from is not None:
         # open old infos and check if models are compatible
-        with open(os.path.join(opt.start_from, 'infos_'+opt.id+'.pkl')) as f:
-            infos = cPickle.load(f)
+        with open(os.path.join(opt.start_from, 'infos_'+opt.id+'.pkl'), 'rb') as f:
+            infos = utils.pickle_load(f)
             saved_model_opt = infos['opt']
             need_be_same=["caption_model", "rnn_type", "rnn_size", "num_layers"]
             for checkme in need_be_same:
                 assert vars(saved_model_opt)[checkme] == vars(opt)[checkme], "Command line argument and saved model disagree on '%s' " % checkme
 
         if os.path.isfile(os.path.join(opt.start_from, 'histories_'+opt.id+'.pkl')):
-            with open(os.path.join(opt.start_from, 'histories_'+opt.id+'.pkl')) as f:
-                histories = cPickle.load(f)
+            with open(os.path.join(opt.start_from, 'histories_'+opt.id+'.pkl'), 'rb') as f:
+                histories = utils.pickle_load(f)
 
     iteration = infos.get('iter', 0)
     epoch = infos.get('epoch', 0)
@@ -205,16 +206,16 @@ def train(opt):
                 histories['lr_history'] = lr_history
                 histories['ss_prob_history'] = ss_prob_history
                 with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'.pkl'), 'wb') as f:
-                    cPickle.dump(infos, f)
+                    utils.pickle_dump(infos, f)
                 with open(os.path.join(opt.checkpoint_path, 'histories_'+opt.id+'.pkl'), 'wb') as f:
-                    cPickle.dump(histories, f)
+                    utils.pickle_dump(histories, f)
 
                 if best_flag:
                     checkpoint_path = os.path.join(opt.checkpoint_path, 'model-best.pth')
                     torch.save(model.state_dict(), checkpoint_path)
                     print("model saved to {}".format(checkpoint_path))
                     with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'-best.pkl'), 'wb') as f:
-                        cPickle.dump(infos, f)
+                        utils.pickle_dump(infos, f)
 
         # Stop if reaching max epochs
         if epoch >= opt.max_epochs and opt.max_epochs != -1:

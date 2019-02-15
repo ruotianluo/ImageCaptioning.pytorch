@@ -157,7 +157,7 @@ class DataLoader(data.Dataset):
         fc_batch, att_batch, label_batch, gts, infos = \
             zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
         data = {}
-        data['fc_feats'] = np.stack(reduce(lambda x,y:x+y, [[_]*seq_per_img for _ in fc_batch]))
+        data['fc_feats'] = np.stack(sum([[_]*seq_per_img for _ in fc_batch], []))
         # merge att_feats
         max_att_len = max([_.shape[0] for _ in att_batch])
         data['att_feats'] = np.zeros([len(att_batch)*seq_per_img, max_att_len, att_batch[0].shape[1]], dtype = 'float32')

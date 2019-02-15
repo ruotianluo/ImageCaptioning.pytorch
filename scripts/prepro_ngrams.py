@@ -27,6 +27,7 @@ import os
 import json
 import argparse
 from six.moves import cPickle
+import misc.utils as utils
 from collections import defaultdict
 
 def precook(s, n=4, out=False):
@@ -116,8 +117,8 @@ def main(params):
 
   ngram_words, ngram_idxs, ref_len = build_dict(imgs, wtoi, params)
 
-  cPickle.dump({'document_frequency': ngram_words, 'ref_len': ref_len}, open(params['output_pkl']+'-words.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
-  cPickle.dump({'document_frequency': ngram_idxs, 'ref_len': ref_len}, open(params['output_pkl']+'-idxs.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
+  utils.pickle_dump({'document_frequency': ngram_words, 'ref_len': ref_len}, open(params['output_pkl']+'-words.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
+  utils.pickle_dump({'document_frequency': ngram_idxs, 'ref_len': ref_len}, open(params['output_pkl']+'-idxs.p','w'), protocol=cPickle.HIGHEST_PROTOCOL)
 
 if __name__ == "__main__":
 
