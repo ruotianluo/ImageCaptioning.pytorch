@@ -53,7 +53,7 @@ parser.add_argument('--length_penalty', type=str, default='',
 parser.add_argument('--sample_n', type=int, default=1,
                 help='Diverse sampling')
 parser.add_argument('--sample_n_method', type=str, default='sample',
-                help='sample, bs, dbs')
+                help='sample, bs, dbs, gumbel')
 parser.add_argument('--group_size', type=int, default=1,
                 help='used for diverse beam search. if group_size is 1, then it\'s normal beam search')
 parser.add_argument('--diversity_lambda', type=float, default=0.5,

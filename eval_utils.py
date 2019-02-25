@@ -186,6 +186,15 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                 for k, sent in enumerate(_sents):
                     entry = {'image_id': data['infos'][k // sample_n]['id'], 'caption': sent}
                     n_predictions.append(entry)
+            # case 3 gumbel max
+            elif sample_n_method == 'gumbel':
+                tmp_eval_kwargs.update({'sample_max': 2, 'beam_size': 1}) # randomness from sample
+                with torch.no_grad():
+                    _seq, _sampleLogprobs = model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
+                _sents = utils.decode_sequence(loader.get_vocab(), _seq)
+                for k, sent in enumerate(_sents):
+                    entry = {'image_id': data['infos'][k // sample_n]['id'], 'caption': sent}
+                    n_predictions.append(entry)
             else:
                 # Use diverse beam search
                 tmp_eval_kwargs.update({'beam_size': sample_n * beam_size, 'group_size': sample_n}) # randomness from softmax
