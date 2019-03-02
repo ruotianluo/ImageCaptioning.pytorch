@@ -189,6 +189,10 @@ def train(opt):
                 checkpoint_path = os.path.join(opt.checkpoint_path, 'model.pth')
                 torch.save(model.state_dict(), checkpoint_path)
                 print("model saved to {}".format(checkpoint_path))
+                if opt.save_history_ckpt:
+                    checkpoint_path = os.path.join(opt.checkpoint_path, 'model-%d.pth'%(iteration))
+                    torch.save(model.state_dict(), checkpoint_path)
+                    print("model saved to {}".format(checkpoint_path))
                 optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer.pth')
                 torch.save(optimizer.state_dict(), optimizer_path)
 
@@ -207,6 +211,9 @@ def train(opt):
                 histories['ss_prob_history'] = ss_prob_history
                 with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'.pkl'), 'wb') as f:
                     utils.pickle_dump(infos, f)
+                if opt.save_history_ckpt:
+                    with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'-%d.pkl'%(iteration)), 'wb') as f:
+                        cPickle.dump(infos, f)
                 with open(os.path.join(opt.checkpoint_path, 'histories_'+opt.id+'.pkl'), 'wb') as f:
                     utils.pickle_dump(histories, f)
 

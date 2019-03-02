@@ -108,6 +108,8 @@ def parse_opt():
                     help='how many images to use when periodically evaluating the validation loss? (-1 = all)')
     parser.add_argument('--save_checkpoint_every', type=int, default=2500,
                     help='how often to save a model checkpoint (in iterations)?')
+    parser.add_argument('--save_history_ckpt', type=int, default=0,
+                    help='If save checkpoints at every save point')
     parser.add_argument('--checkpoint_path', type=str, default='save',
                     help='directory to store checkpointed models')
     parser.add_argument('--language_eval', type=int, default=0,
