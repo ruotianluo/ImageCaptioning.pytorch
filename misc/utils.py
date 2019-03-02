@@ -7,10 +7,13 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.optim as optim
+import os
 
 import six
 from six.moves import cPickle
 
+bad_endings = ['with','in','on','of','a','at','to','for','an','this','his','her','that']
+bad_endings += ['the']
 
 def pickle_load(f):
     """ Load a pickle.
@@ -60,6 +63,14 @@ def decode_sequence(ix_to_word, seq):
                 txt = txt + ix_to_word[str(ix.item())]
             else:
                 break
+        if int(os.getenv('REMOVE_BAD_ENDINGS', '0')):
+            flag = 0
+            words = txt.split(' ')
+            for j in range(len(words)):
+                if words[-j-1] not in bad_endings:
+                    flag = -j
+                    break
+            txt = ' '.join(words[0:len(words)+flag])
         out.append(txt)
     return out
 

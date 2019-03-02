@@ -78,6 +78,8 @@ def parse_opt():
                     help='wu_X or avg_X, X is the alpha')
     parser.add_argument('--block_trigrams', type=int, default=0,
                     help='block repeated trigram.')
+    parser.add_argument('--remove_bad_endings', type=int, default=0,
+                    help='Remove bad endings')
 
     #Optimization: for the Language Model
     parser.add_argument('--optim', type=str, default='adam',
