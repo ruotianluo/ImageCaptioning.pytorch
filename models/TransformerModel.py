@@ -1,17 +1,11 @@
-# This file contains Att2in2, AdaAtt, AdaAttMO, TopDown model
+# This file contains Transformer network
+# Most of the code is copied from http://nlp.seas.harvard.edu/2018/04/03/attention.html
 
-# AdaAtt is from Knowing When to Look: Adaptive Attention via A Visual Sentinel for Image Captioning
-# https://arxiv.org/abs/1612.01887
-# AdaAttMO is a modified version with maxout lstm
-
-# Att2in is from Self-critical Sequence Training for Image Captioning
-# https://arxiv.org/abs/1612.00563
-# In this file we only have Att2in2, which is a slightly different version of att2in,
-# in which the img feature embedding and word embedding is the same as what in adaatt.
-
-# TopDown is from Bottom-Up and Top-Down Attention for Image Captioning and VQA
-# https://arxiv.org/abs/1707.07998
-# However, it may not be identical to the author's architecture.
+# The cfg name correspondance:
+# N=num_layers
+# d_model=input_encoding_size
+# d_ff=rnn_size
+# h is always 8
 
 from __future__ import absolute_import
 from __future__ import division
@@ -27,7 +21,7 @@ import math
 import numpy as np
 
 from .CaptionModel import CaptionModel
-from .AttModel import sort_pack_padded_sequence, pad_unsort_packed_sequence, pack_wrapper
+from .AttModel import sort_pack_padded_sequence, pad_unsort_packed_sequence, pack_wrapper, AttModel
 
 class EncoderDecoder(nn.Module):
     """
@@ -240,7 +234,7 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:, :x.size(1)]
         return self.dropout(x)
 
-class TransformerModel(CaptionModel):
+class TransformerModel(AttModel):
 
     def make_model(self, src_vocab, tgt_vocab, N=6, 
                d_model=512, d_ff=2048, h=8, dropout=0.1):
@@ -265,46 +259,25 @@ class TransformerModel(CaptionModel):
         return model
 
     def __init__(self, opt):
-        super(TransformerModel, self).__init__()
+        super(TransformerModel, self).__init__(opt)
         self.opt = opt
         # self.config = yaml.load(open(opt.config_file))
         # d_model = self.input_encoding_size # 512
 
-        self.vocab_size = opt.vocab_size
-        self.input_encoding_size = opt.input_encoding_size
-        # #self.rnn_type = opt.rnn_type
-        self.rnn_size = opt.rnn_size
-        # self.num_layers = opt.num_layers
-        self.drop_prob_lm = opt.drop_prob_lm
-        self.seq_length = opt.seq_length
-        # self.fc_feat_size = opt.fc_feat_size
-        self.att_feat_size = opt.att_feat_size
-        # self.att_hid_size = opt.att_hid_size
-
-        self.use_bn = getattr(opt, 'use_bn', 0)
-
-        self.ss_prob = 0.0 # Schedule sampling probability
-
-        # self.embed = nn.Sequential(nn.Embedding(self.vocab_size + 1, self.input_encoding_size),
-        #                         nn.ReLU(),
-        #                         nn.Dropout(self.drop_prob_lm))
-        # self.fc_embed = nn.Sequential(nn.Linear(self.fc_feat_size, self.rnn_size),
-        #                             nn.ReLU(),
-        #                             nn.Dropout(self.drop_prob_lm))
+        delattr(self, 'att_embed')
         self.att_embed = nn.Sequential(*(
                                     ((nn.BatchNorm1d(self.att_feat_size),) if self.use_bn else ())+
                                     (nn.Linear(self.att_feat_size, self.input_encoding_size),
                                     nn.ReLU(),
                                     nn.Dropout(self.drop_prob_lm))+
                                     ((nn.BatchNorm1d(self.input_encoding_size),) if self.use_bn==2 else ())))
-
-        # self.logit_layers = getattr(opt, 'logit_layers', 1)
-        # if self.logit_layers == 1:
-        #     self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
-        # else:
-        #     self.logit = [[nn.Linear(self.rnn_size, self.rnn_size), nn.ReLU(), nn.Dropout(0.5)] for _ in range(opt.logit_layers - 1)]
-        #     self.logit = nn.Sequential(*(reduce(lambda x,y:x+y, self.logit) + [nn.Linear(self.rnn_size, self.vocab_size + 1)]))
-        # self.ctx2att = nn.Linear(self.rnn_size, self.att_hid_size)
+        
+        delattr(self, 'embed')
+        self.embed = lambda x : x
+        delattr(self, 'fc_embed')
+        self.fc_embed = lambda x : x
+        del self.logit
+        del self.ctx2att
 
         tgt_vocab = self.vocab_size + 1
         self.model = self.make_model(0, tgt_vocab,
@@ -312,31 +285,17 @@ class TransformerModel(CaptionModel):
             d_model=opt.input_encoding_size,
             d_ff=opt.rnn_size)
 
-    # def init_hidden(self, bsz):
-    #     weight = next(self.parameters())
-    #     return (weight.new_zeros(self.num_layers, bsz, self.rnn_size),
-    #             weight.new_zeros(self.num_layers, bsz, self.rnn_size))
+    def init_hidden(self, bsz):
+        return None
 
-    def clip_att(self, att_feats, att_masks):
-        # Clip the length of att_masks and att_feats to the maximum length
-        if att_masks is not None:
-            max_len = att_masks.data.long().sum(1).max()
-            att_feats = att_feats[:, :max_len].contiguous()
-            att_masks = att_masks[:, :max_len].contiguous()
-        return att_feats, att_masks
+    def _prepare_feature(self, fc_feats, att_feats, att_masks):
 
-    # def _prepare_feature(self, fc_feats, att_feats, att_masks):
+        att_feats, seq, att_masks, seq_mask = self._prepare_feature_forward(att_feats, att_masks)
+        memory = self.model.encode(att_feats, att_masks)
 
-    #     # embed fc and att feats
-    #     fc_feats = self.fc_embed(fc_feats)
-    #     att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
+        return fc_feats[...,:1], att_feats[...,:1], memory, att_masks
 
-    #     # Project the attention feats first to reduce memory and computation comsumptions.
-    #     p_att_feats = self.ctx2att(att_feats)
-
-    #     return fc_feats, att_feats, p_att_feats
-
-    def _prepare_feature(self, att_feats, att_masks=None, seq=None):
+    def _prepare_feature_forward(self, att_feats, att_masks=None, seq=None):
         att_feats, att_masks = self.clip_att(att_feats, att_masks)
 
         att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
@@ -359,47 +318,15 @@ class TransformerModel(CaptionModel):
         return att_feats, seq, att_masks, seq_mask
 
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
-        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks, seq)
+        att_feats, seq, att_masks, seq_mask = self._prepare_feature_forward(att_feats, att_masks, seq)
 
         out = self.model(att_feats, seq, att_masks, seq_mask)
-
-        # batch_size = fc_feats.size(0)
-        # state = self.init_hidden(batch_size)
-
-        # # outputs = []
-        # outputs = fc_feats.new_zeros(batch_size, seq.size(1) - 1, self.vocab_size+1)
-
-        # fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
-
-        # for i in range(seq.size(1) - 1):
-        #     if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
-        #         sample_prob = fc_feats.new(batch_size).uniform_(0, 1)
-        #         sample_mask = sample_prob < self.ss_prob
-        #         if sample_mask.sum() == 0:
-        #             it = seq[:, i].clone()
-        #         else:
-        #             sample_ind = sample_mask.nonzero().view(-1)
-        #             it = seq[:, i].data.clone()
-        #             #prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
-        #             #it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
-        #             # prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
-        #             prob_prev = torch.exp(outputs[:, i-1].detach()) # fetch prev distribution: shape Nx(M+1)
-        #             it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
-        #     else:
-        #         it = seq[:, i].clone()          
-        #     # break if all the sequences end
-        #     if i >= 1 and seq[:, i].sum() == 0:
-        #         break
-
-        #     output, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
-        #     outputs[:, i] = output
-        #     # outputs.append(output)
 
         outputs = self.model.generator(out)
         return outputs
         # return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
-    def get_logprobs_state(self, it, memory, mask, state):
+    def get_logprobs_state(self, it, fc_feats_ph, att_feats_ph, memory, mask, state):
         """
         state = [ys.unsqueeze(0)]
         """
@@ -415,136 +342,4 @@ class TransformerModel(CaptionModel):
 
         return logprobs, [ys.unsqueeze(0)]
 
-    def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
-        beam_size = opt.get('beam_size', 10)
-        batch_size = fc_feats.size(0)
-
-        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks)
-        memory = self.model.encode(att_feats, att_masks)
-
-        assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
-        seq = torch.LongTensor(self.seq_length, batch_size).zero_()
-        seqLogprobs = torch.FloatTensor(self.seq_length, batch_size)
-        # lets process every image independently for now, for simplicity
-
-        self.done_beams = [[] for _ in range(batch_size)]
-        for k in range(batch_size):
-            state = None
-            tmp_memory = memory[k:k+1].expand(*((beam_size,)+memory.size()[1:])).contiguous()
-            tmp_att_masks = att_masks[k:k+1].expand(*((beam_size,)+att_masks.size()[1:])).contiguous() if att_masks is not None else None
-
-            for t in range(1):
-                if t == 0: # input <bos>
-                    it = fc_feats.new_zeros([beam_size], dtype=torch.long)
-
-                logprobs, state = self.get_logprobs_state(it, tmp_memory, tmp_att_masks, state)
-
-            self.done_beams[k] = self.beam_search(state, logprobs, tmp_memory, tmp_att_masks, opt=opt)
-            seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
-            seqLogprobs[:, k] = self.done_beams[k][0]['logps']
-        # return the samples and their log likelihoods
-        return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
-
-    def _sample_(self, fc_feats, att_feats, att_masks=None, opt={}):
-        sample_max = opt.get('sample_max', 1)
-        beam_size = opt.get('beam_size', 1)
-        temperature = opt.get('temperature', 1.0)
-        decoding_constraint = opt.get('decoding_constraint', 0)
-        if beam_size > 1:
-            return self._sample_beam(fc_feats, att_feats, att_masks, opt)
-
-        if sample_max:
-            with torch.no_grad():
-                seq_, seqLogprobs_ = self._sample_(fc_feats, att_feats, att_masks, opt)
-
-        batch_size = att_feats.shape[0]
-
-        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks)
-
-        memory = self.model.encode(att_feats, att_masks)
-        ys = torch.zeros((batch_size, 1), dtype=torch.long).to(att_feats.device)
-
-        seq = att_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
-        seqLogprobs = att_feats.new_zeros(batch_size, self.seq_length)
-
-        for i in range(self.seq_length):
-            out = self.model.decode(memory, att_masks, 
-                               ys, 
-                               subsequent_mask(ys.size(1))
-                                        .to(att_feats.device))
-            logprob = self.model.generator(out[:, -1])
-            if sample_max:
-                sampleLogprobs, next_word = torch.max(logprob, dim = 1)
-            else:
-                if temperature == 1.0:
-                    prob_prev = torch.exp(logprob.data) # fetch prev distribution: shape Nx(M+1)
-                else:
-                    # scale logprobs by temperature
-                    prob_prev = torch.exp(torch.div(logprob.data, temperature))
-                next_word = torch.multinomial(prob_prev, 1)
-                sampleLogprobs = logprobs.gather(1, next_word) # gather the logprobs at sampled positions
-
-            seq[:,i] = next_word
-            seqLogprobs[:,i] = sampleLogprobs
-            ys = torch.cat([ys, next_word.unsqueeze(1)], dim=1)
-        assert (seq*((seq_>0).long())==seq_).all(), 'seq doens\'t match'
-        assert (seqLogprobs*((seq_>0).float()) - seqLogprobs_*((seq_>0).float())).abs().max() < 1e-5, 'logprobs doens\'t match'
-        return seq, seqLogprobs
-
-    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
-        sample_max = opt.get('sample_max', 1)
-        beam_size = opt.get('beam_size', 1)
-        temperature = opt.get('temperature', 1.0)
-        decoding_constraint = opt.get('decoding_constraint', 0)
-        if beam_size > 1:
-            return self._sample_beam(fc_feats, att_feats, att_masks, opt)
-
-        batch_size = att_feats.shape[0]
-
-        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks)
-
-        state = None
-        memory = self.model.encode(att_feats, att_masks)
-
-        seq = att_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
-        seqLogprobs = att_feats.new_zeros(batch_size, self.seq_length)
-
-        for t in range(self.seq_length + 1):
-            if t == 0: # input <bos>
-                it = fc_feats.new_zeros(batch_size, dtype=torch.long)
-
-            logprobs, state = self.get_logprobs_state(it, memory, att_masks, state)
-            if decoding_constraint and t > 0:
-                tmp = output.new_zeros(output.size(0), self.vocab_size + 1)
-                tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
-                logprobs = logprobs + tmp
-
-            # sample the next word
-            if t == self.seq_length: # skip if we achieve maximum length
-                break
-            if sample_max:
-                sampleLogprobs, it = torch.max(logprobs.data, 1)
-                it = it.view(-1).long()
-            else:
-                if temperature == 1.0:
-                    prob_prev = torch.exp(logprobs.data) # fetch prev distribution: shape Nx(M+1)
-                else:
-                    # scale logprobs by temperature
-                    prob_prev = torch.exp(torch.div(logprobs.data, temperature))
-                it = torch.multinomial(prob_prev, 1)
-                sampleLogprobs = logprobs.gather(1, it) # gather the logprobs at sampled positions
-                it = it.view(-1).long() # and flatten indices for downstream processing
-
-            # stop when all finished
-            if t == 0:
-                unfinished = it > 0
-            else:
-                unfinished = unfinished * (it > 0)
-            it = it * unfinished.type_as(it)
-            seq[:,t] = it
-            seqLogprobs[:,t] = sampleLogprobs.view(-1)
-            # quit loop if all sequences have finished
-            if unfinished.sum() == 0:
-                break
-
-        return seq, seqLogprobs
+# For _sample and _sample_beam, now p_att_feats = memory
