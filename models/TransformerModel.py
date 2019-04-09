@@ -276,7 +276,7 @@ class TransformerModel(AttModel):
         self.embed = lambda x : x
         delattr(self, 'fc_embed')
         self.fc_embed = lambda x : x
-        del self.logit
+        delattr(self, 'logit')
         del self.ctx2att
 
         tgt_vocab = self.vocab_size + 1
@@ -284,6 +284,9 @@ class TransformerModel(AttModel):
             N=opt.num_layers,
             d_model=opt.input_encoding_size,
             d_ff=opt.rnn_size)
+
+    def logit(self, x): # unsafe way
+        return self.model.generator.proj(x)
 
     def init_hidden(self, bsz):
         return None
@@ -326,7 +329,7 @@ class TransformerModel(AttModel):
         return outputs
         # return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
-    def get_logprobs_state(self, it, fc_feats_ph, att_feats_ph, memory, mask, state):
+    def core(self, it, fc_feats_ph, att_feats_ph, memory, state, mask):
         """
         state = [ys.unsqueeze(0)]
         """
@@ -338,8 +341,4 @@ class TransformerModel(AttModel):
                                ys, 
                                subsequent_mask(ys.size(1))
                                         .to(memory.device))
-        logprobs = self.model.generator(out[:, -1])
-
-        return logprobs, [ys.unsqueeze(0)]
-
-# For _sample and _sample_beam, now p_att_feats = memory
+        return out[:, -1], [ys.unsqueeze(0)]
