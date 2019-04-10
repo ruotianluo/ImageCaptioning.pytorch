@@ -19,6 +19,7 @@ import skimage.io
 import eval_utils
 import misc.utils as utils
 from misc.rewards import init_scorer, get_self_critical_reward
+from misc.loss_wrapper import LossWrapper
 
 try:
     import tensorboardX as tb
@@ -71,16 +72,12 @@ def train(opt):
 
     model = models.setup(opt).cuda()
     dp_model = torch.nn.DataParallel(model)
+    lw_model = LossWrapper(model, opt)
+    dp_lw_model = torch.nn.DataParallel(lw_model)
 
     epoch_done = True
     # Assure in training mode
-    dp_model.train()
-
-    if opt.label_smoothing > 0:
-        crit = utils.LabelSmoothing(smoothing=opt.label_smoothing)
-    else:
-        crit = utils.LanguageModelCriterion()
-    rl_crit = utils.RewardCriterion()
+    dp_lw_model.train()
 
     if opt.noamopt:
         assert opt.caption_model == 'transformer', 'noamopt can only work with transformer'
@@ -134,12 +131,9 @@ def train(opt):
         fc_feats, att_feats, labels, masks, att_masks = tmp
         
         optimizer.zero_grad()
-        if not sc_flag:
-            loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
-        else:
-            gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
-            reward = get_self_critical_reward(dp_model, fc_feats, att_feats, att_masks, data, gen_result, opt)
-            loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float().cuda())
+        model_out = dp_lw_model(fc_feats, att_feats, labels, masks, att_masks, data['gts'], torch.arange(0, len(data['gts'])), sc_flag)
+
+        loss = model_out['loss'].mean()
 
         loss.backward()
         utils.clip_gradient(optimizer, opt.grad_clip)
@@ -152,7 +146,7 @@ def train(opt):
                 .format(iteration, epoch, train_loss, end - start))
         else:
             print("iter {} (epoch {}), avg_reward = {:.3f}, time/batch = {:.3f}" \
-                .format(iteration, epoch, np.mean(reward[:,0]), end - start))
+                .format(iteration, epoch, model_out['reward'].mean(), end - start))
 
         # Update the iteration and epoch
         iteration += 1
@@ -170,9 +164,9 @@ def train(opt):
             add_summary_value(tb_summary_writer, 'learning_rate', opt.current_lr, iteration)
             add_summary_value(tb_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
             if sc_flag:
-                add_summary_value(tb_summary_writer, 'avg_reward', np.mean(reward[:,0]), iteration)
+                add_summary_value(tb_summary_writer, 'avg_reward', model_out['reward'].mean(), iteration)
 
-            loss_history[iteration] = train_loss if not sc_flag else np.mean(reward[:,0])
+            loss_history[iteration] = train_loss if not sc_flag else model_out['reward'].mean()
             lr_history[iteration] = opt.current_lr
             ss_prob_history[iteration] = model.ss_prob
 
@@ -182,7 +176,8 @@ def train(opt):
             eval_kwargs = {'split': 'val',
                             'dataset': opt.input_json}
             eval_kwargs.update(vars(opt))
-            val_loss, predictions, lang_stats = eval_utils.eval_split(dp_model, crit, loader, eval_kwargs)
+            val_loss, predictions, lang_stats = eval_utils.eval_split(
+                dp_model, lw_model.crit, loader, eval_kwargs)
 
             if opt.reduce_on_plateau:
                 if 'CIDEr' in lang_stats:

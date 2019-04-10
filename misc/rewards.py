@@ -32,9 +32,9 @@ def array_to_str(arr):
             break
     return out.strip()
 
-def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_result, opt):
+def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data_gts, gen_result, opt):
     batch_size = gen_result.size(0)# batch_size = sample_size * seq_per_img
-    seq_per_img = batch_size // len(data['gts'])
+    seq_per_img = batch_size // len(data_gts)
     
     # get greedy decoding baseline
     model.eval()
@@ -52,8 +52,8 @@ def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data, gen_re
         res[batch_size + i] = [array_to_str(greedy_res[i])]
 
     gts = OrderedDict()
-    for i in range(len(data['gts'])):
-        gts[i] = [array_to_str(data['gts'][i][j]) for j in range(len(data['gts'][i]))]
+    for i in range(len(data_gts)):
+        gts[i] = [array_to_str(data_gts[i][j]) for j in range(len(data_gts[i]))]
 
     res_ = [{'image_id':i, 'caption': res[i]} for i in range(2 * batch_size)]
     res__ = {i: res[i] for i in range(2 * batch_size)}
