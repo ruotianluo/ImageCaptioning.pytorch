@@ -182,6 +182,8 @@ class DataLoader(data.Dataset):
         data['bounds'] = {'it_pos_now': self.iterators[split], 'it_max': len(self.split_ix[split]), 'wrapped': wrapped}
         data['infos'] = infos
 
+        data = {k:torch.from_numpy(v) if type(v) is np.ndarray else v for k,v in data.items()} # Turn all ndarray to torch tensor
+
         return data
 
     # It's not coherent to make DataLoader a subclass of Dataset, but essentially, we only need to implement the following to functions,
