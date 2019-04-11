@@ -56,6 +56,13 @@ def train(opt):
         if os.path.isfile(os.path.join(opt.start_from, 'histories_'+opt.id+'.pkl')):
             with open(os.path.join(opt.start_from, 'histories_'+opt.id+'.pkl'), 'rb') as f:
                 histories = utils.pickle_load(f)
+    else:
+        infos['iter'] = 0
+        infos['epoch'] = 0
+        infos['iterators'] = loader.iterators
+        infos['split_ix'] = loader.split_ix
+        infos['vocab'] = loader.get_vocab()
+    infos['opt'] = opt
 
     iteration = infos.get('iter', 0)
     epoch = infos.get('epoch', 0)
@@ -91,6 +98,21 @@ def train(opt):
     # Load the optimizer
     if vars(opt).get('start_from', None) is not None and os.path.isfile(os.path.join(opt.start_from,"optimizer.pth")):
         optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
+
+
+    def save_checkpoint(model, infos, optimizer, histories=None, append=''):
+        if len(append) > 0:
+            append = '-' + append
+        checkpoint_path = os.path.join(opt.checkpoint_path, 'model%s.pth' %(append))
+        torch.save(model.state_dict(), checkpoint_path)
+        print("model saved to {}".format(checkpoint_path))
+        optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer%s.pth' %(append))
+        torch.save(optimizer.state_dict(), optimizer_path)
+        with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'%s.pkl' %(append)), 'wb') as f:
+            utils.pickle_dump(infos, f)
+        if histories:
+            with open(os.path.join(opt.checkpoint_path, 'histories_'+opt.id+'%s.pkl' %(append)), 'wb') as f:
+                utils.pickle_dump(histories, f)
 
     while True:
         if epoch_done:
@@ -170,6 +192,12 @@ def train(opt):
             lr_history[iteration] = opt.current_lr
             ss_prob_history[iteration] = model.ss_prob
 
+        # update infos
+        infos['iter'] = iteration
+        infos['epoch'] = epoch
+        infos['iterators'] = loader.iterators
+        infos['split_ix'] = loader.split_ix
+        
         # make evaluation on validation set, and save model
         if (iteration % opt.save_checkpoint_every == 0):
             # eval model
@@ -198,47 +226,25 @@ def train(opt):
                 current_score = - val_loss
 
             best_flag = False
+
             if True: # if true
                 if best_val_score is None or current_score > best_val_score:
                     best_val_score = current_score
                     best_flag = True
-                checkpoint_path = os.path.join(opt.checkpoint_path, 'model.pth')
-                torch.save(model.state_dict(), checkpoint_path)
-                print("model saved to {}".format(checkpoint_path))
-                if opt.save_history_ckpt:
-                    checkpoint_path = os.path.join(opt.checkpoint_path, 'model-%d.pth'%(iteration))
-                    torch.save(model.state_dict(), checkpoint_path)
-                    print("model saved to {}".format(checkpoint_path))
-                optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer.pth')
-                torch.save(optimizer.state_dict(), optimizer_path)
 
                 # Dump miscalleous informations
-                infos['iter'] = iteration
-                infos['epoch'] = epoch
-                infos['iterators'] = loader.iterators
-                infos['split_ix'] = loader.split_ix
                 infos['best_val_score'] = best_val_score
-                infos['opt'] = opt
-                infos['vocab'] = loader.get_vocab()
-
                 histories['val_result_history'] = val_result_history
                 histories['loss_history'] = loss_history
                 histories['lr_history'] = lr_history
                 histories['ss_prob_history'] = ss_prob_history
-                with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'.pkl'), 'wb') as f:
-                    utils.pickle_dump(infos, f)
+
+                save_checkpoint(model, infos, optimizer, histories)
                 if opt.save_history_ckpt:
-                    with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'-%d.pkl'%(iteration)), 'wb') as f:
-                        cPickle.dump(infos, f)
-                with open(os.path.join(opt.checkpoint_path, 'histories_'+opt.id+'.pkl'), 'wb') as f:
-                    utils.pickle_dump(histories, f)
+                    save_checkpoint(model, infos, optimizer, append=str(iteration))
 
                 if best_flag:
-                    checkpoint_path = os.path.join(opt.checkpoint_path, 'model-best.pth')
-                    torch.save(model.state_dict(), checkpoint_path)
-                    print("model saved to {}".format(checkpoint_path))
-                    with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'-best.pkl'), 'wb') as f:
-                        utils.pickle_dump(infos, f)
+                    save_checkpoint(model, infos, optimizer, append='best')
 
         # Stop if reaching max epochs
         if epoch >= opt.max_epochs and opt.max_epochs != -1:
