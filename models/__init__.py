@@ -12,8 +12,8 @@ import torch
 from .ShowTellModel import ShowTellModel
 from .FCModel import FCModel
 from .OldModel import ShowAttendTellModel, AllImgModel
-# from .Att2inModel import Att2inModel
 from .AttModel import *
+from .TransformerModel import TransformerModel
 
 def setup(opt):
     if opt.caption_model == 'fc':
@@ -47,6 +47,9 @@ def setup(opt):
     # DenseAtt
     elif opt.caption_model == 'denseatt':
         model = DenseAttModel(opt)
+    # Transformer
+    elif opt.caption_model == 'transformer':
+        model = TransformerModel(opt)
     else:
         raise Exception("Caption model not supported: {}".format(opt.caption_model))
 

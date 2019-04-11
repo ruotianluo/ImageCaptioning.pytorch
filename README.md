@@ -9,6 +9,7 @@ This is based on my [ImageCaptioning.pytorch](https://github.com/ruotianluo/Imag
 - Bottom up feature support from [ref](https://arxiv.org/abs/1707.07998). (Evaluation on arbitrary images is not supported.)
 - Ensemble
 - Multi-GPU training
+- Add transformer (merged from [Transformer_captioning](https://github.com/ruotianluo/Transformer_Captioning))
 
 ## Requirements
 Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)

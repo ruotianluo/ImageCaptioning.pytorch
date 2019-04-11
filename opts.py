@@ -25,7 +25,7 @@ def parse_opt():
 
     # Model settings
     parser.add_argument('--caption_model', type=str, default="show_tell",
-                    help='show_tell, show_attend_tell, all_img, fc, att2in, att2in2, att2all2, adaatt, adaattmo, topdown, stackatt, denseatt')
+                    help='show_tell, show_attend_tell, all_img, fc, att2in, att2in2, att2all2, adaatt, adaattmo, topdown, stackatt, denseatt, transformer')
     parser.add_argument('--rnn_size', type=int, default=512,
                     help='size of the rnn in number of hidden nodes in each layer')
     parser.add_argument('--num_layers', type=int, default=1,
@@ -100,6 +100,15 @@ def parse_opt():
                     help='epsilon that goes into denominator for smoothing')
     parser.add_argument('--weight_decay', type=float, default=0,
                     help='weight_decay')
+    # Transformer
+    parser.add_argument('--label_smoothing', type=float, default=0,
+                    help='')
+    parser.add_argument('--noamopt', action='store_true',
+                    help='')
+    parser.add_argument('--noamopt_warmup', type=int, default=2000,
+                    help='')
+    parser.add_argument('--noamopt_factor', type=float, default=1,
+                    help='')
     parser.add_argument('--reduce_on_plateau', action='store_true',
                     help='')
 
