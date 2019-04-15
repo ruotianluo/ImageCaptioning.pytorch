@@ -122,8 +122,7 @@ class DataLoader(data.Dataset):
 
         fc_batch = [] # np.ndarray((batch_size * seq_per_img, self.opt.fc_feat_size), dtype = 'float32')
         att_batch = [] # np.ndarray((batch_size * seq_per_img, 14, 14, self.opt.att_feat_size), dtype = 'float32')
-        label_batch = np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'int')
-        mask_batch = np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'float32')
+        label_batch = [] #np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'int')
 
         wrapped = False
 
@@ -134,13 +133,15 @@ class DataLoader(data.Dataset):
             # fetch image
             tmp_fc, tmp_att,\
                 ix, tmp_wrapped = self._prefetch_process[split].get()
+            if tmp_wrapped:
+                wrapped = True
+
             fc_batch.append(tmp_fc)
             att_batch.append(tmp_att)
             
-            label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
-
-            if tmp_wrapped:
-                wrapped = True
+            tmp_label = np.zeros([seq_per_img, self.seq_length + 2], dtype = 'int')
+            tmp_label[:, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
+            label_batch.append(tmp_label)
 
             # Used for reward evaluation
             gts.append(self.h5_label_file['labels'][self.label_start_ix[ix] - 1: self.label_end_ix[ix]])
@@ -156,7 +157,7 @@ class DataLoader(data.Dataset):
         # fc_batch, att_batch, label_batch, gts, infos = \
         #     zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: len(x[1]), reverse=True))
         fc_batch, att_batch, label_batch, gts, infos = \
-            zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
+            zip(*sorted(zip(fc_batch, att_batch, label_batch, gts, infos), key=lambda x: 0, reverse=True))
         data = {}
         data['fc_feats'] = np.stack(sum([[_]*seq_per_img for _ in fc_batch], []))
         # merge att_feats
@@ -174,6 +175,7 @@ class DataLoader(data.Dataset):
         data['labels'] = np.vstack(label_batch)
         # generate mask
         nonzeros = np.array(list(map(lambda x: (x != 0).sum()+2, data['labels'])))
+        mask_batch = np.zeros([data['labels'].shape[0], self.seq_length + 2], dtype = 'float32')
         for ix, row in enumerate(mask_batch):
             row[:nonzeros[ix]] = 1
         data['masks'] = mask_batch
