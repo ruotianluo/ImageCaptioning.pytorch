@@ -11,6 +11,7 @@ import numpy as np
 import time
 import os
 from six.moves import cPickle
+import traceback
 
 import opts
 import models
@@ -19,6 +20,7 @@ import skimage.io
 import eval_utils
 import misc.utils as utils
 from misc.rewards import init_scorer, get_self_critical_reward
+from misc.loss_wrapper import LossWrapper
 
 try:
     import tensorboardX as tb
@@ -55,6 +57,13 @@ def train(opt):
         if os.path.isfile(os.path.join(opt.start_from, 'histories_'+opt.id+'.pkl')):
             with open(os.path.join(opt.start_from, 'histories_'+opt.id+'.pkl'), 'rb') as f:
                 histories = utils.pickle_load(f)
+    else:
+        infos['iter'] = 0
+        infos['epoch'] = 0
+        infos['iterators'] = loader.iterators
+        infos['split_ix'] = loader.split_ix
+        infos['vocab'] = loader.get_vocab()
+    infos['opt'] = opt
 
     iteration = infos.get('iter', 0)
     epoch = infos.get('epoch', 0)
@@ -71,17 +80,12 @@ def train(opt):
 
     model = models.setup(opt).cuda()
     dp_model = torch.nn.DataParallel(model)
+    lw_model = LossWrapper(model, opt)
+    dp_lw_model = torch.nn.DataParallel(lw_model)
 
     epoch_done = True
     # Assure in training mode
-    dp_model.train()
-
-    if opt.label_smoothing > 0:
-        crit = utils.LabelSmoothing(smoothing=opt.label_smoothing)
-    else:
-        crit = utils.LanguageModelCriterion()
-    rl_crit = utils.RewardCriterion()
-    struc_crit = utils.StructureLosses(opt)
+    dp_lw_model.train()
 
     if opt.noamopt:
         assert opt.caption_model == 'transformer', 'noamopt can only work with transformer'
@@ -96,7 +100,22 @@ def train(opt):
     if vars(opt).get('start_from', None) is not None and os.path.isfile(os.path.join(opt.start_from,"optimizer.pth")):
         optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
 
-    if True:
+
+    def save_checkpoint(model, infos, optimizer, histories=None, append=''):
+        if len(append) > 0:
+            append = '-' + append
+        checkpoint_path = os.path.join(opt.checkpoint_path, 'model%s.pth' %(append))
+        torch.save(model.state_dict(), checkpoint_path)
+        print("model saved to {}".format(checkpoint_path))
+        optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer%s.pth' %(append))
+        torch.save(optimizer.state_dict(), optimizer_path)
+        with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'%s.pkl' %(append)), 'wb') as f:
+            utils.pickle_dump(infos, f)
+        if histories:
+            with open(os.path.join(opt.checkpoint_path, 'histories_'+opt.id+'%s.pkl' %(append)), 'wb') as f:
+                utils.pickle_dump(histories, f)
+
+    try:
         while True:
             if epoch_done:
                 if not opt.noamopt and not opt.reduce_on_plateau:
@@ -137,30 +156,13 @@ def train(opt):
             start = time.time()
 
             tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
-            tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
+            tmp = [_ if _ is None else _.cuda() for _ in tmp]
             fc_feats, att_feats, labels, masks, att_masks = tmp
             
             optimizer.zero_grad()
-            if struc_flag:
-                if opt.structure_loss_weight < 1:
-                    lm_loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
-                else:
-                    lm_loss = torch.tensor(0).cuda()
-                gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks,
-                    opt={'sample_max':0,
-                        'output_logsoftmax': opt.struc_use_logsoftmax or opt.structure_loss_type == 'softmax_margin'\
-                            or not 'margin' in opt.structure_loss_type,
-                        'sample_n': opt.structure_sample_n},
-                    mode='sample')
-                struc_loss = struc_crit(sample_logprobs, gen_result, data)
+            model_out = dp_lw_model(fc_feats, att_feats, labels, masks, att_masks, data['gts'], torch.arange(0, len(data['gts'])), sc_flag, struc_flag)
 
-                loss = (1-opt.structure_loss_weight) * lm_loss + opt.structure_loss_weight * struc_loss
-            elif not sc_flag:
-                loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
-            else:
-                gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
-                reward = get_self_critical_reward(dp_model, fc_feats, att_feats, att_masks, data, gen_result, opt)
-                loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float().cuda())
+            loss = model_out['loss'].mean()
 
             loss.backward()
             utils.clip_gradient(optimizer, opt.grad_clip)
@@ -170,13 +172,13 @@ def train(opt):
             end = time.time()
             if struc_flag:
                 print("iter {} (epoch {}), train_loss = {:.3f}, lm_loss = {:.3f}, struc_loss = {:.3f}, time/batch = {:.3f}" \
-                    .format(iteration, epoch, train_loss, lm_loss.item(), struc_loss.item(), end - start))
+                    .format(iteration, epoch, train_loss, model_out['lm_loss'].mean().item(), model_out['struc_loss'].mean().item(), end - start))
             elif not sc_flag:
                 print("iter {} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" \
                     .format(iteration, epoch, train_loss, end - start))
             else:
                 print("iter {} (epoch {}), avg_reward = {:.3f}, time/batch = {:.3f}" \
-                    .format(iteration, epoch, np.mean(reward[:,0]), end - start))
+                    .format(iteration, epoch, model_out['reward'].mean(), end - start))
 
             # Update the iteration and epoch
             iteration += 1
@@ -194,22 +196,29 @@ def train(opt):
                 add_summary_value(tb_summary_writer, 'learning_rate', opt.current_lr, iteration)
                 add_summary_value(tb_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
                 if sc_flag:
-                    add_summary_value(tb_summary_writer, 'avg_reward', np.mean(reward[:,0]), iteration)
+                    add_summary_value(tb_summary_writer, 'avg_reward', model_out['reward'].mean(), iteration)
                 elif struc_flag:
-                    add_summary_value(tb_summary_writer, 'lm_loss', lm_loss.item(), iteration)
-                    add_summary_value(tb_summary_writer, 'struc_loss', struc_loss.item(), iteration)
+                    add_summary_value(tb_summary_writer, 'lm_loss', model_out['lm_loss'].mean().item(), iteration)
+                    add_summary_value(tb_summary_writer, 'struc_loss', model_out['struc_loss'].mean().item(), iteration)
 
-                loss_history[iteration] = train_loss if not sc_flag else np.mean(reward[:,0])
+                loss_history[iteration] = train_loss if not sc_flag else model_out['reward'].mean()
                 lr_history[iteration] = opt.current_lr
                 ss_prob_history[iteration] = model.ss_prob
 
+            # update infos
+            infos['iter'] = iteration
+            infos['epoch'] = epoch
+            infos['iterators'] = loader.iterators
+            infos['split_ix'] = loader.split_ix
+            
             # make evaluation on validation set, and save model
             if (iteration % opt.save_checkpoint_every == 0):
                 # eval model
                 eval_kwargs = {'split': 'val',
                                 'dataset': opt.input_json}
                 eval_kwargs.update(vars(opt))
-                val_loss, predictions, lang_stats = eval_utils.eval_split(dp_model, crit, loader, eval_kwargs)
+                val_loss, predictions, lang_stats = eval_utils.eval_split(
+                    dp_model, lw_model.crit, loader, eval_kwargs)
 
                 if opt.reduce_on_plateau:
                     if 'CIDEr' in lang_stats:
@@ -230,50 +239,35 @@ def train(opt):
                     current_score = - val_loss
 
                 best_flag = False
+
                 if best_val_score is None or current_score > best_val_score:
                     best_val_score = current_score
                     best_flag = True
-                checkpoint_path = os.path.join(opt.checkpoint_path, 'model.pth')
-                torch.save(model.state_dict(), checkpoint_path)
-                print("model saved to {}".format(checkpoint_path))
-                if opt.save_history_ckpt:
-                    checkpoint_path = os.path.join(opt.checkpoint_path, 'model-%d.pth'%(iteration))
-                    torch.save(model.state_dict(), checkpoint_path)
-                    print("model saved to {}".format(checkpoint_path))
-                optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer.pth')
-                torch.save(optimizer.state_dict(), optimizer_path)
 
                 # Dump miscalleous informations
-                infos['iter'] = iteration
-                infos['epoch'] = epoch
-                infos['iterators'] = loader.iterators
-                infos['split_ix'] = loader.split_ix
                 infos['best_val_score'] = best_val_score
-                infos['opt'] = opt
-                infos['vocab'] = loader.get_vocab()
-
                 histories['val_result_history'] = val_result_history
                 histories['loss_history'] = loss_history
                 histories['lr_history'] = lr_history
                 histories['ss_prob_history'] = ss_prob_history
-                with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'.pkl'), 'wb') as f:
-                    utils.pickle_dump(infos, f)
+
+                save_checkpoint(model, infos, optimizer, histories)
                 if opt.save_history_ckpt:
-                    with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'-%d.pkl'%(iteration)), 'wb') as f:
-                        cPickle.dump(infos, f)
-                with open(os.path.join(opt.checkpoint_path, 'histories_'+opt.id+'.pkl'), 'wb') as f:
-                    utils.pickle_dump(histories, f)
+                    save_checkpoint(model, infos, optimizer, append=str(iteration))
 
                 if best_flag:
-                    checkpoint_path = os.path.join(opt.checkpoint_path, 'model-best.pth')
-                    torch.save(model.state_dict(), checkpoint_path)
-                    print("model saved to {}".format(checkpoint_path))
-                    with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'-best.pkl'), 'wb') as f:
-                        utils.pickle_dump(infos, f)
+                    save_checkpoint(model, infos, optimizer, append='best')
 
             # Stop if reaching max epochs
             if epoch >= opt.max_epochs and opt.max_epochs != -1:
                 break
+    except (RuntimeError, KeyboardInterrupt):
+        print('Save ckpt on exception ...')
+        save_checkpoint(model, infos, optimizer)
+        print('Save ckpt done.')
+        stack_trace = traceback.format_exc()
+        print(stack_trace)
+
 
 opt = opts.parse_opt()
 train(opt)

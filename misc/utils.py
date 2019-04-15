@@ -105,19 +105,19 @@ class StructureLosses(nn.Module):
         self.opt = opt
         self.loss_type = opt.structure_loss_type
 
-    def forward(self, input, seq, data):
+    def forward(self, input, seq, data_gts):
         """
         Input is either logits or log softmax
         """
         batch_size = input.size(0)# batch_size = sample_size * seq_per_img
-        seq_per_img = batch_size // len(data['gts'])
+        seq_per_img = batch_size // len(data_gts)
 
         assert seq_per_img == self.opt.seq_per_img * self.opt.structure_sample_n, seq_per_img
 
         mask = (seq>0).float()
         mask = torch.cat([mask.new_full((mask.size(0), 1), 1), mask[:, :-1]], 1)
         
-        scores = get_scores(data, seq, self.opt)
+        scores = get_scores(data_gts, seq, self.opt)
         scores = torch.from_numpy(scores).type_as(input).view(-1, seq_per_img)
         if self.opt.entropy_reward_weight > 0:
             entropy = - (F.softmax(input, dim=2) * F.log_softmax(input, dim=2)).sum(2).data
