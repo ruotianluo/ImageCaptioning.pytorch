@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import json
 import h5py
+import lmdb
 import os
 import numpy as np
 import random
@@ -12,6 +13,44 @@ import torch
 import torch.utils.data as data
 
 import multiprocessing
+import six
+
+class HybridLoader:
+    """
+    If db_path is a director, then use normal file loading
+    If lmdb, then load from lmdb
+    The loading method depend on extention.
+    """
+    def __init__(self, db_path, ext):
+        self.db_path = db_path
+        self.ext = ext
+        if self.ext == '.npy':
+            self.loader = lambda x: np.load(x)
+        else:
+            self.loader = lambda x: np.load(x)['feat']
+        if db_path.endswith('.lmdb'):
+            self.db_type = 'lmdb'
+            self.env = lmdb.open(db_path, subdir=os.path.isdir(db_path),
+                                readonly=True, lock=False,
+                                readahead=False, meminit=False)
+        else:
+            self.db_type = 'dir'
+    
+    def get(self, key):
+
+        if self.db_type == 'lmdb':
+            env = self.env
+            with env.begin(write=False) as txn:
+                byteflow = txn.get(key)
+            f_input = six.BytesIO(byteflow)
+        else:
+            f_input = os.path.join(self.db_path, key + self.ext)
+
+        # load image
+        feat = self.loader(f_input)
+
+        return feat
+
 
 class DataLoader(data.Dataset):
 
@@ -52,9 +91,9 @@ class DataLoader(data.Dataset):
         print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_box_dir, opt.input_label_h5)
         self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
 
-        self.input_fc_dir = self.opt.input_fc_dir
-        self.input_att_dir = self.opt.input_att_dir
-        self.input_box_dir = self.opt.input_box_dir
+        self.fc_loader = HybridLoader(self.opt.input_fc_dir, '.npy')
+        self.att_loader = HybridLoader(self.opt.input_att_dir, '.npz')
+        self.box_loader = HybridLoader(self.opt.input_box_dir, '.npy')
 
         # load in the sequence data
         seq_size = self.h5_label_file['labels'].shape
@@ -196,13 +235,13 @@ class DataLoader(data.Dataset):
         """
         ix = index #self.split_ix[index]
         if self.use_att:
-            att_feat = np.load(os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'))['feat']
+            att_feat = self.att_loader.get(str(self.info['images'][ix]['id']))
             # Reshape to K x C
             att_feat = att_feat.reshape(-1, att_feat.shape[-1])
             if self.norm_att_feat:
                 att_feat = att_feat / np.linalg.norm(att_feat, 2, 1, keepdims=True)
             if self.use_box:
-                box_feat = np.load(os.path.join(self.input_box_dir, str(self.info['images'][ix]['id']) + '.npy'))
+                box_feat = self.box_loader.get(str(self.info['images'][ix]['id']))
                 # devided by image width and height
                 x1,y1,x2,y2 = np.hsplit(box_feat, 4)
                 h,w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
@@ -215,7 +254,7 @@ class DataLoader(data.Dataset):
         else:
             att_feat = np.zeros((1,1,1), dtype='float32')
         if self.use_fc:
-            fc_feat = np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy'))
+            fc_feat = self.fc_loader.get(str(self.info['images'][ix]['id']))
         else:
             fc_feat = np.zeros((1), dtype='float32')
         return (fc_feat,
