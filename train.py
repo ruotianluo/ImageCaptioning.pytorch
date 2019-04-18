@@ -78,7 +78,9 @@ def train(opt):
     if opt.load_best_score == 1:
         best_val_score = infos.get('best_val_score', None)
 
+    opt.vocab = loader.get_vocab()
     model = models.setup(opt).cuda()
+    del opt.vocab
     dp_model = torch.nn.DataParallel(model)
     lw_model = LossWrapper(model, opt)
     dp_lw_model = torch.nn.DataParallel(lw_model)

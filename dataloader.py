@@ -83,34 +83,41 @@ class DataLoader(data.Dataset):
         # load the json file which contains additional information about the dataset
         print('DataLoader loading json file: ', opt.input_json)
         self.info = json.load(open(self.opt.input_json))
-        self.ix_to_word = self.info['ix_to_word']
-        self.vocab_size = len(self.ix_to_word)
-        print('vocab size is ', self.vocab_size)
+        if 'ix_to_word' in self.info:
+            self.ix_to_word = self.info['ix_to_word']
+            self.vocab_size = len(self.ix_to_word)
+            print('vocab size is ', self.vocab_size)
         
         # open the hdf5 file
         print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_box_dir, opt.input_label_h5)
-        self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
+        if self.opt.input_label_h5 != 'none':
+            self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
+            # load in the sequence data
+            seq_size = self.h5_label_file['labels'].shape
+            self.seq_length = seq_size[1]
+            print('max sequence length in data is', self.seq_length)
+            # load the pointers in full to RAM (should be small enough)
+            self.label_start_ix = self.h5_label_file['label_start_ix'][:]
+            self.label_end_ix = self.h5_label_file['label_end_ix'][:]
+        else:
+            self.seq_length = 1
 
         self.fc_loader = HybridLoader(self.opt.input_fc_dir, '.npy')
         self.att_loader = HybridLoader(self.opt.input_att_dir, '.npz')
         self.box_loader = HybridLoader(self.opt.input_box_dir, '.npy')
 
-        # load in the sequence data
-        seq_size = self.h5_label_file['labels'].shape
-        self.seq_length = seq_size[1]
-        print('max sequence length in data is', self.seq_length)
-        # load the pointers in full to RAM (should be small enough)
-        self.label_start_ix = self.h5_label_file['label_start_ix'][:]
-        self.label_end_ix = self.h5_label_file['label_end_ix'][:]
-
-        self.num_images = self.label_start_ix.shape[0]
+        self.num_images = len(self.info['images']) # self.label_start_ix.shape[0]
         print('read %d image features' %(self.num_images))
 
         # separate out indexes for each of the provided splits
         self.split_ix = {'train': [], 'val': [], 'test': []}
         for ix in range(len(self.info['images'])):
             img = self.info['images'][ix]
-            if img['split'] == 'train':
+            if not 'split' in img:
+                self.split_ix['train'].append(ix)
+                self.split_ix['val'].append(ix)
+                self.split_ix['test'].append(ix)
+            elif img['split'] == 'train':
                 self.split_ix['train'].append(ix)
             elif img['split'] == 'val':
                 self.split_ix['val'].append(ix)
@@ -179,17 +186,21 @@ class DataLoader(data.Dataset):
             att_batch.append(tmp_att)
             
             tmp_label = np.zeros([seq_per_img, self.seq_length + 2], dtype = 'int')
-            tmp_label[:, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
+            if hasattr(self, 'h5_label_file'):
+                tmp_label[:, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
             label_batch.append(tmp_label)
 
             # Used for reward evaluation
-            gts.append(self.h5_label_file['labels'][self.label_start_ix[ix] - 1: self.label_end_ix[ix]])
+            if hasattr(self, 'h5_label_file'):
+                gts.append(self.h5_label_file['labels'][self.label_start_ix[ix] - 1: self.label_end_ix[ix]])
+            else:
+                gts.append([])
         
             # record associated info as well
             info_dict = {}
             info_dict['ix'] = ix
             info_dict['id'] = self.info['images'][ix]['id']
-            info_dict['file_path'] = self.info['images'][ix]['file_path']
+            info_dict['file_path'] = self.info['images'][ix].get('file_path', '')
             infos.append(info_dict)
 
         # #sort by att_feat length

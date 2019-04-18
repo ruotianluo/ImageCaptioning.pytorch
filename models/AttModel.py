@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -24,6 +25,9 @@ import misc.utils as utils
 from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence, pad_packed_sequence
 
 from .CaptionModel import CaptionModel
+
+bad_endings = ['a','an','the','in','for','at','of','with','before','after','on','upon','near','to','is','are','am']
+bad_endings += ['the']
 
 def sort_pack_padded_sequence(input, lengths):
     sorted_lengths, indices = torch.sort(lengths, descending=True)
@@ -82,6 +86,10 @@ class AttModel(CaptionModel):
             self.logit = [[nn.Linear(self.rnn_size, self.rnn_size), nn.ReLU(), nn.Dropout(0.5)] for _ in range(opt.logit_layers - 1)]
             self.logit = nn.Sequential(*(reduce(lambda x,y:x+y, self.logit) + [nn.Linear(self.rnn_size, self.vocab_size + 1)]))
         self.ctx2att = nn.Linear(self.rnn_size, self.att_hid_size)
+
+        # For remove bad endding
+        self.vocab = opt.vocab
+        self.bad_endings_ix = [int(k) for k,v in self.vocab.items() if v in bad_endings]
 
     def init_hidden(self, bsz):
         weight = next(self.parameters())
@@ -195,6 +203,7 @@ class AttModel(CaptionModel):
         output_logsoftmax = opt.get('output_logsoftmax', 1)
         decoding_constraint = opt.get('decoding_constraint', 0)
         block_trigrams = opt.get('block_trigrams', 0)
+        remove_bad_endings = opt.get('remove_bad_endings', 0)
         if beam_size > 1:
             return self._sample_beam(fc_feats, att_feats, att_masks, opt)
 
@@ -222,6 +231,13 @@ class AttModel(CaptionModel):
             if decoding_constraint and t > 0:
                 tmp = logprobs.new_zeros(logprobs.size())
                 tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
+                logprobs = logprobs + tmp
+
+            if remove_bad_endings and t > 0:
+                tmp = logprobs.new_zeros(logprobs.size())
+                prev_bad = np.isin(seq[:,t-1].data.cpu().numpy(), self.bad_endings_ix)
+                # Impossible to generate remove_bad_endings
+                tmp[torch.from_numpy(prev_bad.astype('uint8')), 0] = float('-inf')
                 logprobs = logprobs + tmp
 
             # Mess with trigrams

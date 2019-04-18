@@ -103,30 +103,22 @@ with open(opt.infos_path) as f:
     infos = utils.pickle_load(f)
 
 # override and collect parameters
-if len(opt.input_fc_dir) == 0:
-    opt.input_fc_dir = infos['opt'].input_fc_dir
-    opt.input_att_dir = infos['opt'].input_att_dir
-    opt.input_box_dir = getattr(infos['opt'], 'input_box_dir', '')
-    opt.input_label_h5 = infos['opt'].input_label_h5
-if len(opt.input_json) == 0:
-    opt.input_json = infos['opt'].input_json
-if opt.batch_size == 0:
-    opt.batch_size = infos['opt'].batch_size
-if len(opt.id) == 0:
-    opt.id = infos['opt'].id
-ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval", "block_trigrams", "sample_n"]
+replace = ['input_fc_dir', 'input_att_dir', 'input_box_dir', 'input_label_h5', 'input_json', 'batch_size', 'id']
+ignore = ['start_from']
 
 for k in vars(infos['opt']).keys():
-    if k not in ignore:
-        if k in vars(opt):
-            assert vars(opt)[k] == vars(infos['opt'])[k], k + ' option not consistent'
-        else:
+    if k in replace:
+        setattr(opt, k, getattr(opt, k) or getattr(infos['opt'], k))
+    elif k not in ignore:
+        if not k in vars(opt):
             vars(opt).update({k: vars(infos['opt'])[k]}) # copy over options from model
 
 vocab = infos['vocab'] # ix -> word mapping
 
 # Setup the model
+opt.vocab = vocab
 model = models.setup(opt)
+del opt.vocab
 model.load_state_dict(torch.load(opt.model))
 model.cuda()
 model.eval()
