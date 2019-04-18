@@ -110,7 +110,9 @@ for k in vars(infos['opt']).keys():
 vocab = infos['vocab'] # ix -> word mapping
 
 # Setup the model
+opt.vocab = vocab
 model = models.setup(opt)
+del opt.vocab
 model.load_state_dict(torch.load(opt.model))
 model.cuda()
 model.eval()
