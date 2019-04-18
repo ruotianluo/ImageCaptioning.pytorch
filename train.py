@@ -150,8 +150,9 @@ def train(opt):
             # Write validation result into summary
             if tf is not None:
                 add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
-                for k,v in lang_stats.items():
-                    add_summary_value(tf_summary_writer, k, v, iteration)
+                if opt.language_eval == 1:
+                    for k,v in lang_stats.items():
+                        add_summary_value(tf_summary_writer, k, v, iteration)
                 tf_summary_writer.flush()
             val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
 
