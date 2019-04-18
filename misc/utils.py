@@ -42,11 +42,12 @@ def pickle_dump(obj, f):
 
 def if_use_feat(caption_model):
     # Decide if load attention feature according to caption model
-    use_fc, use_att = True, True
     if caption_model in ['show_tell', 'all_img', 'fc', 'newfc']:
         use_att, use_fc = False, True
     elif caption_model == 'language_model':
         use_att, use_fc = False, False
+    elif caption_model == 'topdown':
+        use_fc, use_att = True, True
     else:
         use_att, use_fc = True, False
     return use_fc, use_att
