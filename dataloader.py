@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import json
 import h5py
+import lmdb
 import os
 import numpy as np
 import random
@@ -12,6 +13,44 @@ import torch
 import torch.utils.data as data
 
 import multiprocessing
+import six
+
+class HybridLoader:
+    """
+    If db_path is a director, then use normal file loading
+    If lmdb, then load from lmdb
+    The loading method depend on extention.
+    """
+    def __init__(self, db_path, ext):
+        self.db_path = db_path
+        self.ext = ext
+        if self.ext == '.npy':
+            self.loader = lambda x: np.load(x)
+        else:
+            self.loader = lambda x: np.load(x)['feat']
+        if db_path.endswith('.lmdb'):
+            self.db_type = 'lmdb'
+            self.env = lmdb.open(db_path, subdir=os.path.isdir(db_path),
+                                readonly=True, lock=False,
+                                readahead=False, meminit=False)
+        else:
+            self.db_type = 'dir'
+    
+    def get(self, key):
+
+        if self.db_type == 'lmdb':
+            env = self.env
+            with env.begin(write=False) as txn:
+                byteflow = txn.get(key)
+            f_input = six.BytesIO(byteflow)
+        else:
+            f_input = os.path.join(self.db_path, key + self.ext)
+
+        # load image
+        feat = self.loader(f_input)
+
+        return feat
+
 
 class DataLoader(data.Dataset):
 
@@ -52,9 +91,9 @@ class DataLoader(data.Dataset):
         print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_box_dir, opt.input_label_h5)
         self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
 
-        self.input_fc_dir = self.opt.input_fc_dir
-        self.input_att_dir = self.opt.input_att_dir
-        self.input_box_dir = self.opt.input_box_dir
+        self.fc_loader = HybridLoader(self.opt.input_fc_dir, '.npy')
+        self.att_loader = HybridLoader(self.opt.input_att_dir, '.npz')
+        self.box_loader = HybridLoader(self.opt.input_box_dir, '.npy')
 
         # load in the sequence data
         seq_size = self.h5_label_file['labels'].shape
@@ -122,8 +161,7 @@ class DataLoader(data.Dataset):
 
         fc_batch = [] # np.ndarray((batch_size * seq_per_img, self.opt.fc_feat_size), dtype = 'float32')
         att_batch = [] # np.ndarray((batch_size * seq_per_img, 14, 14, self.opt.att_feat_size), dtype = 'float32')
-        label_batch = np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'int')
-        mask_batch = np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'float32')
+        label_batch = [] #np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'int')
 
         wrapped = False
 
@@ -134,13 +172,15 @@ class DataLoader(data.Dataset):
             # fetch image
             tmp_fc, tmp_att,\
                 ix, tmp_wrapped = self._prefetch_process[split].get()
+            if tmp_wrapped:
+                wrapped = True
+
             fc_batch.append(tmp_fc)
             att_batch.append(tmp_att)
             
-            label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
-
-            if tmp_wrapped:
-                wrapped = True
+            tmp_label = np.zeros([seq_per_img, self.seq_length + 2], dtype = 'int')
+            tmp_label[:, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
+            label_batch.append(tmp_label)
 
             # Used for reward evaluation
             gts.append(self.h5_label_file['labels'][self.label_start_ix[ix] - 1: self.label_end_ix[ix]])
@@ -156,7 +196,7 @@ class DataLoader(data.Dataset):
         # fc_batch, att_batch, label_batch, gts, infos = \
         #     zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: len(x[1]), reverse=True))
         fc_batch, att_batch, label_batch, gts, infos = \
-            zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
+            zip(*sorted(zip(fc_batch, att_batch, label_batch, gts, infos), key=lambda x: 0, reverse=True))
         data = {}
         data['fc_feats'] = np.stack(sum([[_]*seq_per_img for _ in fc_batch], []))
         # merge att_feats
@@ -174,6 +214,7 @@ class DataLoader(data.Dataset):
         data['labels'] = np.vstack(label_batch)
         # generate mask
         nonzeros = np.array(list(map(lambda x: (x != 0).sum()+2, data['labels'])))
+        mask_batch = np.zeros([data['labels'].shape[0], self.seq_length + 2], dtype = 'float32')
         for ix, row in enumerate(mask_batch):
             row[:nonzeros[ix]] = 1
         data['masks'] = mask_batch
@@ -194,13 +235,13 @@ class DataLoader(data.Dataset):
         """
         ix = index #self.split_ix[index]
         if self.use_att:
-            att_feat = np.load(os.path.join(self.input_att_dir, str(self.info['images'][ix]['id']) + '.npz'))['feat']
+            att_feat = self.att_loader.get(str(self.info['images'][ix]['id']))
             # Reshape to K x C
             att_feat = att_feat.reshape(-1, att_feat.shape[-1])
             if self.norm_att_feat:
                 att_feat = att_feat / np.linalg.norm(att_feat, 2, 1, keepdims=True)
             if self.use_box:
-                box_feat = np.load(os.path.join(self.input_box_dir, str(self.info['images'][ix]['id']) + '.npy'))
+                box_feat = self.box_loader.get(str(self.info['images'][ix]['id']))
                 # devided by image width and height
                 x1,y1,x2,y2 = np.hsplit(box_feat, 4)
                 h,w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
@@ -213,7 +254,7 @@ class DataLoader(data.Dataset):
         else:
             att_feat = np.zeros((1,1,1), dtype='float32')
         if self.use_fc:
-            fc_feat = np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy'))
+            fc_feat = self.fc_loader.get(str(self.info['images'][ix]['id']))
         else:
             fc_feat = np.zeros((1), dtype='float32')
         return (fc_feat,
