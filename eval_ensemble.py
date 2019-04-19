@@ -22,7 +22,7 @@ import torch
 parser = argparse.ArgumentParser()
 # Input paths
 parser.add_argument('--ids', nargs='+', required=True, help='id of the models to ensemble')
-parser.add_argument('--weights', nargs='+', required=True, default=None, help='id of the models to ensemble')
+parser.add_argument('--weights', nargs='+', required=False, default=None, help='id of the models to ensemble')
 # parser.add_argument('--models', nargs='+', required=True
 #                 help='path to model to evaluate')
 # parser.add_argument('--infos_paths', nargs='+', required=True, help='path to infos to evaluate')
@@ -60,7 +60,7 @@ for i in range(len(model_infos)):
     tmp.load_state_dict(torch.load(model_paths[i]))
     _models.append(tmp)
 
-if opt.weights:
+if opt.weights is not None:
     opt.weights = [float(_) for _ in opt.weights]
 model = AttEnsemble(_models, weights=opt.weights)
 model.seq_length = opt.max_length

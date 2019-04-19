@@ -34,7 +34,7 @@ class AttEnsemble(AttModel):
         self.vocab_size = models[0].vocab_size
         self.seq_length = models[0].seq_length
         self.ss_prob = 0
-        weights = weights or [1] * len(self.models)
+        weights = weights or [1.0] * len(self.models)
         self.register_buffer('weights', torch.tensor(weights))
 
     def init_hidden(self, batch_size):
