@@ -56,6 +56,7 @@ from models.AttEnsemble import AttEnsemble
 _models = []
 for i in range(len(model_infos)):
     model_infos[i]['opt'].start_from = None
+    model_infos[i]['opt'].vocab = vocab
     tmp = models.setup(model_infos[i]['opt'])
     tmp.load_state_dict(torch.load(model_paths[i]))
     _models.append(tmp)

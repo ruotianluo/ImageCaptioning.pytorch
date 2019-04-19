@@ -16,6 +16,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -33,6 +34,7 @@ class AttEnsemble(AttModel):
         self.models = nn.ModuleList(models)
         self.vocab_size = models[0].vocab_size
         self.seq_length = models[0].seq_length
+        self.bad_endings_ix = models[0].bad_endings_ix
         self.ss_prob = 0
         weights = weights or [1.0] * len(self.models)
         self.register_buffer('weights', torch.tensor(weights))
@@ -168,6 +170,7 @@ class AttEnsemble(AttModel):
         group_size = opt.get('group_size', 1)
         diversity_lambda = opt.get('diversity_lambda', 0.5)
         decoding_constraint = opt.get('decoding_constraint', 0)
+        remove_bad_endings = opt.get('remove_bad_endings', 0)
         length_penalty = utils.penalty_builder(opt.get('length_penalty', ''))
         bdash = beam_size // group_size # beam per group
 
@@ -194,6 +197,8 @@ class AttEnsemble(AttModel):
                     # suppress previous word
                     if decoding_constraint and t-divm > 0:
                         logprobsf.scatter_(1, beam_seq_table[divm][t-divm-1].unsqueeze(1).cuda(), float('-inf'))
+                    if remove_bad_endings and t-divm > 0:
+                        logprobsf[torch.from_numpy(np.isin(beam_seq_table[divm][t-divm-1].cpu().numpy(), self.bad_endings_ix).astype('uint8')), 0] = float('-inf')
                     # suppress UNK tokens in the decoding
                     logprobsf[:,logprobsf.size(1)-1] = logprobsf[:, logprobsf.size(1)-1] - 1000  
                     # diversity is added here
