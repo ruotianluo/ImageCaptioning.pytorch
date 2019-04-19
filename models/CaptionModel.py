@@ -104,7 +104,6 @@ class CaptionModel(nn.Module):
         diversity_lambda = opt.get('diversity_lambda', 0.5)
         decoding_constraint = opt.get('decoding_constraint', 0)
         remove_bad_endings = opt.get('remove_bad_endings', 0)
-        max_ppl = opt.get('max_ppl', 0)
         length_penalty = utils.penalty_builder(opt.get('length_penalty', ''))
         bdash = beam_size // group_size # beam per group
 
@@ -166,8 +165,6 @@ class CaptionModel(nn.Module):
                                 'p': beam_logprobs_sum_table[divm][vix].item()
                             }
                             final_beam['p'] = length_penalty(t-divm+1, final_beam['p'])
-                            # if max_ppl:
-                            #     final_beam['p'] = final_beam['p'] / (t-divm+1)
                             done_beams_table[divm].append(final_beam)
                             # don't continue beams from finished sequences
                             beam_logprobs_sum_table[divm][vix] = -1000

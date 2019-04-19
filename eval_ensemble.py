@@ -42,13 +42,13 @@ parser.add_argument('--dump_path', type=int, default=0,
 
 # Sampling options
 parser.add_argument('--sample_max', type=int, default=1,
-                help='1 = sample argmax words. 0 = sample from distributions.')
-parser.add_argument('--max_ppl', type=int, default=0,
-                help='beam search by max perplexity or max probability.')
+                help='1 = sample argmax words. 0 = sample from distributions. 2 = gumbel softmax sample. negative means topk sampling')
 parser.add_argument('--beam_size', type=int, default=2,
                 help='used when sample_max = 1, indicates number of beams in beam search. Usually 2 or 3 works well. More is not better. Set this to 1 for faster runtime but a bit worse performance.')
 parser.add_argument('--max_length', type=int, default=20,
                 help='Maximum length during sampling')
+parser.add_argument('--length_penalty', type=str, default='',
+                help='wu_X or avg_X, X is the alpha')
 parser.add_argument('--group_size', type=int, default=1,
                 help='used for diverse beam search. if group_size is 1, then it\'s normal beam search')
 parser.add_argument('--diversity_lambda', type=float, default=0.5,
@@ -57,6 +57,10 @@ parser.add_argument('--temperature', type=float, default=1.0,
                 help='temperature when sampling from distributions (i.e. when sample_max = 0). Lower = "safer" predictions.')
 parser.add_argument('--decoding_constraint', type=int, default=0,
                 help='If 1, not allowing same word in a row')
+parser.add_argument('--block_trigrams', type=int, default=0,
+                help='block repeated trigram.')
+parser.add_argument('--remove_bad_endings', type=int, default=0,
+                help='Remove bad endings')
 # For evaluation on a folder of images:
 parser.add_argument('--image_folder', type=str, default='', 
                 help='If this is nonempty then will predict on the images in this folder path')
@@ -77,8 +81,6 @@ parser.add_argument('--split', type=str, default='test',
                 help='if running on MSCOCO images, which split to use: val|test|train')
 parser.add_argument('--coco_json', type=str, default='', 
                 help='if nonempty then use this file in DataLoaderRaw (see docs there). Used only in MSCOCO test evaluation, where we have a specific json file of only test set images.')
-parser.add_argument('--seq_length', type=int, default=40, 
-                help='maximum sequence length during sampling')
 # misc
 parser.add_argument('--id', type=str, default='', 
                 help='an id identifying this run/job. used only if language_eval = 1 for appending to intermediate files')
@@ -96,17 +98,9 @@ model_paths = ['log_%s/model-best.pth' %(id) for id in opt.ids]
 infos = model_infos[0]
 
 # override and collect parameters
-if len(opt.input_fc_dir) == 0:
-    opt.input_fc_dir = infos['opt'].input_fc_dir
-    opt.input_att_dir = infos['opt'].input_att_dir
-    opt.input_box_dir = infos['opt'].input_box_dir
-    opt.input_label_h5 = infos['opt'].input_label_h5
-if len(opt.input_json) == 0:
-    opt.input_json = infos['opt'].input_json
-if opt.batch_size == 0:
-    opt.batch_size = infos['opt'].batch_size
-if len(opt.id) == 0:
-    opt.id = infos['opt'].id
+replace = ['input_fc_dir', 'input_att_dir', 'input_box_dir', 'input_label_h5', 'input_json', 'batch_size', 'id']
+for k in replace:
+    setattr(opt, k, getattr(opt, k) or getattr(infos['opt'], k))
 
 vars(opt).update({k: vars(infos['opt'])[k] for k in vars(infos['opt']).keys() if k not in vars(opt)}) # copy over options from model
 
@@ -130,7 +124,7 @@ for i in range(len(model_infos)):
 if opt.weights:
     opt.weights = [float(_) for _ in opt.weights]
 model = AttEnsemble(_models, weights=opt.weights)
-model.seq_length = opt.seq_length
+model.seq_length = opt.max_length
 model.cuda()
 model.eval()
 crit = utils.LanguageModelCriterion()
