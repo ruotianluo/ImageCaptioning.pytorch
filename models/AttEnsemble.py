@@ -56,18 +56,21 @@ class AttEnsemble(AttModel):
         logprobs = torch.stack([F.softmax(m.logit(output[i]), dim=1) for i,m in enumerate(self.models)], 2).mul(self.weights).div(self.weights.sum()).sum(-1).log()
 
         return logprobs, state
+    def _prepare_feature(self, *args):
+        return tuple(zip(*[m._prepare_feature(*args) for m in self.models]))
 
-    def _prepare_feature(self, fc_feats, att_feats, att_masks):
-        att_feats, att_masks = self.clip_att(att_feats, att_masks)
+    # def _prepare_feature(self, fc_feats, att_feats, att_masks):
 
-        # embed fc and att feats
-        fc_feats = [m.fc_embed(fc_feats) for m in self.models]
-        att_feats = [pack_wrapper(m.att_embed, att_feats[...,:m.att_feat_size], att_masks) for m in self.models]
+    #     att_feats, att_masks = self.clip_att(att_feats, att_masks)
 
-        # Project the attention feats first to reduce memory and computation comsumptions.
-        p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
+    #     # embed fc and att feats
+    #     fc_feats = [m.fc_embed(fc_feats) for m in self.models]
+    #     att_feats = [pack_wrapper(m.att_embed, att_feats[...,:m.att_feat_size], att_masks) for m in self.models]
 
-        return fc_feats, att_feats, p_att_feats, [att_masks] * len(self.models)
+    #     # Project the attention feats first to reduce memory and computation comsumptions.
+    #     p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
+
+    #     return fc_feats, att_feats, p_att_feats, [att_masks] * len(self.models)
 
     def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
