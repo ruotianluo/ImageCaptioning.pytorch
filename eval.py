@@ -41,7 +41,7 @@ ignore = ['start_from']
 
 for k in vars(infos['opt']).keys():
     if k in replace:
-        setattr(opt, k, getattr(opt, k) or getattr(infos['opt'], k))
+        setattr(opt, k, getattr(opt, k) or getattr(infos['opt'], k, ''))
     elif k not in ignore:
         if not k in vars(opt):
             vars(opt).update({k: vars(infos['opt'])[k]}) # copy over options from model

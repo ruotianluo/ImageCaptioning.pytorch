@@ -39,7 +39,7 @@ infos = model_infos[0]
 # override and collect parameters
 replace = ['input_fc_dir', 'input_att_dir', 'input_box_dir', 'input_label_h5', 'input_json', 'batch_size', 'id']
 for k in replace:
-    setattr(opt, k, getattr(opt, k) or getattr(infos['opt'], k))
+    setattr(opt, k, getattr(opt, k) or getattr(infos['opt'], k, ''))
 
 vars(opt).update({k: vars(infos['opt'])[k] for k in vars(infos['opt']).keys() if k not in vars(opt)}) # copy over options from model
 
