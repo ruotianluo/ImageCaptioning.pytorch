@@ -13,7 +13,7 @@ This is based on my [ImageCaptioning.pytorch](https://github.com/ruotianluo/Imag
 
 ## Requirements
 Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)
-PyTorch 0.4 (along with torchvision)
+PyTorch 1.0 (along with torchvision)
 cider (already been added as a submodule)
 
 (**Skip if you are using bottom-up feature**): If you want to use resnet to extract image features, you need to download pretrained resnet model for both training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
