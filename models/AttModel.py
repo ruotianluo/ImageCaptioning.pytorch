@@ -270,7 +270,7 @@ class AttModel(CaptionModel):
             # sample the next word
             if t == self.seq_length: # skip if we achieve maximum length
                 break
-            if sample_max:
+            if sample_max == 1:
                 sampleLogprobs, it = torch.max(logprobs.data, 1)
                 it = it.view(-1).long()
             elif sample_max == 2: # gumbel softmax
@@ -280,12 +280,13 @@ class AttModel(CaptionModel):
                     return -torch.log(-torch.log(U + eps) + eps)
                 def gumbel_softmax_sample(logits, temperature):
                     y = logits + sample_gumbel(logits.size())
-                    return F.softmax(y / temperature, dim=-1)
+                    return F.log_softmax(y / temperature, dim=-1)
                 _logprobs = gumbel_softmax_sample(logprobs, temperature)
                 _, it = torch.max(_logprobs.data, 1)
                 sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
             else:
-                it = torch.distributions.Categorical(logits=logprobs.detach() / temperature).sample()
+                logprobs = logprobs / temperature
+                it = torch.distributions.Categorical(logits=logprobs.detach()).sample()
                 sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
 
             # stop when all finished
