@@ -26,7 +26,7 @@ class LSTMCore(nn.Module):
         
         all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
-        sigmoid_chunk = F.sigmoid(sigmoid_chunk)
+        sigmoid_chunk = torch.sigmoid(sigmoid_chunk)
         in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)
         forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
         out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
@@ -35,7 +35,7 @@ class LSTMCore(nn.Module):
             all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size),
             all_input_sums.narrow(1, 4 * self.rnn_size, self.rnn_size))
         next_c = forget_gate * state[1][-1] + in_gate * in_transform
-        next_h = out_gate * F.tanh(next_c)
+        next_h = out_gate * torch.tanh(next_c)
 
         output = self.dropout(next_h)
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))

@@ -104,7 +104,6 @@ class CaptionModel(nn.Module):
         diversity_lambda = opt.get('diversity_lambda', 0.5)
         decoding_constraint = opt.get('decoding_constraint', 0)
         remove_bad_endings = opt.get('remove_bad_endings', 0)
-        max_ppl = opt.get('max_ppl', 0)
         length_penalty = utils.penalty_builder(opt.get('length_penalty', ''))
         bdash = beam_size // group_size # beam per group
 
@@ -115,14 +114,19 @@ class CaptionModel(nn.Module):
 
         # logprobs # logprobs predicted in last time step, shape (beam_size, vocab_size+1)
         done_beams_table = [[] for _ in range(group_size)]
-        state_table = [list(torch.unbind(_)) for _ in torch.stack(init_state).chunk(group_size, 2)]
+        # state_table = [list(torch.unbind(_)) for _ in torch.stack(init_state).chunk(group_size, 2)]
+        state_table = list(zip(*[_.chunk(group_size, 2) for _ in init_state]))
         logprobs_table = list(init_logprobs.chunk(group_size, 0))
         # END INIT
 
         # Chunk elements in the args
         args = list(args)
-        args = [_.chunk(group_size) if _ is not None else [None]*group_size for _ in args]
-        args = [[args[i][j] for i in range(len(args))] for j in range(group_size)]
+        if self.__class__.__name__ == 'AttEnsemble':
+            args = [[_.chunk(group_size) if _ is not None else [None]*group_size for _ in args_] for args_ in args] # arg_name, model_name, group_name
+            args = [[[args[j][i][k] for i in range(len(self.models))] for j in range(len(args))] for k in range(group_size)] # group_name, arg_name, model_name
+        else:
+            args = [_.chunk(group_size) if _ is not None else [None]*group_size for _ in args]
+            args = [[args[i][j] for i in range(len(args))] for j in range(group_size)]
 
         for t in range(self.seq_length + group_size - 1):
             for divm in range(group_size): 
@@ -166,8 +170,6 @@ class CaptionModel(nn.Module):
                                 'p': beam_logprobs_sum_table[divm][vix].item()
                             }
                             final_beam['p'] = length_penalty(t-divm+1, final_beam['p'])
-                            # if max_ppl:
-                            #     final_beam['p'] = final_beam['p'] / (t-divm+1)
                             done_beams_table[divm].append(final_beam)
                             # don't continue beams from finished sequences
                             beam_logprobs_sum_table[divm][vix] = -1000
