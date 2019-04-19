@@ -289,7 +289,7 @@ class TransformerModel(AttModel):
         return self.model.generator.proj(x)
 
     def init_hidden(self, bsz):
-        return None
+        return []
 
     def _prepare_feature(self, fc_feats, att_feats, att_masks):
 
@@ -333,7 +333,7 @@ class TransformerModel(AttModel):
         """
         state = [ys.unsqueeze(0)]
         """
-        if state is None:
+        if len(state) == 0:
             ys = it.unsqueeze(1)
         else:
             ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
