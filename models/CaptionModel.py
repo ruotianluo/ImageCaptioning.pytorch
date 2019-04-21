@@ -113,7 +113,7 @@ class CaptionModel(nn.Module):
                     final_beam = {
                         'seq': beam_seq[:, vix].clone(), 
                         'logps': beam_seq_logprobs[:, vix].clone(),
-                        'p': beam_logprobs_sum[vix]
+                        'p': float(beam_logprobs_sum[vix].cpu().numpy())
                     }
                     done_beams.append(final_beam)
                     # don't continue beams from finished sequences
