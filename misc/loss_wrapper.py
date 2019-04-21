@@ -38,9 +38,13 @@ class LossWrapper(torch.nn.Module):
         elif not sc_flag:
             loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
+            self.model.eval()
+            with torch.no_grad():
+                greedy_res, _ = self.model(fc_feats, att_feats, att_masks, mode='sample')
+            self.model.train()
             gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
             gts = [gts[_] for _ in gt_indices.tolist()]
-            reward = get_self_critical_reward(self.model, fc_feats, att_feats, att_masks, gts, gen_result, self.opt)
+            reward = get_self_critical_reward(greedy_res, gts, gen_result, self.opt)
             reward = torch.from_numpy(reward).float().to(gen_result.device)
             loss = self.rl_crit(sample_logprobs, gen_result.data, reward)
             out['reward'] = reward[:,0].mean()

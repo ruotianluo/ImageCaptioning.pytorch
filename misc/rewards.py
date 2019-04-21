@@ -31,15 +31,9 @@ def array_to_str(arr):
             break
     return out.strip()
 
-def get_self_critical_reward(model, fc_feats, att_feats, att_masks, data_gts, gen_result, opt):
+def get_self_critical_reward(greedy_res, data_gts, gen_result, opt):
     batch_size = gen_result.size(0)# batch_size = sample_size * seq_per_img
     seq_per_img = batch_size // len(data_gts)
-    
-    # get greedy decoding baseline
-    model.eval()
-    with torch.no_grad():
-        greedy_res, _ = model(fc_feats, att_feats, att_masks=att_masks, mode='sample')
-    model.train()
 
     res = OrderedDict()
     
