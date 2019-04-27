@@ -27,6 +27,7 @@ parser.add_argument('--weights', nargs='+', required=False, default=None, help='
 #                 help='path to model to evaluate')
 # parser.add_argument('--infos_paths', nargs='+', required=True, help='path to infos to evaluate')
 opts.add_eval_options(parser)
+opts.add_diversity_opts(parser)
 
 opt = parser.parse_args()
 
