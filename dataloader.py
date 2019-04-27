@@ -94,6 +94,7 @@ class DataLoader(data.Dataset):
             self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
             # load in the sequence data
             seq_size = self.h5_label_file['labels'].shape
+            self.label = self.h5_label_file['labels'][:]
             self.seq_length = seq_size[1]
             print('max sequence length in data is', self.seq_length)
             # load the pointers in full to RAM (should be small enough)
@@ -155,16 +156,16 @@ class DataLoader(data.Dataset):
             seq = np.zeros([seq_per_img, self.seq_length], dtype = 'int')
             for q in range(seq_per_img):
                 ixl = random.randint(ix1,ix2)
-                seq[q, :] = self.h5_label_file['labels'][ixl, :self.seq_length]
+                seq[q, :] = self.label[ixl, :self.seq_length]
         else:
             ixl = random.randint(ix1, ix2 - seq_per_img + 1)
-            seq = self.h5_label_file['labels'][ixl: ixl + seq_per_img, :self.seq_length]
+            seq = self.label[ixl: ixl + seq_per_img, :self.seq_length]
 
         return seq
 
-    def get_batch(self, split, batch_size=None, seq_per_img=None):
+    def get_batch(self, split, batch_size=None):
         batch_size = batch_size or self.batch_size
-        seq_per_img = seq_per_img or self.seq_per_img
+        seq_per_img = self.seq_per_img
 
         fc_batch = [] # np.ndarray((batch_size * seq_per_img, self.opt.fc_feat_size), dtype = 'float32')
         att_batch = [] # np.ndarray((batch_size * seq_per_img, 14, 14, self.opt.att_feat_size), dtype = 'float32')
@@ -177,7 +178,7 @@ class DataLoader(data.Dataset):
 
         for i in range(batch_size):
             # fetch image
-            tmp_fc, tmp_att,\
+            tmp_fc, tmp_att, tmp_seq, \
                 ix, tmp_wrapped = self._prefetch_process[split].get()
             if tmp_wrapped:
                 wrapped = True
@@ -187,12 +188,12 @@ class DataLoader(data.Dataset):
             
             tmp_label = np.zeros([seq_per_img, self.seq_length + 2], dtype = 'int')
             if hasattr(self, 'h5_label_file'):
-                tmp_label[:, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
+                tmp_label[:, 1 : self.seq_length + 1] = tmp_seq
             label_batch.append(tmp_label)
 
             # Used for reward evaluation
             if hasattr(self, 'h5_label_file'):
-                gts.append(self.h5_label_file['labels'][self.label_start_ix[ix] - 1: self.label_end_ix[ix]])
+                gts.append(self.label[self.label_start_ix[ix] - 1: self.label_end_ix[ix]])
             else:
                 gts.append([])
         
@@ -268,8 +269,12 @@ class DataLoader(data.Dataset):
             fc_feat = self.fc_loader.get(str(self.info['images'][ix]['id']))
         else:
             fc_feat = np.zeros((1), dtype='float32')
+        if hasattr(self, 'h5_label_file'):
+            seq = self.get_captions(ix, self.seq_per_img)
+        else:
+            seq = None
         return (fc_feat,
-                att_feat,
+                att_feat, seq,
                 ix)
 
     def __len__(self):
@@ -342,6 +347,6 @@ class BlobFetcher():
         if wrapped:
             self.reset()
 
-        assert tmp[2] == ix, "ix not equal"
+        assert tmp[-1] == ix, "ix not equal"
 
         return tmp + [wrapped]
