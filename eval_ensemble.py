@@ -31,8 +31,16 @@ opts.add_diversity_opts(parser)
 
 opt = parser.parse_args()
 
-model_infos = [utils.pickle_load(open('log_%s/infos_%s-best.pkl' %(id, id))) for id in opt.ids]
-model_paths = ['log_%s/model-best.pth' %(id) for id in opt.ids]
+model_infos = []
+model_paths = []
+for id in opt.ids:
+    if '-' in id:
+        id, app = id.split('-')
+        app = '-'+app
+    else:
+        app = ''
+    model_infos.append(utils.pickle_load(open('log_%s/infos_%s%s.pkl' %(id, id, app))))
+    model_paths.append('log_%s/model%s.pth' %(id,app))
 
 # Load one infos
 infos = model_infos[0]
@@ -82,7 +90,7 @@ else:
 # So make sure to use the vocab in infos file.
 loader.ix_to_word = infos['vocab']
 
-
+opt.id = '+'.join([_+str(__) for _,__ in zip(opt.ids, opt.weights)])
 # Set sample options
 loss, split_predictions, lang_stats = eval_utils.eval_split(model, crit, loader, 
     vars(opt))
