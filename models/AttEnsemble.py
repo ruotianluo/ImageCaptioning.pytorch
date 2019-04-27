@@ -60,7 +60,7 @@ class AttEnsemble(AttModel):
     def core(self, *args):
         return zip(*[m.core(*_) for m, _ in zip(self.models, zip(*args))])
 
-    def get_logprobs_state(self, it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state):
+    def get_logprobs_state(self, it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state, output_logsoftmax=1):
         # 'it' contains a word index
         xt = self.embed(it)
 
