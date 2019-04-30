@@ -74,7 +74,7 @@ def decode_sequence(ix_to_word, seq):
                     flag = -j
                     break
             txt = ' '.join(words[0:len(words)+flag])
-        out.append(txt)
+        out.append(txt.replace('@@ ', ''))
     return out
 
 def to_contiguous(tensor):

@@ -94,6 +94,8 @@ def build_dict(imgs, wtoi, params):
       ref_words = []
       ref_idxs = []
       for sent in img['sentences']:
+        if hasattr(params, 'bpe'):
+          sent['tokens'] = params.bpe.segment(' '.join(sent['tokens'])).strip().split(' ')
         tmp_tokens = sent['tokens'] + ['<eos>']
         tmp_tokens = [_ if _ in wtoi else 'UNK' for _ in tmp_tokens]
         ref_words.append(' '.join(tmp_tokens))
@@ -110,8 +112,21 @@ def build_dict(imgs, wtoi, params):
 def main(params):
 
   imgs = json.load(open(params['input_json'], 'r'))
-  itow = json.load(open(params['dict_json'], 'r'))['ix_to_word']
+  dict_json = json.load(open(params['dict_json'], 'r'))
+  itow = dict_json['ix_to_word']
   wtoi = {w:i for i,w in itow.items()}
+
+  # Load bpe
+  if 'bpe' in dict_json:
+    import tempfile
+    import codecs
+    codes_f = tempfile.NamedTemporaryFile(delete=False)
+    codes_f.close()
+    with open(codes_f.name, 'w') as f:
+      f.write(dict_json['bpe'])
+    with codecs.open(codes_f.name, encoding='UTF-8') as codes:
+      bpe = apply_bpe.BPE(codes)
+    params.bpe = bpe
 
   imgs = imgs['images']
 
