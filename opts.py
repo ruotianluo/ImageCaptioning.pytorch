@@ -165,6 +165,8 @@ def parse_opt():
     parser.add_argument('--entropy_reward_weight', type=float, default=0,
                     help='Entropy reward, seems very interesting')
 
+    add_diversity_opts(parser)
+
     args = parser.parse_args()
 
     # Check if args are valid

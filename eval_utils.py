@@ -143,6 +143,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         fc_feats, att_feats, att_masks = tmp
         # forward the model to also get generated samples for each image
         with torch.no_grad():
+            eval_kwargs.update({'sample_n': 1})
             seq, seq_logprobs = model(fc_feats, att_feats, att_masks, opt=eval_kwargs, mode='sample')
             seq = seq.data
             entropy = - (F.softmax(seq_logprobs, dim=2) * seq_logprobs).sum(2).sum(1) / ((seq>0).float().sum(1)+1)
@@ -191,7 +192,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                     tmp_sample_max = 2
                 elif sample_n_method.startswith('top'):
                     tmp_sample_max = -int(sample_n_method[3:])
-                tmp_eval_kwargs.update({'sample_max': tmp_sample_max, 'beam_size': 1}) # randomness from sample
+                tmp_eval_kwargs.update({'sample_n': sample_n, 'sample_max': tmp_sample_max, 'beam_size': 1}) # randomness from sample
                 with torch.no_grad():
                     _seq, _sampleLogprobs = model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
                 _sents = utils.decode_sequence(loader.get_vocab(), _seq)
