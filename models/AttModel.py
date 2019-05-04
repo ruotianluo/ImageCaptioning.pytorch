@@ -274,13 +274,25 @@ class AttModel(CaptionModel):
                 _, it = torch.max(_logprobs.data, 1)
                 sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
             else:
-                if sample_method.startswith('top'): # topk sampling
-                    the_k = int(sample[3:])
-                    tmp = torch.empty_like(logprobs).fill_(float('-inf'))
-                    topk, indices = torch.topk(logprobs, the_k, dim=1)
-                    tmp = tmp.scatter(1, indices, topk)
-                    logprobs = tmp
                 logprobs = logprobs / temperature
+                if sample_method.startswith('top'): # topk sampling
+                    top_num = float(sample_method[3:])
+                    if 0 < top_num < 1:
+                        # nucleus sampling from # The Curious Case of Neural Text Degeneration
+                        probs = F.softmax(logprobs, dim=1)
+                        sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=1)
+                        _cumsum = sorted_probs.cumsum(1)
+                        mask = _cumsum < top_num
+                        mask = torch.cat([torch.ones_like(mask[:,:1]), mask[:,:-1]], 1)
+                        sorted_probs = sorted_probs * mask.float()
+                        sorted_probs = sorted_probs / sorted_probs.sum(1, keepdim=True)
+                        logprobs.scatter(1, sorted_indices, sorted_probs.log())
+                    else:
+                        the_k = int(top_num)
+                        tmp = torch.empty_like(logprobs).fill_(float('-inf'))
+                        topk, indices = torch.topk(logprobs, the_k, dim=1)
+                        tmp = tmp.scatter(1, indices, topk)
+                        logprobs = tmp
                 it = torch.distributions.Categorical(logits=logprobs.detach()).sample()
                 sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
 
