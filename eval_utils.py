@@ -83,7 +83,9 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
         out.update(div_stats['overall'])
         if eval_oracle:
             oracle = eval_multi.eval_oracle(preds_n, model_id, split)
-        out.update(oracle['overall'])
+            out.update(oracle['overall'])
+        else:
+            oracle = None
         self_cider = eval_multi.eval_self_cider(preds_n, model_id, split)
         out.update(self_cider['overall'])
         with open(cache_path_n, 'w') as outfile:
