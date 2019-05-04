@@ -95,11 +95,12 @@ def eval_oracle(preds_n, model_id, split):
     for img_id in capsById.keys():
         out['ImgToEval'][img_id] = {}
         for metric in capsById[img_id][0]['scores'].keys():
-            out['ImgToEval'][img_id][metric] = max([_['scores'][metric] for _ in capsById[img_id]])
+            out['ImgToEval'][img_id]['oracle_'+metric] = max([_['scores'][metric] for _ in capsById[img_id]])
+            out['ImgToEval'][img_id]['avg_'+metric] = sum([_['scores'][metric] for _ in capsById[img_id]]) / len(capsById[img_id])
     for metric in out['ImgToEval'].values()[0].keys():
         tmp = np.array([_[metric] for _ in out['ImgToEval'].values()])
         tmp = tmp[tmp!=-100]
-        out['overall']['oracle_'+metric] = tmp.mean()
+        out['overall'][metric] = tmp.mean()
         
     return out
 
