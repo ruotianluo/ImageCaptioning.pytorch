@@ -233,6 +233,12 @@ class StructureLosses(nn.Module):
             output = - input * mask * (scores - scores.median(1, keepdim=True)[0]).view(-1, 1)
             output = torch.sum(output) / torch.sum(mask)
 
+        elif self.loss_type == 'new_policy_gradient':
+            baseline = (scores.sum(1, keepdim=True) - scores) / (scores.shape[1] - 1)
+            scores = scores - baseline
+            output = - input * mask * scores.view(-1, 1)
+            output = torch.sum(output) / torch.sum(mask)
+
         return output
 
 class LanguageModelCriterion(nn.Module):
