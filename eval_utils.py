@@ -84,8 +84,10 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
         if eval_oracle:
             oracle = eval_multi.eval_oracle(preds_n, model_id, split)
         out.update(oracle['overall'])
+        self_cider = eval_multi.eval_self_cider(preds_n, model_id, split)
+        out.update(self_cider['overall'])
         with open(cache_path_n, 'w') as outfile:
-            json.dump({'spice_n': spice_n, 'div_stats': div_stats, 'oracle': oracle}, outfile)
+            json.dump({'spice_n': spice_n, 'div_stats': div_stats, 'oracle': oracle, 'self_cider': self_cider}, outfile)
         
     out['bad_count_rate'] = sum([count_bad(_['caption']) for _ in preds_filt]) / float(len(preds_filt))
     outfile_path = os.path.join('eval_results/', model_id + '_' + split + '.json')

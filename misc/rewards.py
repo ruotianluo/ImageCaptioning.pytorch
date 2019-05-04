@@ -10,16 +10,20 @@ import torch
 import sys
 sys.path.append("cider")
 from pyciderevalcap.ciderD.ciderD import CiderD
+from pyciderevalcap.cider.cider import Cider
 sys.path.append("coco-caption")
 from pycocoevalcap.bleu.bleu import Bleu
 
 CiderD_scorer = None
+Cider_scorer = None
 Bleu_scorer = None
 #CiderD_scorer = CiderD(df='corpus')
 
 def init_scorer(cached_tokens):
     global CiderD_scorer
     CiderD_scorer = CiderD_scorer or CiderD(df=cached_tokens)
+    global Cider_scorer
+    Cider_scorer = Cider_scorer or Cider(df=cached_tokens)
     global Bleu_scorer
     Bleu_scorer = Bleu_scorer or Bleu(4)
 
@@ -100,5 +104,27 @@ def get_scores(data_gts, gen_result, opt):
         bleu_scores = 0
 
     scores = opt.cider_reward_weight * cider_scores + opt.bleu_reward_weight * bleu_scores
+
+    return scores
+
+def get_self_cider_scores(data_gts, gen_result, opt):
+    batch_size = gen_result.size(0)# batch_size = sample_size * seq_per_img
+    seq_per_img = batch_size // len(data_gts)
+
+    res = []
+    
+    gen_result = gen_result.data.cpu().numpy()
+    for i in range(batch_size):
+        res.append(array_to_str(gen_result[i]))
+
+    scores = []
+    for i in range(len(data_gts)):
+        tmp = Cider_scorer.my_self_cider([res[i*seq_per_img:(i+1)*seq_per_img]])
+        def get_div(eigvals):
+            eigvals = np.clip(eigvals, 0, None)
+            return -np.log(np.sqrt(eigvals[-1]) / (np.sqrt(eigvals).sum())) / np.log(len(eigvals))
+        scores.append(get_div(np.linalg.eigvalsh(tmp[0]/10)))
+
+    scores = np.array(scores)
 
     return scores
