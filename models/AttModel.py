@@ -193,7 +193,7 @@ class AttModel(CaptionModel):
 
     def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
 
-        sample_max = opt.get('sample_max', 1)
+        sample_method = opt.get('sample_method', 'greedy')
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
         decoding_constraint = opt.get('decoding_constraint', 0)
@@ -259,10 +259,10 @@ class AttModel(CaptionModel):
             # sample the next word
             if t == self.seq_length: # skip if we achieve maximum length
                 break
-            if sample_max == 1:
+            if sample_method == 'greedy':
                 sampleLogprobs, it = torch.max(logprobs.data, 1)
                 it = it.view(-1).long()
-            elif sample_max == 2: # gumbel softmax
+            elif sample_method == 'gumbel': # gumbel softmax
                 # ref: https://gist.github.com/yzh119/fd2146d2aeb329d067568a493b20172f
                 def sample_gumbel(shape, eps=1e-20):
                     U = torch.rand(shape).cuda()
@@ -274,10 +274,10 @@ class AttModel(CaptionModel):
                 _, it = torch.max(_logprobs.data, 1)
                 sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
             else:
-                if sample_max < 0:
-                    # negative means topk sampling.
+                if sample_method.startswith('top'): # topk sampling
+                    the_k = int(sample[3:])
                     tmp = torch.empty_like(logprobs).fill_(float('-inf'))
-                    topk, indices = torch.topk(logprobs, -sample_max, dim=1)
+                    topk, indices = torch.topk(logprobs, the_k, dim=1)
                     tmp = tmp.scatter(1, indices, topk)
                     logprobs = tmp
                 logprobs = logprobs / temperature

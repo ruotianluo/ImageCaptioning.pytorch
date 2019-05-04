@@ -71,7 +71,7 @@ def parse_opt():
 
     # Sample related
     parser.add_argument('--beam_size', type=int, default=1,
-                    help='used when sample_max = 1, indicates number of beams in beam search. Usually 2 or 3 works well. More is not better. Set this to 1 for faster runtime but a bit worse performance.')
+                    help='used when sample_method = greedy, indicates number of beams in beam search. Usually 2 or 3 works well. More is not better. Set this to 1 for faster runtime but a bit worse performance.')
     parser.add_argument('--max_length', type=int, default=20,
                     help='Maximum length during sampling')
     parser.add_argument('--length_penalty', type=str, default='',
@@ -185,10 +185,10 @@ def add_eval_options(parser):
                     help='Write image paths along with predictions into vis json? (1=yes,0=no)')
 
     # Sampling options
-    parser.add_argument('--sample_max', type=int, default=1,
-                    help='1 = sample argmax words. 0 = sample from distributions. 2 = gumbel softmax sample. negative means topk sampling')
+    parser.add_argument('--sample_method', type=str, default='greedy',
+                    help='greedy; sample; gumbel; top<int>, top<0-1>')
     parser.add_argument('--beam_size', type=int, default=2,
-                    help='used when sample_max = 1, indicates number of beams in beam search. Usually 2 or 3 works well. More is not better. Set this to 1 for faster runtime but a bit worse performance.')
+                    help='indicates number of beams in beam search. Usually 2 or 3 works well. More is not better. Set this to 1 for faster runtime but a bit worse performance.')
     parser.add_argument('--max_length', type=int, default=20,
                     help='Maximum length during sampling')
     parser.add_argument('--length_penalty', type=str, default='',
@@ -198,7 +198,7 @@ def add_eval_options(parser):
     parser.add_argument('--diversity_lambda', type=float, default=0.5,
                     help='used for diverse beam search. Usually from 0.2 to 0.8. Higher value of lambda produces a more diverse list')
     parser.add_argument('--temperature', type=float, default=1.0,
-                    help='temperature when sampling from distributions (i.e. when sample_max = 0). Lower = "safer" predictions.')
+                    help='temperature when sampling from distributions (i.e. when sample_method = sample). Lower = "safer" predictions.')
     parser.add_argument('--decoding_constraint', type=int, default=0,
                     help='If 1, not allowing same word in a row')
     parser.add_argument('--block_trigrams', type=int, default=0,
