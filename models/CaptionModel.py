@@ -115,7 +115,7 @@ class CaptionModel(nn.Module):
         # logprobs # logprobs predicted in last time step, shape (beam_size, vocab_size+1)
         done_beams_table = [[] for _ in range(group_size)]
         # state_table = [list(torch.unbind(_)) for _ in torch.stack(init_state).chunk(group_size, 2)]
-        state_table = list(zip(*[_.chunk(group_size, 2) for _ in init_state]))
+        state_table = list(zip(*[_.chunk(group_size, 1) for _ in init_state]))
         logprobs_table = list(init_logprobs.chunk(group_size, 0))
         # END INIT
 
