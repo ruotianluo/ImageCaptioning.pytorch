@@ -186,17 +186,11 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                     for sent in _sents:
                         entry = {'image_id': data['infos'][k]['id'], 'caption': sent}
                         n_predictions.append(entry)
-            # case 2 sample_max =0 temperature xx / gumbel / topk sampling
+            # case 2 sample / gumbel / topk sampling/ nucleus sampling
             elif sample_n_method == 'sample' or \
                  sample_n_method == 'gumbel' or \
                  sample_n_method.startswith('top'):
-                if sample_n_method == 'sample':
-                    tmp_sample_max = 0
-                elif sample_n_method == 'gumbel':
-                    tmp_sample_max = 2
-                elif sample_n_method.startswith('top'):
-                    tmp_sample_max = -int(sample_n_method[3:])
-                tmp_eval_kwargs.update({'sample_n': sample_n, 'sample_max': tmp_sample_max, 'beam_size': 1}) # randomness from sample
+                tmp_eval_kwargs.update({'sample_n': sample_n, 'sample_method': sample_n_method, 'beam_size': 1}) # randomness from sample
                 with torch.no_grad():
                     _seq, _sampleLogprobs = model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
                 _sents = utils.decode_sequence(loader.get_vocab(), _seq)

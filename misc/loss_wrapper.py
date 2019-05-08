@@ -25,7 +25,7 @@ class LossWrapper(torch.nn.Module):
             else:
                 lm_loss = torch.tensor(0).type_as(fc_feats)
             gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks,
-                opt={'sample_max':0,
+                opt={'sample_method':'sample',
                     'output_logsoftmax': opt.struc_use_logsoftmax or opt.structure_loss_type == 'softmax_margin'\
                         or not 'margin' in opt.structure_loss_type,
                     'sample_n': opt.structure_sample_n},
