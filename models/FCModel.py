@@ -148,7 +148,7 @@ class FCModel(CaptionModel):
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
     def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
-        sample_max = opt.get('sample_max', 1)
+        sample_method = opt.get('sample_method', 'greedy')
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
         if beam_size > 1:
@@ -172,7 +172,7 @@ class FCModel(CaptionModel):
             # sample the next_word
             if t == self.seq_length + 1: # skip if we achieve maximum length
                 break
-            if sample_max:
+            if sample_method == 'greedy':
                 sampleLogprobs, it = torch.max(logprobs.data, 1)
                 it = it.view(-1).long()
             else:

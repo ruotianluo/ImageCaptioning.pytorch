@@ -129,7 +129,7 @@ class OldModel(CaptionModel):
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
     def sample(self, fc_feats, att_feats, opt={}):
-        sample_max = opt.get('sample_max', 1)
+        sample_method = opt.get('sample_method', 'greedy')
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
         if beam_size > 1:
@@ -143,7 +143,7 @@ class OldModel(CaptionModel):
         for t in range(self.seq_length + 1):
             if t == 0: # input <bos>
                 it = fc_feats.data.new(batch_size).long().zero_()
-            elif sample_max:
+            elif sample_method == 'greedy':
                 sampleLogprobs, it = torch.max(logprobs.data, 1)
                 it = it.view(-1).long()
             else:
