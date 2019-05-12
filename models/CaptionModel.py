@@ -213,7 +213,7 @@ class CaptionModel(nn.Module):
                     mask = torch.cat([torch.ones_like(mask[:,:1]), mask[:,:-1]], 1)
                     sorted_probs = sorted_probs * mask.float()
                     sorted_probs = sorted_probs / sorted_probs.sum(1, keepdim=True)
-                    logprobs.scatter(1, sorted_indices, sorted_probs.log())
+                    logprobs.scatter_(1, sorted_indices, sorted_probs.log())
                 else:
                     the_k = int(top_num)
                     tmp = torch.empty_like(logprobs).fill_(float('-inf'))
