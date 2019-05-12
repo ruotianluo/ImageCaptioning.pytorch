@@ -27,6 +27,8 @@ parser.add_argument('--cnn_model', type=str,  default='resnet101',
                 help='resnet101, resnet152')
 parser.add_argument('--infos_path', type=str, default='',
                 help='path to infos to evaluate')
+parser.add_argument('--only_lang_eval', type=int, default=0,
+                help='lang eval on saved results')
 opts.add_eval_options(parser)
 opts.add_diversity_opts(parser)
 opt = parser.parse_args()
@@ -47,6 +49,12 @@ for k in vars(infos['opt']).keys():
             vars(opt).update({k: vars(infos['opt'])[k]}) # copy over options from model
 
 vocab = infos['vocab'] # ix -> word mapping
+
+if opt.only_lang_eval == 1:
+    predictions, n_predictions = torch.load(os.path.join('eval_results/', '.saved_pred_'+ opt.id + '_' + opt.split + '.pth'))
+    lang_stats = eval_utils.language_eval('coco', predictions, n_predictions, vars(opt), opt.split)
+    print(lang_stats)
+    os._exit(0)
 
 # Setup the model
 opt.vocab = vocab
@@ -72,7 +80,7 @@ loader.ix_to_word = infos['vocab']
 
 # Set sample options
 loss, split_predictions, lang_stats = eval_utils.eval_split(model, crit, loader, 
-    vars(opt))
+        vars(opt))
 
 print('loss: ', loss)
 if lang_stats:

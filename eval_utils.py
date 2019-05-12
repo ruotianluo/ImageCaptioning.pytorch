@@ -228,6 +228,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             break
 
     lang_stats = None
+    torch.save((predictions, n_predictions), os.path.join('eval_results/', '.saved_pred_'+ eval_kwargs['id'] + '_' + split + '.pth'))
     if lang_eval == 1:
         lang_stats = language_eval(dataset, predictions, n_predictions, eval_kwargs, split)
 
