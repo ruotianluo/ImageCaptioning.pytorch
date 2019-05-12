@@ -270,42 +270,7 @@ class AttModel(CaptionModel):
             # sample the next word
             if t == self.seq_length: # skip if we achieve maximum length
                 break
-            if sample_method == 'greedy':
-                sampleLogprobs, it = torch.max(logprobs.data, 1)
-                it = it.view(-1).long()
-            elif sample_method == 'gumbel': # gumbel softmax
-                # ref: https://gist.github.com/yzh119/fd2146d2aeb329d067568a493b20172f
-                def sample_gumbel(shape, eps=1e-20):
-                    U = torch.rand(shape).cuda()
-                    return -torch.log(-torch.log(U + eps) + eps)
-                def gumbel_softmax_sample(logits, temperature):
-                    y = logits + sample_gumbel(logits.size())
-                    return F.log_softmax(y / temperature, dim=-1)
-                _logprobs = gumbel_softmax_sample(logprobs, temperature)
-                _, it = torch.max(_logprobs.data, 1)
-                sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
-            else:
-                logprobs = logprobs / temperature
-                if sample_method.startswith('top'): # topk sampling
-                    top_num = float(sample_method[3:])
-                    if 0 < top_num < 1:
-                        # nucleus sampling from # The Curious Case of Neural Text Degeneration
-                        probs = F.softmax(logprobs, dim=1)
-                        sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=1)
-                        _cumsum = sorted_probs.cumsum(1)
-                        mask = _cumsum < top_num
-                        mask = torch.cat([torch.ones_like(mask[:,:1]), mask[:,:-1]], 1)
-                        sorted_probs = sorted_probs * mask.float()
-                        sorted_probs = sorted_probs / sorted_probs.sum(1, keepdim=True)
-                        logprobs.scatter(1, sorted_indices, sorted_probs.log())
-                    else:
-                        the_k = int(top_num)
-                        tmp = torch.empty_like(logprobs).fill_(float('-inf'))
-                        topk, indices = torch.topk(logprobs, the_k, dim=1)
-                        tmp = tmp.scatter(1, indices, topk)
-                        logprobs = tmp
-                it = torch.distributions.Categorical(logits=logprobs.detach()).sample()
-                sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
+            it, sampleLogprobs = self.sample_next_word(logprobs, sample_method, temperature)
 
             # stop when all finished
             if t == 0:
