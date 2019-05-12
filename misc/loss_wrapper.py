@@ -24,14 +24,17 @@ class LossWrapper(torch.nn.Module):
                 lm_loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
             else:
                 lm_loss = torch.tensor(0).type_as(fc_feats)
-            gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks,
-                opt={'sample_method':'sample',
-                    'output_logsoftmax': opt.struc_use_logsoftmax or opt.structure_loss_type == 'softmax_margin'\
-                        or not 'margin' in opt.structure_loss_type,
-                    'sample_n': opt.structure_sample_n},
-                mode='sample')
-            gts = [gts[_] for _ in gt_indices.tolist()]
-            struc_loss = self.struc_crit(sample_logprobs, gen_result, gts)
+            if opt.structure_loss_weight > 0:
+                gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks,
+                    opt={'sample_method':'sample',
+                        'output_logsoftmax': opt.struc_use_logsoftmax or opt.structure_loss_type == 'softmax_margin'\
+                            or not 'margin' in opt.structure_loss_type,
+                        'sample_n': opt.structure_sample_n},
+                    mode='sample')
+                gts = [gts[_] for _ in gt_indices.tolist()]
+                struc_loss = self.struc_crit(sample_logprobs, gen_result, gts)
+            else:
+                struc_loss = torch.tensor(0).type_as(fc_feats)
             loss = (1-opt.structure_loss_weight) * lm_loss + opt.structure_loss_weight * struc_loss
             out['lm_loss'] = lm_loss
             out['struc_loss'] = struc_loss
