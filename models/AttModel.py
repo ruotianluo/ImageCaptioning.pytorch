@@ -778,7 +778,7 @@ class NewFCModel(AttModel):
     def _prepare_feature(self, fc_feats, att_feats, att_masks):
         fc_feats = self.fc_embed(fc_feats)
 
-        return fc_feats, None, None, None
+        return fc_feats, att_feats, att_feats, att_masks
 
 
 class LMModel(AttModel):
