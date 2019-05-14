@@ -180,9 +180,9 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                 # case 1 sample_n == beam size
                 tmp_eval_kwargs.update({'beam_size': sample_n, 'group_size': 1}) # randomness from softmax
                 with torch.no_grad():
-                    model(fc_feats, att_feats, opt=tmp_eval_kwargs, mode='sample')
+                    model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
                 for k in range(loader.batch_size):
-                    _sents = utils.decode_sequence(loader.get_vocab(), torch.stack([model.done_beams[k][_]['seq'] for _ in range(beam_size)]))
+                    _sents = utils.decode_sequence(loader.get_vocab(), torch.stack([model.done_beams[k][_]['seq'] for _ in range(sample_n)]))
                     for sent in _sents:
                         entry = {'image_id': data['infos'][k]['id'], 'caption': sent}
                         n_predictions.append(entry)
@@ -201,7 +201,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                 # Use diverse beam search
                 tmp_eval_kwargs.update({'beam_size': sample_n * beam_size, 'group_size': sample_n}) # randomness from softmax
                 with torch.no_grad():
-                    model(fc_feats, att_feats, opt=tmp_eval_kwargs, mode='sample')
+                    model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
                 for k in range(loader.batch_size):
                     _sents = utils.decode_sequence(loader.get_vocab(), torch.stack([model.done_beams[k][_]['seq'] for _ in range(0, sample_n*beam_size, beam_size)]))
                     for sent in _sents:
