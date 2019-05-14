@@ -197,7 +197,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                 for k, sent in enumerate(_sents):
                     entry = {'image_id': data['infos'][k // sample_n]['id'], 'caption': sent}
                     n_predictions.append(entry)
-            else:
+            elif sample_n_method == 'dbs':
                 # Use diverse beam search
                 tmp_eval_kwargs.update({'beam_size': sample_n * beam_size, 'group_size': sample_n}) # randomness from softmax
                 with torch.no_grad():
@@ -207,6 +207,14 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                     for sent in _sents:
                         entry = {'image_id': data['infos'][k]['id'], 'caption': sent}
                         n_predictions.append(entry)
+            else:
+                tmp_eval_kwargs.update({'sample_method': sample_n_method[1:], 'group_size': sample_n, 'beam_size':1}) # randomness from softmax
+                with torch.no_grad():
+                    _seq, _sampleLogprobs = model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
+                _sents = utils.decode_sequence(loader.get_vocab(), _seq)
+                for k, sent in enumerate(_sents):
+                    entry = {'image_id': data['infos'][k // sample_n]['id'], 'caption': sent}
+                    n_predictions.append(entry)
             if verbose:
                 for entry in sorted(n_predictions[-loader.batch_size * sample_n:], key=lambda x: x['image_id']):
                     print('image %s: %s' %(entry['image_id'], entry['caption']))

@@ -255,6 +255,6 @@ def add_diversity_opts(parser):
     parser.add_argument('--sample_n', type=int, default=1,
                     help='Diverse sampling')
     parser.add_argument('--sample_n_method', type=str, default='sample',
-                    help='sample, bs, dbs, gumbel, topk')
+                    help='sample, bs, dbs, gumbel, topk, dgreedy, dsample, dtopk, dtopp')
     parser.add_argument('--eval_oracle', type=int, default=1, 
                     help='if we need to calculate loss.')
