@@ -31,6 +31,21 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
     model_id = eval_kwargs['id']
     eval_oracle = eval_kwargs.get('eval_oracle', 0)
     
+    # create output dictionary
+    out = {}
+
+    if len(preds_n) > 0:
+        # vocab size and novel sentences
+        training_sentences = set([' '.join(__['tokens']) for _ in json.load(open('data/dataset_coco.json'))['images'] if not _['split'] in ['val', 'test'] for __ in _['sentences']])
+        generated_sentences = set([_['caption'] for _ in preds_n])
+        novels = generated_sentences - training_sentences
+        out['novel_sentences'] = float(len(novels)) / len(preds_n)
+        tmp = [_.split() for _ in generated_sentences]
+        words = []
+        for _ in tmp:
+            words += _
+        out['vocab_size'] = len(set(words))
+
     import sys
     sys.path.append("coco-caption")
     annFile = 'coco-caption/annotations/captions_val2014.json'
@@ -58,8 +73,6 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
     cocoEval.params['image_id'] = cocoRes.getImgIds()
     cocoEval.evaluate()
 
-    # create output dictionary
-    out = {}
     for metric, score in cocoEval.eval.items():
         out[metric] = score
     # Add mean perplexity
