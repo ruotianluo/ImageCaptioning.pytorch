@@ -32,6 +32,10 @@ def eval_spice_n(preds_n, model_id, split):
     coco = COCO(annFile)
     valids = coco.getImgIds()
     
+    capsById = {}
+    for d in preds_n:
+        capsById[d['image_id']] = capsById.get(d['image_id'], []) + [d]
+
     # filter results to only those in MSCOCO validation set (will be about a third)
     preds_filt_n = [p for p in preds_n if p['image_id'] in valids]
     print('using %d/%d predictions_n' % (len(preds_filt_n), len(preds_n)))
@@ -56,7 +60,7 @@ def eval_spice_n(preds_n, model_id, split):
             out['SPICE_n_'+k] = (out['SPICE_n_'+k][out['SPICE_n_'+k]==out['SPICE_n_'+k]]).mean()
     for p in preds_filt_n:
         image_id, caption = p['image_id'], p['caption']
-        imgToEvalSpice_n[image_id]['caption'] = caption
+        imgToEvalSpice_n[image_id]['caption'] = capsById[image_id]
     return {'overall': out, 'imgToEvalSpice_n': imgToEvalSpice_n}
 
 def eval_oracle(preds_n, model_id, split):
@@ -69,6 +73,7 @@ def eval_oracle(preds_n, model_id, split):
     for d in preds_n:
         capsById[d['image_id']] = capsById.get(d['image_id'], []) + [d]
     
+    sample_n = capsById[capsById.keys()[0]]
     for i in range(len(capsById[capsById.keys()[0]])):
         preds = [_[i] for _ in capsById.values()]
 
@@ -97,7 +102,10 @@ def eval_oracle(preds_n, model_id, split):
         for metric in capsById[img_id][0]['scores'].keys():
             out['ImgToEval'][img_id]['oracle_'+metric] = max([_['scores'][metric] for _ in capsById[img_id]])
             out['ImgToEval'][img_id]['avg_'+metric] = sum([_['scores'][metric] for _ in capsById[img_id]]) / len(capsById[img_id])
+        out['ImgToEval'][img_id]['captions'] = capsById[img_id]
     for metric in out['ImgToEval'].values()[0].keys():
+        if metric == 'captions':
+            continue
         tmp = np.array([_[metric] for _ in out['ImgToEval'].values()])
         tmp = tmp[tmp!=-100]
         out['overall'][metric] = tmp.mean()
@@ -192,12 +200,12 @@ def eval_self_cider(preds_n, model_id, split):
     def get_div(eigvals):
         eigvals = np.clip(eigvals, 0, None)
         return -np.log(np.sqrt(eigvals[-1]) / (np.sqrt(eigvals).sum())) / np.log(len(eigvals))
-    scores = [get_div(np.linalg.eigvalsh(_/10)) for _ in scores]
-    score = np.mean(np.array(scores))
+    sc_scores = [get_div(np.linalg.eigvalsh(_/10)) for _ in scores]
+    score = np.mean(np.array(sc_scores))
     
     imgToEval = {}
     for i, image_id in enumerate(imgIds):
-        imgToEval[image_id] = {'self_cider': scores[i]}
+        imgToEval[image_id] = {'self_cider': sc_scores[i], 'self_cider_mat': scores[i].tolist()}
     return {'overall': {'self_cider': score}, 'imgToEval': imgToEval}
 
 
