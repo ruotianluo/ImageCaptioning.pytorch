@@ -207,8 +207,9 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                 with torch.no_grad():
                     _seq, _sampleLogprobs = model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
                 _sents = utils.decode_sequence(loader.get_vocab(), _seq)
+                _perplexity = - _sampleLogprobs.gather(2, _seq.unsqueeze(2)).squeeze(2).sum(1) / ((_seq>0).float().sum(1)+1)
                 for k, sent in enumerate(_sents):
-                    entry = {'image_id': data['infos'][k // sample_n]['id'], 'caption': sent}
+                    entry = {'image_id': data['infos'][k // sample_n]['id'], 'caption': sent, 'perplexity': _perplexity[k].item()}
                     n_predictions.append(entry)
             elif sample_n_method == 'dbs':
                 # Use diverse beam search
@@ -249,6 +250,8 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             break
 
     lang_stats = None
+    if len(n_predictions) > 0 and 'perplexity' in n_predictions[0]:
+        n_predictions = sorted(n_predictions, key=lambda x: x['perplexity'])
     torch.save((predictions, n_predictions), os.path.join('eval_results/', '.saved_pred_'+ eval_kwargs['id'] + '_' + split + '.pth'))
     if lang_eval == 1:
         lang_stats = language_eval(dataset, predictions, n_predictions, eval_kwargs, split)
