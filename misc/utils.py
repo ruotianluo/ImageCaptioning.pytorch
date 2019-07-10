@@ -112,6 +112,8 @@ class StructureLosses(nn.Module):
         """
         Input is either logits or log softmax
         """
+        out = {}
+
         batch_size = input.size(0)# batch_size = sample_size * seq_per_img
         seq_per_img = batch_size // len(data_gts)
 
@@ -122,6 +124,7 @@ class StructureLosses(nn.Module):
         
         scores = get_scores(data_gts, seq, self.opt)
         scores = torch.from_numpy(scores).type_as(input).view(-1, seq_per_img)
+        out['reward'] = scores.mean()
         if self.opt.entropy_reward_weight > 0:
             entropy = - (F.softmax(input, dim=2) * F.log_softmax(input, dim=2)).sum(2).data
             entropy = (entropy * mask).sum(1) / mask.sum(1)
@@ -244,7 +247,8 @@ class StructureLosses(nn.Module):
             output = - input * mask * scores.view(-1, 1)
             output = torch.sum(output) / torch.sum(mask)
 
-        return output
+        out['loss'] = output
+        return out
 
 class LanguageModelCriterion(nn.Module):
     def __init__(self):

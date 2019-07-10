@@ -34,10 +34,12 @@ class LossWrapper(torch.nn.Module):
                 gts = [gts[_] for _ in gt_indices.tolist()]
                 struc_loss = self.struc_crit(sample_logprobs, gen_result, gts)
             else:
-                struc_loss = torch.tensor(0).type_as(fc_feats)
-            loss = (1-opt.structure_loss_weight) * lm_loss + opt.structure_loss_weight * struc_loss
+                struc_loss = {'loss': torch.tensor(0).type_as(fc_feats),
+                              'reward': torch.tensor(0).type_as(fc_feats)}
+            loss = (1-opt.structure_loss_weight) * lm_loss + opt.structure_loss_weight * struc_loss['loss']
             out['lm_loss'] = lm_loss
-            out['struc_loss'] = struc_loss
+            out['struc_loss'] = struc_loss['loss']
+            out['reward'] = struc_loss['reward']
         elif not sc_flag:
             loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:

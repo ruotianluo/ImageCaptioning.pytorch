@@ -205,6 +205,7 @@ def train(opt):
                 elif struc_flag:
                     add_summary_value(tb_summary_writer, 'lm_loss', model_out['lm_loss'].mean().item(), iteration)
                     add_summary_value(tb_summary_writer, 'struc_loss', model_out['struc_loss'].mean().item(), iteration)
+                    add_summary_value(tb_summary_writer, 'reward', model_out['reward'].mean().item(), iteration)
 
                 loss_history[iteration] = train_loss if not sc_flag else model_out['reward'].mean()
                 lr_history[iteration] = opt.current_lr
