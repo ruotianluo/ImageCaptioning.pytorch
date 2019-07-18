@@ -52,7 +52,7 @@ vocab = infos['vocab'] # ix -> word mapping
 
 if opt.only_lang_eval == 1:
     predictions, n_predictions = torch.load(os.path.join('eval_results/', '.saved_pred_'+ opt.id + '_' + opt.split + '.pth'))
-    lang_stats = eval_utils.language_eval('coco', predictions, n_predictions, vars(opt), opt.split)
+    lang_stats = eval_utils.language_eval(opt.input_json, predictions, n_predictions, vars(opt), opt.split)
     print(lang_stats)
     os._exit(0)
 
