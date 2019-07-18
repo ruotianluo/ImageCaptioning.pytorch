@@ -71,6 +71,7 @@ loader.ix_to_word = infos['vocab']
 
 
 # Set sample options
+opt.datset = opt.input_json
 loss, split_predictions, lang_stats = eval_utils.eval_split(model, crit, loader, 
     vars(opt))
 

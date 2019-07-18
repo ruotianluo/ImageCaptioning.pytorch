@@ -33,6 +33,11 @@ class HybridLoader:
             self.env = lmdb.open(db_path, subdir=os.path.isdir(db_path),
                                 readonly=True, lock=False,
                                 readahead=False, meminit=False)
+        elif db_path.endswith('.pth'): # Assume a key,value dictionary
+            self.db_type = 'pth'
+            self.feat_file = torch.load(db_path)
+            self.loader = lambda x: x
+            print('HybridLoader: ext is ignored')
         else:
             self.db_type = 'dir'
     
@@ -43,6 +48,8 @@ class HybridLoader:
             with env.begin(write=False) as txn:
                 byteflow = txn.get(key)
             f_input = six.BytesIO(byteflow)
+        elif self.db_type == 'pth':
+            f_input = self.feat_file[key]
         else:
             f_input = os.path.join(self.db_path, key + self.ext)
 
