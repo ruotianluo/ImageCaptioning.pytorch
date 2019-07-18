@@ -23,56 +23,11 @@ Pretrained models are provided [here](https://drive.google.com/open?id=0B7fNdx_j
 
 If you want to do evaluation only, you can then follow [this section](#generate-image-captions) after downloading the pretrained models (and also the pretrained resnet101).
 
-## Train your own network on COCO
+## Train your own network on COCO/Flickr30k
 
-### Download COCO captions and preprocess them
+### Prepare data.
 
-Download preprocessed coco captions from [link](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip) from Karpathy's homepage. Extract `dataset_coco.json` from the zip file and copy it in to `data/`. This file provides preprocessed captions and also standard train-val-test splits.
-
-Then do:
-
-```bash
-$ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk
-```
-
-`prepro_labels.py` will map all words that occur <= 5 times to a special `UNK` token, and create a vocabulary for all the remaining words. The image information and vocabulary are dumped into `data/cocotalk.json` and discretized caption data are dumped into `data/cocotalk_label.h5`.
-
-### Download COCO dataset and pre-extract the image features (Skip if you are using bottom-up feature)
-
-Download the coco images from [link](http://mscoco.org/dataset/#download). We need 2014 training images and 2014 val. images. You should put the `train2014/` and `val2014/` in the same directory, denoted as `$IMAGE_ROOT`.
-
-Then:
-
-```
-$ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
-```
-
-
-`prepro_feats.py` extract the resnet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB.
-
-(Check the prepro scripts for more options, like other resnet models or other attention sizes.)
-
-**Warning**: the prepro script will fail with the default MSCOCO data because one of their images is corrupted. See [this issue](https://github.com/karpathy/neuraltalk2/issues/4) for the fix, it involves manually replacing one image in the dataset.
-
-### Download Bottom-up features (Skip if you are using resnet features)
-
-Download pre-extracted feature from [link](https://github.com/peteanderson80/bottom-up-attention). You can either download adaptive one or fixed one.
-
-For example:
-```
-mkdir data/bu_data; cd data/bu_data
-wget https://storage.googleapis.com/bottom-up-attention/trainval.zip
-unzip trainval.zip
-
-```
-
-Then:
-
-```bash
-python script/make_bu_data.py --output_dir data/cocobu
-```
-
-This will create `data/cocobu_fc`, `data/cocobu_att` and `data/cocobu_box`. If you want to use bottom-up feature, you can just follow the following steps and replace all cocotalk with cocobu.
+We now support both flickr30k and COCO. See details in `data/README.md`. (Note: the later sections assume COCO dataset; it should be trivial to use flickr30k.)
 
 ### Start training
 
@@ -108,7 +63,7 @@ $ bash scripts/copy_model.sh fc fc_rl
 
 Then
 ```bash
-$ python train.py --id fc_rl --caption_model fc --input_json data/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --batch_size 10 --learning_rate 5e-5 --start_from log_fc_rl --checkpoint_path log_fc_rl --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --self_critical_after 30
+$ python train.py --id fc_rl --caption_model fc --input_json data/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --batch_size 10 --learning_rate 5e-5 --start_from log_fc_rl --checkpoint_path log_fc_rl --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --self_critical_after 30 --cached_tokens coco-train-idxs
 ```
 
 You will see a huge boost on Cider score, : ).
