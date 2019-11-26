@@ -15,10 +15,18 @@ import time
 import os
 import sys
 import misc.utils as utils
-import eval_multi
+
+# load coco-caption if available
+try:
+    sys.path.append("coco-caption")
+    from pycocotools.coco import COCO
+    from pycocoevalcap.eval import COCOEvalCap
+except:
+    print('Warning: coco-caption not available')
 
 bad_endings = ['a','an','the','in','for','at','of','with','before','after','on','upon','near','to','is','are','am']
 bad_endings += ['the']
+
 
 def count_bad(sen):
     sen = sen.split(' ')
@@ -26,6 +34,15 @@ def count_bad(sen):
         return 1
     else:
         return 0
+
+
+def getCOCO(dataset):
+    if 'coco' in dataset:
+        annFile = 'coco-caption/annotations/captions_val2014.json'
+    elif 'flickr30k' in dataset or 'f30k' in dataset:
+        annFile = 'data/f30k_captions4eval.json'
+    return COCO(annFile)
+
 
 def language_eval(dataset, preds, preds_n, eval_kwargs, split):
     model_id = eval_kwargs['id']
@@ -36,7 +53,11 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
 
     if len(preds_n) > 0:
         # vocab size and novel sentences
-        training_sentences = set([' '.join(__['tokens']) for _ in json.load(open('data/dataset_coco.json'))['images'] if not _['split'] in ['val', 'test'] for __ in _['sentences']])
+        if 'coco' in dataset:
+            dataset_file = 'data/dataset_coco.json'
+        elif 'flickr30k' in dataset or 'f30k' in dataset:
+            dataset_file = 'data/dataset_flickr30k.json'
+        training_sentences = set([' '.join(__['tokens']) for _ in json.load(open(dataset_file))['images'] if not _['split'] in ['val', 'test'] for __ in _['sentences']])
         generated_sentences = set([_['caption'] for _ in preds_n])
         novels = generated_sentences - training_sentences
         out['novel_sentences'] = float(len(novels)) / len(preds_n)
@@ -46,22 +67,13 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
             words += _
         out['vocab_size'] = len(set(words))
 
-    import sys
-    sys.path.append("coco-caption")
-    if 'coco' in dataset:
-        annFile = 'coco-caption/annotations/captions_val2014.json'
-    elif 'flickr30k' in dataset or 'f30k' in dataset:
-        annFile = 'coco-caption/f30k_captions4eval.json'
-    from pycocotools.coco import COCO
-    from pycocoevalcap.eval import COCOEvalCap
-
     # encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
     if not os.path.isdir('eval_results'):
         os.mkdir('eval_results')
     cache_path = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '.json')
 
-    coco = COCO(annFile)
+    coco = getCOCO(dataset)
     valids = coco.getImgIds()
 
     # filter results to only those in MSCOCO validation set (will be about a third)
@@ -92,17 +104,18 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
         imgToEval[image_id]['caption'] = caption
 
     if len(preds_n) > 0:
+        import eval_multi
         cache_path_n = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '_n.json')
-        spice_n = eval_multi.eval_spice_n(preds_n, model_id, split)
+        spice_n = eval_multi.eval_spice_n(dataset, preds_n, model_id, split)
         out.update(spice_n['overall'])
-        div_stats = eval_multi.eval_div_stats(preds_n, model_id, split)
+        div_stats = eval_multi.eval_div_stats(dataset, preds_n, model_id, split)
         out.update(div_stats['overall'])
         if eval_oracle:
-            oracle = eval_multi.eval_oracle(preds_n, model_id, split)
+            oracle = eval_multi.eval_oracle(dataset, preds_n, model_id, split)
             out.update(oracle['overall'])
         else:
             oracle = None
-        self_cider = eval_multi.eval_self_cider(preds_n, model_id, split)
+        self_cider = eval_multi.eval_self_cider(dataset, preds_n, model_id, split)
         out.update(self_cider['overall'])
         with open(cache_path_n, 'w') as outfile:
             json.dump({'spice_n': spice_n, 'div_stats': div_stats, 'oracle': oracle, 'self_cider': self_cider}, outfile)

@@ -14,22 +14,27 @@ import time
 import os
 import sys
 import misc.utils as utils
+from eval_utils import getCOCO
 
 from misc.div_utils import compute_div_n, compute_global_div_n
 
 import sys
-sys.path.append("coco-caption")
-annFile = 'coco-caption/annotations/captions_val2014.json'
-from pycocotools.coco import COCO
-from pycocoevalcap.eval import COCOEvalCap
-from pycocoevalcap.eval_spice import COCOEvalCapSpice
-from pycocoevalcap.tokenizer.ptbtokenizer import PTBTokenizer
-from pycocoevalcap.bleu.bleu import Bleu
-sys.path.append("cider")
-from pyciderevalcap.cider.cider import Cider
+try:
+    sys.path.append("coco-caption")
+    annFile = 'coco-caption/annotations/captions_val2014.json'
+    from pycocotools.coco import COCO
+    from pycocoevalcap.eval import COCOEvalCap
+    from pycocoevalcap.eval_spice import COCOEvalCapSpice
+    from pycocoevalcap.tokenizer.ptbtokenizer import PTBTokenizer
+    from pycocoevalcap.bleu.bleu import Bleu
+    sys.path.append("cider")
+    from pyciderevalcap.cider.cider import Cider
+except:
+    print('Warning: requirements for eval_multi not satisfied')
 
-def eval_spice_n(preds_n, model_id, split):
-    coco = COCO(annFile)
+
+def eval_spice_n(dataset, preds_n, model_id, split):
+    coco = getCOCO(dataset)
     valids = coco.getImgIds()
     
     capsById = {}
@@ -63,10 +68,10 @@ def eval_spice_n(preds_n, model_id, split):
         imgToEvalSpice_n[image_id]['caption'] = capsById[image_id]
     return {'overall': out, 'imgToEvalSpice_n': imgToEvalSpice_n}
 
-def eval_oracle(preds_n, model_id, split):
+def eval_oracle(dataset, preds_n, model_id, split):
     cache_path = os.path.join('eval_results/', model_id + '_' + split + '_n.json')
 
-    coco = COCO(annFile)
+    coco = getCOCO(dataset)
     valids = coco.getImgIds()
 
     capsById = {}
@@ -112,7 +117,7 @@ def eval_oracle(preds_n, model_id, split):
         
     return out
 
-def eval_div_stats(preds_n, model_id, split):
+def eval_div_stats(dataset, preds_n, model_id, split):
     tokenizer = PTBTokenizer()
 
     capsById = {}
@@ -168,10 +173,10 @@ def eval_div_stats(preds_n, model_id, split):
 
     return out
 
-def eval_self_cider(preds_n, model_id, split):
+def eval_self_cider(dataset, preds_n, model_id, split):
     cache_path = os.path.join('eval_results/', model_id + '_' + split + '_n.json')
 
-    coco = COCO(annFile)
+    coco = getCOCO(dataset)
     valids = coco.getImgIds()
     
     # Get Cider_scorer
