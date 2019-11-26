@@ -239,11 +239,11 @@ class StructureLosses(nn.Module):
         elif self.loss_type == 'new_policy_gradient':
             baseline = (scores.sum(1, keepdim=True) - scores) / (scores.shape[1] - 1)
             scores = scores - baseline
-            if getattr(self.opt, 'self_critical_reward_weight', 0) > 0:
+            if getattr(self.opt, 'self_cider_reward_weight', 0) > 0:
                 _scores = get_self_cider_scores(data_gts, seq, self.opt)
                 _scores = torch.from_numpy(_scores).type_as(scores).view(-1, 1)
                 _scores = _scores.expand_as(scores - 1)
-                scores += self.opt.self_critical_reward_weight * _scores
+                scores += self.opt.self_cider_reward_weight * _scores
             output = - input * mask * scores.view(-1, 1)
             output = torch.sum(output) / torch.sum(mask)
 

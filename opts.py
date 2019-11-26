@@ -165,8 +165,8 @@ def parse_opt():
     parser.add_argument('--struc_use_logsoftmax', action='store_true', help='')
     parser.add_argument('--entropy_reward_weight', type=float, default=0,
                     help='Entropy reward, seems very interesting')
-    parser.add_argument('--self_critical_reward_weight', type=float, default=0,
-                    help='self critical reward')
+    parser.add_argument('--self_cider_reward_weight', type=float, default=0,
+                    help='self cider reward')
 
     add_diversity_opts(parser)
 
