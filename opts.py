@@ -1,3 +1,4 @@
+from __future__ import print_function
 import argparse
 
 def parse_opt():
@@ -169,7 +170,26 @@ def parse_opt():
 
     add_diversity_opts(parser)
 
+
+    # config
+    parser.add_argument('--cfg', type=str, default=None,
+                    help='configuration; similar to what is used in detectron')
+    # How will config be used
+    # 1) read cfg argument, and load the cfg file if it's not None
+    # 2) parse config argument
+    # 3) in the end, parse command line argument
+
+    # step 1: read cfg_fn
     args = parser.parse_args()
+    if args.cfg is not None:
+        from misc.config import CfgNode
+        cn = CfgNode.load_yaml_with_base(args.cfg)
+        for k,v in cn.items():
+            if hasattr(args, k):
+                setattr(args, k, v)
+            else:
+                print('Warning: key %s not in args' %k)
+        args = parser.parse_args(namespace=args)
 
     # Check if args are valid
     assert args.rnn_size > 0, "rnn_size should be greater than 0"
@@ -258,3 +278,18 @@ def add_diversity_opts(parser):
                     help='sample, bs, dbs, gumbel, topk, dgreedy, dsample, dtopk, dtopp')
     parser.add_argument('--eval_oracle', type=int, default=1, 
                     help='if we need to calculate loss.')
+
+
+if __name__ == '__main__':
+    import sys
+    sys.argv = [sys.argv[0]]
+    args = parse_opt()
+    print(args)
+    print()
+    sys.argv = [sys.argv[0], '--cfg', 'configs/topdown_long.yml']
+    args1 = parse_opt()
+    print(dict(set(vars(args1).items()) - set(vars(args).items())))
+    print()
+    sys.argv = [sys.argv[0], '--cfg', 'configs/topdown_long.yml', '--caption_model', 'att2in2']
+    args2 = parse_opt()
+    print(dict(set(vars(args2).items()) - set(vars(args1).items())))
