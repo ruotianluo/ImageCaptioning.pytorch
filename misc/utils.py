@@ -103,6 +103,9 @@ class RewardCriterion(nn.Module):
         return output
 
 class StructureLosses(nn.Module):
+    """
+    This loss is inspired by Classical Structured Prediction Losses for Sequence to Sequence Learning (Edunov et al., 2018).
+    """
     def __init__(self, opt):
         super(StructureLosses, self).__init__()
         self.opt = opt
@@ -158,6 +161,7 @@ class StructureLosses(nn.Module):
 
             output = (F.softmax(input.exp()) * costs).sum(1).mean()
 
+            # test
             # avg_scores = input
             # probs = F.softmax(avg_scores.exp_())
             # loss = (probs * costs.type_as(probs)).sum() / input.size(0)
@@ -174,7 +178,7 @@ class StructureLosses(nn.Module):
             output = F.relu(costs - costs_star - input_star + input).max(1)[0] / 2
             output = output.mean()
 
-            # sanity
+            # sanity test
             # avg_scores = input + costs
             # scores_with_high_target = avg_scores.clone()
             # scores_with_high_target.scatter_(1, costs.min(1)[1].view(-1, 1), 1e10)
@@ -196,7 +200,7 @@ class StructureLosses(nn.Module):
             output = F.relu(costs - costs_star - input_star + input)
             output = output.mean()
 
-            # sanity
+            # sanity test
             # avg_scores = input + costs
             # loss = F.multi_margin_loss(avg_scores, costs.min(1)[1], margin=0)
             # print(output, loss)
@@ -213,6 +217,8 @@ class StructureLosses(nn.Module):
 
         elif self.loss_type == 'real_softmax_margin':
             # input is logits
+            # This is what originally defined in Kevin's paper
+            # The result should be equivalent to softmax_margin
             input = input * mask
             input = input.sum(1) / mask.sum(1)
             input = input.view(-1, seq_per_img)

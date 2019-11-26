@@ -1,16 +1,4 @@
-# This file contains Att2in2, AdaAtt, AdaAttMO, TopDown model
-
-# AdaAtt is from Knowing When to Look: Adaptive Attention via A Visual Sentinel for Image Captioning
-# https://arxiv.org/abs/1612.01887
-# AdaAttMO is a modified version with maxout lstm
-
-# Att2in is from Self-critical Sequence Training for Image Captioning
-# https://arxiv.org/abs/1612.00563
-# In this file we only have Att2in2, which is a slightly different version of att2in,
-# in which the img feature embedding and word embedding is the same as what in adaatt.
-
-# TopDown is from Bottom-Up and Top-Down Attention for Image Captioning and VQA
-# https://arxiv.org/abs/1707.07998
+# This file is the implementation for ensemble evaluation.
 
 from __future__ import absolute_import
 from __future__ import division
@@ -72,19 +60,6 @@ class AttEnsemble(AttModel):
 
     def _prepare_feature(self, *args):
         return tuple(zip(*[m._prepare_feature(*args) for m in self.models]))
-
-    # def _prepare_feature(self, fc_feats, att_feats, att_masks):
-
-    #     att_feats, att_masks = self.clip_att(att_feats, att_masks)
-
-    #     # embed fc and att feats
-    #     fc_feats = [m.fc_embed(fc_feats) for m in self.models]
-    #     att_feats = [pack_wrapper(m.att_embed, att_feats[...,:m.att_feat_size], att_masks) for m in self.models]
-
-    #     # Project the attention feats first to reduce memory and computation comsumptions.
-    #     p_att_feats = [m.ctx2att(att_feats[i]) for i,m in enumerate(self.models)]
-
-    #     return fc_feats, att_feats, p_att_feats, [att_masks] * len(self.models)
 
     def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
