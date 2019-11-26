@@ -29,6 +29,8 @@ parser.add_argument('--infos_path', type=str, default='',
                 help='path to infos to evaluate')
 parser.add_argument('--only_lang_eval', type=int, default=0,
                 help='lang eval on saved results')
+parser.add_argument('--force', type=int, default=0,
+                help='force to evaluate no matter if there are results available')
 opts.add_eval_options(parser)
 opts.add_diversity_opts(parser)
 opt = parser.parse_args()
@@ -50,11 +52,39 @@ for k in vars(infos['opt']).keys():
 
 vocab = infos['vocab'] # ix -> word mapping
 
-if opt.only_lang_eval == 1:
-    predictions, n_predictions = torch.load(os.path.join('eval_results/', '.saved_pred_'+ opt.id + '_' + opt.split + '.pth'))
+pred_fn = os.path.join('eval_results/', '.saved_pred_'+ opt.id + '_' + opt.split + '.pth')
+result_fn = os.path.join('eval_results/', opt.id + '_' + opt.split + '.json')
+
+if opt.only_lang_eval == 1 or (not opt.force and os.path.isfile(pred_fn)): 
+    # if results existed, then skip, unless force is on
+    if not opt.force:
+        try:
+            if os.path.isfile(result_fn):
+                print(result_fn)
+                json.load(open(result_fn, 'r'))
+                print('already evaluated')
+                os._exit(0)
+        except:
+            pass
+
+    predictions, n_predictions = torch.load(pred_fn)
     lang_stats = eval_utils.language_eval(opt.input_json, predictions, n_predictions, vars(opt), opt.split)
     print(lang_stats)
     os._exit(0)
+
+# At this point only_lang_eval if 0
+if not opt.force:
+    # Check out if 
+    try:
+        # if no pred exists, then continue
+        tmp = torch.load(pred_fn)
+        # if language_eval == 1, and no pred exists, then continue
+        if opt.language_eval == 1:
+            json.load(open(result_fn, 'r'))
+        print('Result is already there')
+        os._exit(0)
+    except:
+        pass
 
 # Setup the model
 opt.vocab = vocab
