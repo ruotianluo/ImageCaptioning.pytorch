@@ -1,6 +1,7 @@
 from __future__ import print_function
 import argparse
 
+
 def parse_opt():
     parser = argparse.ArgumentParser()
     # Data input settings
@@ -130,7 +131,7 @@ def parse_opt():
                     help='how often to save a model checkpoint (in iterations)?')
     parser.add_argument('--save_history_ckpt', type=int, default=1,
                     help='If save checkpoints at every save point')
-    parser.add_argument('--checkpoint_path', type=str, default='save',
+    parser.add_argument('--checkpoint_path', type=str, default=None,
                     help='directory to store checkpointed models')
     parser.add_argument('--language_eval', type=int, default=0,
                     help='Evaluate language as well (1 = yes, 0 = no)? BLEU/CIDEr/METEOR/ROUGE_L? requires coco-caption code from Github.')
@@ -205,7 +206,12 @@ def parse_opt():
     assert args.load_best_score == 0 or args.load_best_score == 1, "language_eval should be 0 or 1"
     assert args.train_only == 0 or args.train_only == 1, "language_eval should be 0 or 1"
 
+    # default value for start_from and checkpoint_path
+    args.checkpoint_path = args.checkpoint_path or './log_%s' %args.id
+    args.start_from = args.start_from or args.checkpoint_path
+    
     return args
+
 
 def add_eval_options(parser):
     # Basic options
