@@ -18,6 +18,7 @@ from six.moves import cPickle
 bad_endings = ['with','in','on','of','a','at','to','for','an','this','his','her','that']
 bad_endings += ['the']
 
+
 def pickle_load(f):
     """ Load a pickle.
     Parameters
@@ -55,6 +56,7 @@ def if_use_feat(caption_model):
         use_att, use_fc = True, False
     return use_fc, use_att
 
+
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
 def decode_sequence(ix_to_word, seq):
     N, D = seq.size()
@@ -80,11 +82,6 @@ def decode_sequence(ix_to_word, seq):
         out.append(txt.replace('@@ ', ''))
     return out
 
-def to_contiguous(tensor):
-    if tensor.is_contiguous():
-        return tensor
-    else:
-        return tensor.contiguous()
 
 def save_checkpoint(opt, model, infos, optimizer, histories=None, append=''):
     if len(append) > 0:
@@ -111,10 +108,10 @@ class RewardCriterion(nn.Module):
     def forward(self, input, seq, reward):
         input = input.gather(2, seq.unsqueeze(2)).squeeze(2)
         
-        input = to_contiguous(input).view(-1)
-        reward = to_contiguous(reward).view(-1)
+        input = input.reshape(-1)
+        reward = reward.reshape(-1)
         mask = (seq>0).float()
-        mask = to_contiguous(torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1)).view(-1)
+        mask = torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1).reshape(-1)
         output = - input * reward * mask
         output = torch.sum(output) / torch.sum(mask)
 
@@ -304,9 +301,9 @@ class LabelSmoothing(nn.Module):
         target = target[:, :input.size(1)]
         mask =  mask[:, :input.size(1)]
 
-        input = to_contiguous(input).view(-1, input.size(-1))
-        target = to_contiguous(target).view(-1)
-        mask = to_contiguous(mask).view(-1)
+        input = input.reshape(-1, input.size(-1))
+        target = target.reshape(-1)
+        mask = mask.reshape(-1)
 
         # assert x.size(1) == self.size
         self.size = input.size(1)
