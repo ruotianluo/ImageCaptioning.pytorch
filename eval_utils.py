@@ -69,8 +69,6 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
 
     # encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
-    if not os.path.isdir('eval_results'):
-        os.mkdir('eval_results')
     cache_path = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '.json')
 
     coco = getCOCO(dataset)
@@ -268,6 +266,8 @@ def eval_split(model, crit, loader, eval_kwargs={}):
     lang_stats = None
     if len(n_predictions) > 0 and 'perplexity' in n_predictions[0]:
         n_predictions = sorted(n_predictions, key=lambda x: x['perplexity'])
+    if not os.path.isdir('eval_results'):
+        os.mkdir('eval_results')
     torch.save((predictions, n_predictions), os.path.join('eval_results/', '.saved_pred_'+ eval_kwargs['id'] + '_' + split + '.pth'))
     if lang_eval == 1:
         lang_stats = language_eval(dataset, predictions, n_predictions, eval_kwargs, split)
