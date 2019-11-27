@@ -103,23 +103,6 @@ def train(opt):
         optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
 
 
-    def save_checkpoint(model, infos, optimizer, histories=None, append=''):
-        if len(append) > 0:
-            append = '-' + append
-        # if checkpoint_path doesn't exist
-        if not os.path.isdir(opt.checkpoint_path):
-            os.makedirs(opt.checkpoint_path)
-        checkpoint_path = os.path.join(opt.checkpoint_path, 'model%s.pth' %(append))
-        torch.save(model.state_dict(), checkpoint_path)
-        print("model saved to {}".format(checkpoint_path))
-        optimizer_path = os.path.join(opt.checkpoint_path, 'optimizer%s.pth' %(append))
-        torch.save(optimizer.state_dict(), optimizer_path)
-        with open(os.path.join(opt.checkpoint_path, 'infos_'+opt.id+'%s.pkl' %(append)), 'wb') as f:
-            utils.pickle_dump(infos, f)
-        if histories:
-            with open(os.path.join(opt.checkpoint_path, 'histories_'+opt.id+'%s.pkl' %(append)), 'wb') as f:
-                utils.pickle_dump(histories, f)
-
     try:
         while True:
             if epoch_done:
@@ -257,19 +240,19 @@ def train(opt):
                 histories['lr_history'] = lr_history
                 histories['ss_prob_history'] = ss_prob_history
 
-                save_checkpoint(model, infos, optimizer, histories)
+                utils.save_checkpoint(opt, model, infos, optimizer, histories)
                 if opt.save_history_ckpt:
-                    save_checkpoint(model, infos, optimizer, append=str(iteration))
+                    utils.save_checkpoint(opt, model, infos, optimizer, append=str(iteration))
 
                 if best_flag:
-                    save_checkpoint(model, infos, optimizer, append='best')
+                    utils.save_checkpoint(opt, model, infos, optimizer, append='best')
 
             # Stop if reaching max epochs
             if epoch >= opt.max_epochs and opt.max_epochs != -1:
                 break
     except (RuntimeError, KeyboardInterrupt):
         print('Save ckpt on exception ...')
-        save_checkpoint(model, infos, optimizer)
+        utils.save_checkpoint(opt, model, infos, optimizer)
         print('Save ckpt done.')
         stack_trace = traceback.format_exc()
         print(stack_trace)
