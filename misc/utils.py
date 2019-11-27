@@ -242,24 +242,16 @@ class StructureLosses(nn.Module):
             target = costs.min(1)[1]
             output = F.cross_entropy(input, target)
 
-        elif self.loss_type == 'policy_gradient':
-            # None:
-            # This is not standard pg, because the baseline is dependant on the reward
-            # This is eccenstially a rescaled reward. See how it works.
-            # output = input * mask * (costs - costs.mean(1, keepdim=True)).view(-1, 1) not working
-            # output = input * mask * ((costs - costs.mean(1, keepdim=True))/(costs.std(1, keepdim=True)+1e-7)).view(-1, 1)
-            # output = input * mask * costs.view(-1, 1)
-            # output = input * mask * (costs.view(-1, 1)-0.5)
-            # costs = -scores
-            # output = input * mask * ((costs - costs.mean())/costs.std()).view(-1, 1)
-            # output = - input * mask * scores.view(-1, 1)
-            # output = - input * mask * (scores - scores.min(1, keepdim=True)[0]).view(-1, 1)
-            output = - input * mask * (scores - scores.median(1, keepdim=True)[0]).view(-1, 1)
-            output = torch.sum(output) / torch.sum(mask)
-
-        elif self.loss_type == 'new_policy_gradient':
+        elif self.loss_type == 'new_self_critical':
+            """
+            A different self critical
+            Self critical uses greedy decoding score as baseline;
+            This setting uses the average score of the rest samples as baseline
+            (suppose c1...cn n samples, reward1 = score1 - 1/(n-1)(score2+..+scoren) )
+            """
             baseline = (scores.sum(1, keepdim=True) - scores) / (scores.shape[1] - 1)
             scores = scores - baseline
+            # self cider used as reward to promote diversity (not working that much in this way)
             if getattr(self.opt, 'self_cider_reward_weight', 0) > 0:
                 _scores = get_self_cider_scores(data_gts, seq, self.opt)
                 _scores = torch.from_numpy(_scores).type_as(scores).view(-1, 1)
