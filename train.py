@@ -5,6 +5,7 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 
@@ -23,11 +24,6 @@ import misc.utils as utils
 from misc.rewards import init_scorer, get_self_critical_reward
 from misc.loss_wrapper import LossWrapper
 
-try:
-    import tensorboardX as tb
-except ImportError:
-    print("tensorboardX is not installed")
-    tb = None
 
 def add_summary_value(writer, key, value, iteration):
     if writer:
@@ -75,7 +71,7 @@ def train(opt):
             histories.update(utils.pickle_load(f))
 
     # tensorboard logger
-    tb_summary_writer = tb and tb.SummaryWriter(opt.checkpoint_path)
+    tb_summary_writer = SummaryWriter(opt.checkpoint_path)
 
     ##########################
     # Build model
@@ -202,19 +198,19 @@ def train(opt):
 
             # Write the training loss summary
             if (iteration % opt.losses_log_every == 0):
-                add_summary_value(tb_summary_writer, 'train_loss', train_loss, iteration)
+                tb_summary_writer.add_scalar('train_loss', train_loss, iteration)
                 if opt.noamopt:
                     opt.current_lr = optimizer.rate()
                 elif opt.reduce_on_plateau:
                     opt.current_lr = optimizer.current_lr
-                add_summary_value(tb_summary_writer, 'learning_rate', opt.current_lr, iteration)
-                add_summary_value(tb_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
+                tb_summary_writer.add_scalar('learning_rate', opt.current_lr, iteration)
+                tb_summary_writer.add_scalar('scheduled_sampling_prob', model.ss_prob, iteration)
                 if sc_flag:
-                    add_summary_value(tb_summary_writer, 'avg_reward', model_out['reward'].mean(), iteration)
+                    tb_summary_writer.add_scalar('avg_reward', model_out['reward'].mean(), iteration)
                 elif struc_flag:
-                    add_summary_value(tb_summary_writer, 'lm_loss', model_out['lm_loss'].mean().item(), iteration)
-                    add_summary_value(tb_summary_writer, 'struc_loss', model_out['struc_loss'].mean().item(), iteration)
-                    add_summary_value(tb_summary_writer, 'reward', model_out['reward'].mean().item(), iteration)
+                    tb_summary_writer.add_scalar('lm_loss', model_out['lm_loss'].mean().item(), iteration)
+                    tb_summary_writer.add_scalar('struc_loss', model_out['struc_loss'].mean().item(), iteration)
+                    tb_summary_writer.add_scalar('reward', model_out['reward'].mean().item(), iteration)
 
                 histories['loss_history'][iteration] = train_loss if not sc_flag else model_out['reward'].mean()
                 histories['lr_history'][iteration] = opt.current_lr
@@ -241,10 +237,10 @@ def train(opt):
                     else:
                         optimizer.scheduler_step(val_loss)
                 # Write validation result into summary
-                add_summary_value(tb_summary_writer, 'validation loss', val_loss, iteration)
+                tb_summary_writer.add_scalar('validation loss', val_loss, iteration)
                 if lang_stats is not None:
                     for k,v in lang_stats.items():
-                        add_summary_value(tb_summary_writer, k, v, iteration)
+                        tb_summary_writer.add_scalar(k, v, iteration)
                 histories['val_result_history'][iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
 
                 # Save model if is improving on validation result
