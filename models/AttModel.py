@@ -135,9 +135,6 @@ class AttModel(CaptionModel):
                 else:
                     sample_ind = sample_mask.nonzero().view(-1)
                     it = seq[:, i].data.clone()
-                    #prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
-                    #it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
-                    # prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
                     prob_prev = torch.exp(outputs[:, i-1].detach()) # fetch prev distribution: shape Nx(M+1)
                     it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
             else:
@@ -239,11 +236,12 @@ class AttModel(CaptionModel):
             if remove_bad_endings and t > 0:
                 tmp = logprobs.new_zeros(logprobs.size())
                 prev_bad = np.isin(seq[:,t-1].data.cpu().numpy(), self.bad_endings_ix)
-                # Impossible to generate remove_bad_endings
+                # Make it impossible to generate bad_endings
                 tmp[torch.from_numpy(prev_bad.astype('uint8')), 0] = float('-inf')
                 logprobs = logprobs + tmp
 
             # Mess with trigrams
+            # Copy from https://github.com/lukemelas/image-paragraph-captioning
             if block_trigrams and t >= 3:
                 # Store trigram generated at last step
                 prev_two_batch = seq[:,t-3:t-1]
