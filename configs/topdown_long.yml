@@ -1,6 +1,7 @@
 _BASE_: topdown.yml
 # This training schedule is provided by yangxuntu
 self_critical_after: 40
+train_sample_n: 5
 batch_size: 100
 learning_rate_decay_start: 0
 learning_rate_decay_every: 5

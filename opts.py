@@ -157,9 +157,9 @@ def parse_opt():
     # Structure_loss
     parser.add_argument('--structure_loss_weight', type=float, default=1,
                     help='The reward weight from cider')
-    parser.add_argument('--structure_after', type=float, default=-1,
+    parser.add_argument('--structure_after', type=int, default=-1,
                     help='The reward weight from cider')
-    parser.add_argument('--structure_sample_n', type=float, default=16,
+    parser.add_argument('--structure_sample_n', type=int, default=None,
                     help='The reward weight from cider')
     parser.add_argument('--structure_loss_type', type=str, default='seqnll',
                     help='The reward weight from cider')
@@ -168,6 +168,10 @@ def parse_opt():
                     help='Entropy reward, seems very interesting')
     parser.add_argument('--self_cider_reward_weight', type=float, default=0,
                     help='self cider reward')
+
+    # Used for self critical
+    parser.add_argument('--train_sample_n', type=int, default=16,
+                    help='The reward weight from cider')
 
     add_diversity_opts(parser)
 
@@ -209,6 +213,8 @@ def parse_opt():
     # default value for start_from and checkpoint_path
     args.checkpoint_path = args.checkpoint_path or './log_%s' %args.id
     args.start_from = args.start_from or args.checkpoint_path
+
+    args.structure_sample_n = args.structure_sample_n or args.train_sample_n
     
     return args
 

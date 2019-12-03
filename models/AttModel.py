@@ -118,17 +118,23 @@ class AttModel(CaptionModel):
 
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
         batch_size = fc_feats.size(0)
-        state = self.init_hidden(batch_size)
+        seq_per_img = seq.shape[0] // batch_size
+        state = self.init_hidden(batch_size*seq_per_img)
 
-        outputs = fc_feats.new_zeros(batch_size, seq.size(1) - 1, self.vocab_size+1)
+        outputs = fc_feats.new_zeros(batch_size*seq_per_img, seq.size(1) - 1, self.vocab_size+1)
 
         # Prepare the features
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
         # pp_att_feats is used for attention, we cache it in advance to reduce computation cost
 
+        if seq_per_img > 1:
+            p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self.repeat_tensors(seq_per_img,
+                p_fc_feats, p_att_feats, pp_att_feats, p_att_masks
+            )
+
         for i in range(seq.size(1) - 1):
             if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
-                sample_prob = fc_feats.new(batch_size).uniform_(0, 1)
+                sample_prob = fc_feats.new(batch_size*seq_per_img).uniform_(0, 1)
                 sample_mask = sample_prob < self.ss_prob
                 if sample_mask.sum() == 0:
                     it = seq[:, i].clone()
@@ -174,10 +180,9 @@ class AttModel(CaptionModel):
         self.done_beams = [[] for _ in range(batch_size)]
         for k in range(batch_size):
             state = self.init_hidden(beam_size)
-            tmp_fc_feats = p_fc_feats[k:k+1].expand(beam_size, p_fc_feats.size(1))
-            tmp_att_feats = p_att_feats[k:k+1].expand(*((beam_size,)+p_att_feats.size()[1:])).contiguous()
-            tmp_p_att_feats = pp_att_feats[k:k+1].expand(*((beam_size,)+pp_att_feats.size()[1:])).contiguous()
-            tmp_att_masks = p_att_masks[k:k+1].expand(*((beam_size,)+p_att_masks.size()[1:])).contiguous() if att_masks is not None else None
+            tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks = self.repeat_tensors(beam_size,
+                p_fc_feats[k:k+1], p_att_feats[k:k+1], pp_att_feats[k:k+1], p_att_masks[k:k+1] if att_masks is not None else None
+            )
 
             for t in range(1):
                 if t == 0: # input <bos>
@@ -213,10 +218,9 @@ class AttModel(CaptionModel):
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         if sample_n > 1:
-            p_fc_feats = p_fc_feats.unsqueeze(1).repeat(1,sample_n,1).reshape((batch_size*sample_n,)+p_fc_feats.shape[1:])
-            p_att_feats = p_att_feats.unsqueeze(1).repeat(1,sample_n,1,1).reshape((batch_size*sample_n,)+p_att_feats.shape[1:])
-            pp_att_feats = pp_att_feats.unsqueeze(1).repeat(1,sample_n,1,1).reshape((batch_size*sample_n,)+pp_att_feats.shape[1:])
-            p_att_masks = p_att_masks.unsqueeze(1).repeat(1,sample_n,1,1).reshape((batch_size*sample_n,)+p_att_masks.shape[1:]) if att_masks is not None else None
+            p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self.repeat_tensors(sample_n,
+                p_fc_feats, p_att_feats, pp_att_feats, p_att_masks
+            )
 
         trigrams = [] # will be a list of batch_size dictionaries
         

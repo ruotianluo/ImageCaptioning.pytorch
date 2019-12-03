@@ -20,3 +20,4 @@ save_checkpoint_every: 3000
 language_eval: 1
 val_images_use: 5000
 max_epochs: 15
+train_sample_n: 5

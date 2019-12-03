@@ -47,7 +47,8 @@ class LossWrapper(torch.nn.Module):
             with torch.no_grad():
                 greedy_res, _ = self.model(fc_feats, att_feats, att_masks, mode='sample')
             self.model.train()
-            gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks, opt={'sample_method':'sample'}, mode='sample')
+            gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks,
+                opt={'sample_method':'sample', 'sample_n': opt.train_sample_n}, mode='sample')
             gts = [gts[_] for _ in gt_indices.tolist()]
             reward = get_self_critical_reward(greedy_res, gts, gen_result, self.opt)
             reward = torch.from_numpy(reward).float().to(gen_result.device)

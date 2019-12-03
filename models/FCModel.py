@@ -78,15 +78,19 @@ class FCModel(CaptionModel):
 
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
         batch_size = fc_feats.size(0)
-        state = self.init_hidden(batch_size)
+        seq_per_img = seq.shape[0] // batch_size
+        state = self.init_hidden(batch_size*seq_per_img)
         outputs = []
+
+        if seq_per_img > 1:
+            fc_feats = self.repeat_tensors(seq_per_img, fc_feats)
 
         for i in range(seq.size(1)):
             if i == 0:
                 xt = self.img_embed(fc_feats)
             else:
                 if self.training and i >= 2 and self.ss_prob > 0.0: # otherwiste no need to sample
-                    sample_prob = fc_feats.data.new(batch_size).uniform_(0, 1)
+                    sample_prob = fc_feats.data.new(batch_size*seq_per_img).uniform_(0, 1)
                     sample_mask = sample_prob < self.ss_prob
                     if sample_mask.sum() == 0:
                         it = seq[:, i-1].clone()

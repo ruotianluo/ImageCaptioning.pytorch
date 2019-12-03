@@ -11,3 +11,5 @@ batch_size: 10
 max_epochs: 50
 self_critical_after: 30
 cached_tokens: coco-train-idxs
+
+train_sample_n: 5

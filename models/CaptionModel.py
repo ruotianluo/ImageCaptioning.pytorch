@@ -225,3 +225,21 @@ class CaptionModel(nn.Module):
             it = torch.distributions.Categorical(logits=logprobs.detach()).sample()
             sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
         return it, sampleLogprobs
+
+    @staticmethod
+    def repeat_tensor(n, x):
+        """
+        For a tensor of size Bx..., we repeat it n times, and make it Bnx...
+        """
+        if x is not None:
+            x = x.unsqueeze(1) # Bx1x...
+            x = x.expand(-1, n, *([-1]*len(x.shape[2:]))) # Bxnx...
+            x = x.reshape(-1, *x.shape[2:]) # Bnx...
+        return x
+
+    @staticmethod
+    def repeat_tensors(n, *xs):
+        """
+        Repeat a list of tensors
+        """
+        return [CaptionModel.repeat_tensor(n, x) for x in xs]

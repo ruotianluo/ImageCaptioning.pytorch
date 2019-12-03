@@ -166,9 +166,9 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
         # forward the model to also get generated samples for each image
         # Only leave one feature for each image, in case duplicate sample
-        tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
-            data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img],
-            data['att_masks'][np.arange(loader.batch_size) * loader.seq_per_img] if data['att_masks'] is not None else None]
+        tmp = [data['fc_feats'], 
+            data['att_feats'],
+            data['att_masks']]
         tmp = [_.cuda() if _ is not None else _ for _ in tmp]
         fc_feats, att_feats, att_masks = tmp
         with torch.no_grad():

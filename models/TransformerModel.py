@@ -315,6 +315,12 @@ class TransformerModel(AttModel):
 
             seq_mask = seq_mask.unsqueeze(-2)
             seq_mask = seq_mask & subsequent_mask(seq.size(-1)).to(seq_mask)
+
+            seq_per_img = seq.shape[0] // att_feats.shape[0]
+            if seq_per_img > 1:
+                att_feats, att_masks = self.repeat_tensors(seq_per_img,
+                    att_feats, att_masks
+                )
         else:
             seq_mask = None
 

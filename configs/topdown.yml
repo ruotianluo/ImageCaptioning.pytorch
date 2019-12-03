@@ -16,6 +16,7 @@ input_encoding_size: 1000
 att_feat_size: 2048
 att_hid_size: 512
 
+train_sample_n: 5
 self_critical_after: 30
 batch_size: 10
 learning_rate_decay_start: 0
