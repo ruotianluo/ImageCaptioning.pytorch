@@ -97,6 +97,10 @@ class DataLoader(data.Dataset):
         
         # open the hdf5 file
         print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_box_dir, opt.input_label_h5)
+        """
+        Setting input_label_h5 to none is used when only doing generation.
+        For example, when you need to test on coco test set.
+        """
         if self.opt.input_label_h5 != 'none':
             self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
             # load in the sequence data
@@ -195,11 +199,13 @@ class DataLoader(data.Dataset):
             
             tmp_label = np.zeros([seq_per_img, self.seq_length + 2], dtype = 'int')
             if hasattr(self, 'h5_label_file'):
+                # if there is ground truth
                 tmp_label[:, 1 : self.seq_length + 1] = tmp_seq
             label_batch.append(tmp_label)
 
             # Used for reward evaluation
             if hasattr(self, 'h5_label_file'):
+                # if there is ground truth
                 gts.append(self.label[self.label_start_ix[ix] - 1: self.label_end_ix[ix]])
             else:
                 gts.append([])
