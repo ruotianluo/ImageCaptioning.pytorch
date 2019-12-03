@@ -1,0 +1,8 @@
+_BASE_: topdown.yml
+learning_rate: 0.00005
+learning_rate_decay_start: -1
+self_critical_after: -1
+structure_after: 30
+structure_sample_n: 1
+structure_loss_weight: 1
+structure_loss_type: new_self_critical

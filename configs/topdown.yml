@@ -1,0 +1,22 @@
+# base
+caption_model: topdown
+input_json: data/cocotalk.json
+input_fc_dir: data/cocobu_fc
+input_att_dir: data/cocobu_att
+input_label_h5: data/cocotalk_label.h5
+learning_rate: 0.0005
+scheduled_sampling_start: 0
+# checkpoint_path: $ckpt_path
+# $start_from
+language_eval: 1
+save_checkpoint_every: 3000
+val_images_use: 5000
+rnn_size: 1000
+input_encoding_size: 1000
+att_feat_size: 2048
+att_hid_size: 512
+
+self_critical_after: 30
+batch_size: 10
+learning_rate_decay_start: 0
+max_epochs: 50

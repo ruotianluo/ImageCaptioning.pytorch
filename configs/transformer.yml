@@ -1,0 +1,22 @@
+caption_model: transformer
+noamopt: true
+noamopt_warmup: 20000
+label_smoothing: 0.0
+input_json: data/cocotalk.json
+input_label_h5: data/cocotalk_label.h5
+input_fc_dir: data/cocobu_fc
+input_att_dir: data/cocobu_att
+seq_per_img: 5
+batch_size: 10
+learning_rate: 0.0005
+
+num_layers: 6
+input_encoding_size: 512
+rnn_size: 2048
+
+learning_rate_decay_start: 0
+scheduled_sampling_start: -1 
+save_checkpoint_every: 3000
+language_eval: 1
+val_images_use: 5000
+max_epochs: 15

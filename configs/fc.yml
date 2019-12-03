@@ -1,0 +1,16 @@
+caption_model: newfc
+input_json: data/cocotalk.json
+input_fc_dir: data/cocotalk_fc
+input_att_dir: data/cocotalk_att
+input_label_h5: data/cocotalk_label.h5
+learning_rate: 0.0005
+learning_rate_decay_start: 0
+scheduled_sampling_start: 0
+# checkpoint_path: $ckpt_path
+# $start_from
+language_eval: 1
+save_checkpoint_every: 3000
+val_images_use: 5000
+
+batch_size: 10
+max_epochs: 30

@@ -1,0 +1,13 @@
+_BASE_: fc.yml
+learning_rate: 0.00005
+learning_rate_decay_start: -1
+scheduled_sampling_start: -1
+
+language_eval: 1
+save_checkpoint_every: 3000
+val_images_use: 5000
+
+batch_size: 10
+max_epochs: 50
+self_critical_after: 30
+cached_tokens: coco-train-idxs

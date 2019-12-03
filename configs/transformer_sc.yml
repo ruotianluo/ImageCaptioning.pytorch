@@ -1,0 +1,6 @@
+_BASE_: transformer.yml
+reduce_on_plateau: true
+
+learning_rate: 0.00001
+
+self_critical_after: 15
