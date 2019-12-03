@@ -861,19 +861,21 @@ class NewFCModel(AttModel):
         # Sample
         # beam search (diverse beam search)
         # fixed captioning module.
-        # is_first_step = (state[0]==0).all(2).all(0)
-        # if is_first_step.all():
-        #     _, state = self._core(fc_feats, state)
-        # elif is_first_step.any():
-        #     # This is mostly for diverse beam search I think
-        #     new_state = torch.zeros_like(state)
-        #     new_state[~is_first_step] = state[~is_first_step]
-        #     _, state = self._core(fc_feats, state)
-        #     new_state[is_first_step] = state[is_first_step]
-        #     state = new_state
-        if (state[0]==0).all():
-            # Let's forget about diverse beam search first
+        is_first_step = (state[0]==0).all(2).all(0) # size: B
+        if is_first_step.all():
             _, state = self._core(fc_feats, state)
+        elif is_first_step.any():
+            # This is mostly for diverse beam search I think
+            new_state = [torch.zeros_like(_) for _ in state]
+            new_state[0][:, ~is_first_step] = state[0][:, ~is_first_step]
+            new_state[1][:, ~is_first_step] = state[1][:, ~is_first_step]
+            _, state = self._core(fc_feats, state)
+            new_state[0][:, is_first_step] = state[0][:, is_first_step]
+            new_state[1][:, is_first_step] = state[1][:, is_first_step]
+            state = new_state
+        # if (state[0]==0).all():
+        #     # Let's forget about diverse beam search first
+        #     _, state = self._core(fc_feats, state)
         return self._core(xt, state)
     
     def _prepare_feature(self, fc_feats, att_feats, att_masks):
