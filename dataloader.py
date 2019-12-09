@@ -7,6 +7,7 @@ import h5py
 import lmdb
 import os
 import numpy as np
+import numpy.random as npr
 import random
 
 import torch
@@ -58,14 +59,8 @@ class HybridLoader:
 
         return feat
 
-
-class DataLoader(data.Dataset):
-
-    def reset_iterator(self, split):
-        del self._prefetch_process[split]
-        self._prefetch_process[split] = BlobFetcher(split, self, split=='train')
-        self.iterators[split] = 0
-
+class Dataset(data.Dataset):
+    
     def get_vocab_size(self):
         return self.vocab_size
 
@@ -77,7 +72,6 @@ class DataLoader(data.Dataset):
 
     def __init__(self, opt):
         self.opt = opt
-        self.batch_size = self.opt.batch_size
         self.seq_per_img = opt.seq_per_img
         
         # feature related options
@@ -142,19 +136,6 @@ class DataLoader(data.Dataset):
         print('assigned %d images to split val' %len(self.split_ix['val']))
         print('assigned %d images to split test' %len(self.split_ix['test']))
 
-        self.iterators = {'train': 0, 'val': 0, 'test': 0}
-        
-        self._prefetch_process = {} # The three prefetch process
-        for split in self.iterators.keys():
-            self._prefetch_process[split] = BlobFetcher(split, self, split=='train')
-            # Terminate the child process when the parent exists
-        def cleanup():
-            print('Terminating BlobFetcher')
-            for split in self.iterators.keys():
-                del self._prefetch_process[split]
-        import atexit
-        atexit.register(cleanup)
-
     def get_captions(self, ix, seq_per_img):
         # fetch the sequence labels
         ix1 = self.label_start_ix[ix] - 1 #label_start_ix starts from 1
@@ -174,23 +155,22 @@ class DataLoader(data.Dataset):
 
         return seq
 
-    def get_batch(self, split, batch_size=None):
-        batch_size = batch_size or self.batch_size
+    def collate_func(self, batch, split):
         seq_per_img = self.seq_per_img
 
-        fc_batch = [] # np.ndarray((batch_size * seq_per_img, self.opt.fc_feat_size), dtype = 'float32')
-        att_batch = [] # np.ndarray((batch_size * seq_per_img, 14, 14, self.opt.att_feat_size), dtype = 'float32')
-        label_batch = [] #np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'int')
+        fc_batch = []
+        att_batch = []
+        label_batch = []
 
         wrapped = False
 
         infos = []
         gts = []
 
-        for i in range(batch_size):
+        for sample in batch:
             # fetch image
             tmp_fc, tmp_att, tmp_seq, \
-                ix, tmp_wrapped = self._prefetch_process[split].get()
+                ix, it_pos_now, tmp_wrapped = sample
             if tmp_wrapped:
                 wrapped = True
 
@@ -245,20 +225,18 @@ class DataLoader(data.Dataset):
         data['masks'] = mask_batch
 
         data['gts'] = gts # all ground truth captions of each images
-        data['bounds'] = {'it_pos_now': self.iterators[split], 'it_max': len(self.split_ix[split]), 'wrapped': wrapped}
+        data['bounds'] = {'it_pos_now': it_pos_now, # the it_pos_now of the last sample
+                          'it_max': len(self.split_ix[split]), 'wrapped': wrapped}
         data['infos'] = infos
 
         data = {k:torch.from_numpy(v) if type(v) is np.ndarray else v for k,v in data.items()} # Turn all ndarray to torch tensor
 
         return data
 
-    # It's not coherent to make DataLoader a subclass of Dataset, but essentially, we only need to implement the following to functions,
-    # so that the torch.utils.data.DataLoader can load the data according the index.
-    # However, it's minimum change to switch to pytorch data loading.
     def __getitem__(self, index):
         """This function returns a tuple that is further passed to collate_fn
         """
-        ix = index #self.split_ix[index]
+        ix, it_pos_now, wrapped = index #self.split_ix[index]
         if self.use_att:
             att_feat = self.att_loader.get(str(self.info['images'][ix]['id']))
             # Reshape to K x C
@@ -288,78 +266,128 @@ class DataLoader(data.Dataset):
             seq = None
         return (fc_feat,
                 att_feat, seq,
-                ix)
+                ix, it_pos_now, wrapped)
 
     def __len__(self):
         return len(self.info['images'])
 
-class SubsetSampler(torch.utils.data.sampler.Sampler):
-    r"""Samples elements randomly from a given list of indices, without replacement.
-    Arguments:
-        indices (list): a list of indices
-    """
+class DataLoader:
+    def __init__(self, opt):
+        self.opt = opt
+        self.batch_size = self.opt.batch_size
+        self.dataset = Dataset(opt)
 
-    def __init__(self, indices):
-        self.indices = indices
+        # Initialize loaders and iters
+        self.loaders, self.iters = {}, {}
+        for split in ['train', 'val', 'test']:
+            if split == 'train':
+                sampler = MySampler(self.dataset.split_ix[split], shuffle=True, wrap=True)
+            else:
+                sampler = MySampler(self.dataset.split_ix[split], shuffle=False, wrap=False)
+            self.loaders[split] = data.DataLoader(dataset=self.dataset,
+                                                  batch_size=self.batch_size,
+                                                  sampler=sampler,
+                                                  pin_memory=True,
+                                                  num_workers=4, # 4 is usually enough
+                                                  collate_fn=lambda x: self.dataset.collate_func(x, split),
+                                                  drop_last=False)
+            self.iters[split] = iter(self.loaders[split])
+
+    def get_batch(self, split):
+        try:
+            data = next(self.iters[split])
+        except StopIteration:
+            self.iters[split] = iter(self.loaders[split])
+            data = next(dataiterator)
+        return data
+
+    def reset_iterator(self, split):
+        self.loaders[split].sampler._reset_iter()
+        self.iters[split] = iter(self.loaders[split])
+
+    def get_vocab_size(self):
+        return self.dataset.get_vocab_size()
+
+    @property
+    def vocab_size(self):
+        return self.get_vocab_size()
+
+    def get_vocab(self):
+        return self.dataset.get_vocab()
+
+    def get_seq_length(self):
+        return self.dataset.get_seq_length()
+
+    @property
+    def seq_length(self):
+        return self.get_seq_length()
+
+    def state_dict(self):
+        def get_prefetch_num(split):
+            if self.loaders[split].num_workers > 0:
+                return (self.iters[split]._send_idx - self.iters[split]._rcvd_idx) * self.batch_size
+            else:
+                return 0
+        return {split: loader.sampler.state_dict(get_prefetch_num(split)) \
+                    for split, loader in self.loaders.items()}
+
+    def load_state_dict(self, state_dict=None):
+        if state_dict is None:
+            return
+        for split in self.loaders.keys():
+            self.loaders[split].sampler.load_state_dict(state_dict[split])
+
+
+class MySampler(data.sampler.Sampler):
+    def __init__(self, index_list, shuffle, wrap):
+        self.index_list = index_list
+        self.shuffle = shuffle
+        self.wrap = wrap
+        # if wrap, there will be not stop iteration called
+        # wrap True used during training, and wrap False used during test.
+        self._reset_iter()
 
     def __iter__(self):
-        return (self.indices[i] for i in range(len(self.indices)))
+        return self
+
+    def __next__(self):
+        wrapped = False
+        if self.iter_counter == len(self._index_list):
+            self._reset_iter()
+            if self.wrap:
+                wrapped = True
+            else:
+                raise StopIteration()
+        elem = (self._index_list[self.iter_counter], self.iter_counter+1, wrapped)
+        self.iter_counter += 1
+        return elem
+
+    def next(self):
+        return self.__next__()
+
+    def _reset_iter(self):
+        if self.shuffle:
+            rand_perm = npr.permutation(len(self.index_list))
+            self._index_list = [self.index_list[_] for _ in rand_perm]
+        else:
+            self._index_list = self.index_list
+
+        self.iter_counter = 0
 
     def __len__(self):
-        return len(self.indices)
+        return len(self.index_list)
 
-class BlobFetcher():
-    """Experimental class for prefetching blobs in a separate process."""
-    def __init__(self, split, dataloader, if_shuffle=False):
-        """
-        db is a list of tuples containing: imcrop_name, caption, bbox_feat of gt box, imname
-        """
-        self.split = split
-        self.dataloader = dataloader
-        self.if_shuffle = if_shuffle
+    def load_state_dict(self, state_dict=None):
+        if state_dict is None:
+            return
+        self._index_list = state_dict['index_list']
+        self.iter_counter = state_dict['iter_counter']
 
-    # Add more in the queue
-    def reset(self):
-        """
-        Two cases for this function to be triggered:
-        1. not hasattr(self, 'split_loader'): Resume from previous training. Create the dataset given the saved split_ix and iterator
-        2. wrapped: a new epoch, the split_ix and iterator have been updated in the get_minibatch_inds already.
-        """
-        # batch_size is 1, the merge is done in DataLoader class
-        self.split_loader = iter(data.DataLoader(dataset=self.dataloader,
-                                            batch_size=1,
-                                            sampler=SubsetSampler(self.dataloader.split_ix[self.split][self.dataloader.iterators[self.split]:]),
-                                            shuffle=False,
-                                            pin_memory=True,
-                                            num_workers=4, # 4 is usually enough
-                                            collate_fn=lambda x: x[0]))
+    def state_dict(self, prefetched_num=None):
+        prefetched_num = prefetched_num or 0
+        return {
+            'index_list': self._index_list,
+            'iter_counter': self.iter_counter - prefetched_num
+        }
 
-    def _get_next_minibatch_inds(self):
-        max_index = len(self.dataloader.split_ix[self.split])
-        wrapped = False
-
-        ri = self.dataloader.iterators[self.split]
-        ix = self.dataloader.split_ix[self.split][ri]
-
-        ri_next = ri + 1
-        if ri_next >= max_index:
-            ri_next = 0
-            if self.if_shuffle:
-                random.shuffle(self.dataloader.split_ix[self.split])
-            wrapped = True
-        self.dataloader.iterators[self.split] = ri_next
-
-        return ix, wrapped
     
-    def get(self):
-        if not hasattr(self, 'split_loader'):
-            self.reset()
-
-        ix, wrapped = self._get_next_minibatch_inds()
-        tmp = self.split_loader.next()
-        if wrapped:
-            self.reset()
-
-        assert tmp[-1] == ix, "ix not equal"
-
-        return tmp + [wrapped]

@@ -47,8 +47,7 @@ def train(opt):
     infos = {
         'iter': 0,
         'epoch': 0,
-        'iterators': loader.iterators,
-        'split_ix': loader.split_ix,
+        'loader_state_dict': None,
         'vocab': loader.get_vocab(),
     }
     # Load old infos(if there is) and check if models are compatible
@@ -110,8 +109,10 @@ def train(opt):
     #########################
     iteration = infos['iter']
     epoch = infos['epoch']
-    loader.iterators = infos.get('iterators', loader.iterators)
-    loader.split_ix = infos.get('split_ix', loader.split_ix)
+    # For back compatibility
+    if 'iterators' in infos:
+        infos['loader_state_dict'] = {split: {'index_list': infos['split_ix'][split], 'iter_counter': infos['iterators'][split]} for split in ['train', 'val', 'test']}
+    loader.load_state_dict(infos['loader_state_dict'])
     if opt.load_best_score == 1:
         best_val_score = infos.get('best_val_score', None)
     if opt.noamopt:
@@ -219,8 +220,7 @@ def train(opt):
             # update infos
             infos['iter'] = iteration
             infos['epoch'] = epoch
-            infos['iterators'] = loader.iterators
-            infos['split_ix'] = loader.split_ix
+            infos['loader_state_dict'] = loader.state_dict()
             
             # make evaluation on validation set, and save model
             if (iteration % opt.save_checkpoint_every == 0):

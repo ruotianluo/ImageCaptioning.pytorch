@@ -151,7 +151,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
     n_predictions = [] # when sample_n > 1
     while True:
         data = loader.get_batch(split)
-        n = n + loader.batch_size
+        n = n + len(data['infos'])
 
         if data.get('labels', None) is not None and verbose_loss:
             # forward the model to get loss
@@ -207,14 +207,14 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         ix1 = data['bounds']['it_max']
         if num_images != -1:
             ix1 = min(ix1, num_images)
+        else:
+            num_images = ix1
         for i in range(n - ix1):
             predictions.pop()
 
         if verbose:
             print('evaluating validation preformance... %d/%d (%f)' %(ix0 - 1, ix1, loss))
 
-        if data['bounds']['wrapped']:
-            break
         if num_images >= 0 and n >= num_images:
             break
 
