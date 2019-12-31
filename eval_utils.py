@@ -74,7 +74,7 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
     coco = getCOCO(dataset)
     valids = coco.getImgIds()
 
-    # filter results to only those in MSCOCO validation set (will be about a third)
+    # filter results to only those in MSCOCO validation set
     preds_filt = [p for p in preds if p['image_id'] in valids]
     mean_perplexity = sum([_['perplexity'] for _ in preds_filt]) / len(preds_filt)
     mean_entropy = sum([_['entropy'] for _ in preds_filt]) / len(preds_filt)
