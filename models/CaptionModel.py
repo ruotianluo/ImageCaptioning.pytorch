@@ -140,7 +140,8 @@ class CaptionModel(nn.Module):
                     if remove_bad_endings and t-divm > 0:
                         logprobsf[torch.from_numpy(np.isin(beam_seq_table[divm][t-divm-1].cpu().numpy(), self.bad_endings_ix).astype('uint8')), 0] = float('-inf')
                     # suppress UNK tokens in the decoding
-                    logprobsf[:,logprobsf.size(1)-1] = logprobsf[:, logprobsf.size(1)-1] - 1000  
+                    if hasattr(self, 'vocab') and self.vocab[str(logprobsf.size(1)-1)] == 'UNK':
+                        logprobsf[:,logprobsf.size(1)-1] = logprobsf[:, logprobsf.size(1)-1] - 1000  
                     # diversity is added here
                     # the function directly modifies the logprobsf values and hence, we need to return
                     # the unaugmented ones for sorting the candidates in the end. # for historical
@@ -185,7 +186,6 @@ class CaptionModel(nn.Module):
         done_beams_table = [sorted(done_beams_table[i], key=lambda x: -x['p'])[:bdash] for i in range(group_size)]
         done_beams = reduce(lambda a,b:a+b, done_beams_table)
         return done_beams
-
 
     def sample_next_word(self, logprobs, sample_method, temperature):
         if sample_method == 'greedy':
@@ -243,3 +243,6 @@ class CaptionModel(nn.Module):
         Repeat a list of tensors
         """
         return [CaptionModel.repeat_tensor(n, x) for x in xs]
+
+    def decode_sequence(self, seq):
+        return utils.decode_sequence(self.vocab, seq)
