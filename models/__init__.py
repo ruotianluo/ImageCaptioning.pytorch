@@ -16,7 +16,7 @@ from .TransformerModel import TransformerModel
 
 def setup(opt):
     if opt.caption_model in ['fc', 'show_tell']:
-        print('Warning: %s model is deprecated' %opt.caption_model)
+        print('Warning: %s model is mostly deprecated; many new features are not supported.' %opt.caption_model)
         if opt.caption_model == 'fc':
             print('Use newfc instead of fc')
     if opt.caption_model == 'fc':
