@@ -1,9 +1,19 @@
-_BASE_: topdown.yml
+_BASE_: fc.yml
 learning_rate: 0.00005
 learning_rate_decay_start: -1
+scheduled_sampling_start: -1
+
+language_eval: 1
+save_checkpoint_every: 3000
+val_images_use: 5000
+
+batch_size: 10
+max_epochs: 50
+cached_tokens: coco-train-idxs
+
+
 self_critical_after: -1
 structure_after: 30
 structure_sample_n: 5
 structure_loss_weight: 1
 structure_loss_type: new_self_critical
-max_epoch: 50

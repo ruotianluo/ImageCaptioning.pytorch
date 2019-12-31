@@ -1,5 +1,4 @@
-_BASE_: topdown.yml
+_BASE_: a2i2.yml
 learning_rate: 0.00005
 learning_rate_decay_start: -1
-
-max_epoch: 50
+s: 50

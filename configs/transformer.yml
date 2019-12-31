@@ -10,6 +10,11 @@ seq_per_img: 5
 batch_size: 10
 learning_rate: 0.0005
 
+# Notice: because I'm to lazy, I reuse the option name for RNNs to set the hyperparameters for transformer:
+# N=num_layers
+# d_model=input_encoding_size
+# d_ff=rnn_size
+# h is always 8
 num_layers: 6
 input_encoding_size: 512
 rnn_size: 2048

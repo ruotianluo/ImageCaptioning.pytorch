@@ -13,9 +13,13 @@ This is based on my [ImageCaptioning.pytorch](https://github.com/ruotianluo/Imag
 
 ## Requirements
 Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)
+
 PyTorch 1.3 (along with torchvision)
+
 cider (already been added as a submodule)
-coco-caption (already been added as a submodule)
+
+coco-caption (already been added as a submodule) (**Remember to follow initialization steps in coco-caption/README.md**)
+
 yacs
 
 (**Skip if you are using bottom-up feature**): If you want to use resnet to extract image features, you need to download pretrained resnet model for both training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
@@ -64,7 +68,7 @@ For more options, see `opts.py`.
 
 First you should preprocess the dataset and get the cache for calculating cider score:
 ```
-$ python scripts/prepro_ngrams.py --input_json .../dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
+$ python scripts/prepro_ngrams.py --input_json data/dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
 ```
 
 Then, copy the model from the pretrained model using cross entropy. (It's not mandatory to copy the model, just for back-up)
