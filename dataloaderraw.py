@@ -127,6 +127,8 @@ class DataLoaderRaw():
         data['bounds'] = {'it_pos_now': self.iterator, 'it_max': self.N, 'wrapped': wrapped}
         data['infos'] = infos
 
+        data = {k:torch.from_numpy(v) if type(v) is np.ndarray else v for k,v in data.items()} # Turn all ndarray to torch tensor
+
         return data
 
     def reset_iterator(self, split):
