@@ -22,7 +22,7 @@ yacs
 
 ## Pretrained models
 
-Checkout `MODEL_ZOO.md`.
+Checkout [MODEL_ZOO.md](MODEL_ZOO.md).
 
 If you want to do evaluation only, you can then follow [this section](#generate-image-captions) after downloading the pretrained models (and also the pretrained resnet101 or precomputed bottomup features).
 
@@ -30,7 +30,7 @@ If you want to do evaluation only, you can then follow [this section](#generate-
 
 ### Prepare data.
 
-We now support both flickr30k and COCO. See details in `data/README.md`. (Note: the later sections assume COCO dataset; it should be trivial to use flickr30k.)
+We now support both flickr30k and COCO. See details in [data/README.md](data/README.md). (Note: the later sections assume COCO dataset; it should be trivial to use flickr30k.)
 
 ### Start training
 
@@ -87,8 +87,6 @@ You will see a huge boost on Cider score, : ).
 
 **A few notes on training.** Starting self-critical training after 30 epochs, the CIDEr score goes up to 1.05 after 600k iterations (including the 30 epochs pertraining).
 
-### Caption images after training
-
 ## Generate image captions
 
 ### Evaluate on raw images
@@ -137,7 +135,7 @@ You can download the preprocessed file `cocotest.json`, `cocotest_bu_att` and `c
 
 ## For more advanced features:
 
-Checkout `ADVANCED.md`.
+Checkout [ADVANCED.md](ADVANCED.md).
 
 ## Reference
 
