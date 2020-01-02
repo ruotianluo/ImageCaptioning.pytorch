@@ -311,7 +311,7 @@ class TransformerModel(AttModel):
             # crop the last one
             seq = seq[:,:-1]
             seq_mask = (seq.data > 0)
-            seq_mask[:,0] += 1
+            seq_mask[:,0] = 1 # bos
 
             seq_mask = seq_mask.unsqueeze(-2)
             seq_mask = seq_mask & subsequent_mask(seq.size(-1)).to(seq_mask)
