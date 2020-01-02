@@ -1,5 +1,9 @@
 # copy from https://github.com/Lyken17/Efficient-PyTorch/tools
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import os.path as osp
 import os, sys
@@ -51,7 +55,7 @@ class FolderLMDB(data.Dataset):
             else:
                 feat = np.load(buf)
         except Exception as e:
-            print self.keys[index], e
+            print(self.keys[index], e)
             return None
 
         return feat
@@ -87,9 +91,9 @@ def raw_npz_reader(path):
     try:
         npz_data = np.load(six.BytesIO(bin_data))['feat']
     except Exception as e:
-        print path
+        print(path)
         npz_data = None
-        print e
+        print(e)
     return bin_data, npz_data
 
 
@@ -99,9 +103,9 @@ def raw_npy_reader(path):
     try:
         npy_data = np.load(six.BytesIO(bin_data))
     except Exception as e:
-        print path
+        print(path)
         npy_data = None
-        print e
+        print(e)
     return bin_data, npy_data
 
 

@@ -12,7 +12,7 @@ This is based on my [ImageCaptioning.pytorch](https://github.com/ruotianluo/Imag
 - Add transformer (merged from [Transformer_captioning](https://github.com/ruotianluo/Transformer_Captioning))
 
 ## Requirements
-Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)
+Python 2 or 3 (My [coco-caption](https://github.com/ruotianluo/coco-caption) supports python 3)
 
 PyTorch 1.3 (along with torchvision)
 
