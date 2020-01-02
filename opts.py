@@ -1,6 +1,6 @@
 from __future__ import print_function
 import argparse
-
+import misc.utils as utils
 
 def parse_opt():
     parser = argparse.ArgumentParser()
@@ -216,6 +216,11 @@ def parse_opt():
 
     args.structure_sample_n = args.structure_sample_n or args.train_sample_n
     
+
+    # Deal with feature things before anything
+    args.use_fc, args.use_att = utils.if_use_feat(args.caption_model)
+    if args.use_box: args.att_feat_size = args.att_feat_size + 5
+
     return args
 
 
