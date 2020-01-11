@@ -26,11 +26,15 @@ class LossWrapper(torch.nn.Module):
                 lm_loss = torch.tensor(0).type_as(fc_feats)
             if opt.structure_loss_weight > 0:
                 gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks,
-                    opt={'sample_method':'sample',
+                    opt={'sample_method':opt.train_sample_method,
+                        'beam_size':opt.train_beam_size,
                         'output_logsoftmax': opt.struc_use_logsoftmax or opt.structure_loss_type == 'softmax_margin'\
                             or not 'margin' in opt.structure_loss_type,
-                        'sample_n': opt.structure_sample_n},
+                        'sample_n': opt.train_sample_n},
                     mode='sample')
+                if opt.train_beam_size > 1: # topdown scst
+                    _gen_result = torch.cat([torch.zeros_like(gen_result[:, :1]), gen_result], 1)
+                    sample_logprobs = self.model(fc_feats, att_feats, _gen_result, att_masks)
                 gts = [gts[_] for _ in gt_indices.tolist()]
                 struc_loss = self.struc_crit(sample_logprobs, gen_result, gts)
             else:
@@ -48,7 +52,13 @@ class LossWrapper(torch.nn.Module):
                 greedy_res, _ = self.model(fc_feats, att_feats, att_masks, mode='sample')
             self.model.train()
             gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks,
-                opt={'sample_method':'sample', 'sample_n': opt.train_sample_n}, mode='sample')
+                    opt={'sample_method':opt.train_sample_method,
+                        'beam_size':opt.train_beam_size,
+                        'sample_n': opt.train_sample_n},
+                    mode='sample')
+            if opt.train_beam_size > 1: # topdown scst
+                _gen_result = torch.cat([torch.zeros_like(gen_result[:, :1]), gen_result], 1)
+                sample_logprobs = self.model(fc_feats, att_feats, _gen_result, att_masks)
             gts = [gts[_] for _ in gt_indices.tolist()]
             reward = get_self_critical_reward(greedy_res, gts, gen_result, self.opt)
             reward = torch.from_numpy(reward).float().to(gen_result.device)

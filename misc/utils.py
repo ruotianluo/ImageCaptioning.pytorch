@@ -135,7 +135,7 @@ class StructureLosses(nn.Module):
         batch_size = input.size(0)# batch_size = sample_size * seq_per_img
         seq_per_img = batch_size // len(data_gts)
 
-        assert seq_per_img == self.opt.structure_sample_n, seq_per_img
+        assert seq_per_img == self.opt.train_sample_n, seq_per_img
 
         mask = (seq>0).float()
         mask = torch.cat([mask.new_full((mask.size(0), 1), 1), mask[:, :-1]], 1)

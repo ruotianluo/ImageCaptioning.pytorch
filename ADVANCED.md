@@ -40,6 +40,12 @@ To try self critical on topdown model, you can run
 
 This yml file can also provides you some hint what to change to use new self critical.
 
+# SCST in Topdown Bottomup paper
+
+In Topdown bottomup paper, instead of random sampling when SCST, they use beam search. To do so, you can try:
+
+`python train.py --id fc_tdsc --cfg configs/fc_rl.yml --train_sample_method greedy --train_beam_size 5 --max_epochs 30 --learning_rate 5e-6`
+
 ## Sample n captions
 
 When sampling, set `sample_n` to be greater than 0. 

@@ -244,7 +244,7 @@ def eval_split_n(model, n_predictions, loader, input_data, eval_kwargs={}):
     tmp_eval_kwargs = eval_kwargs.copy()
     if sample_n_method == 'bs':
         # case 1 sample_n == beam size
-        tmp_eval_kwargs.update({'beam_size': sample_n, 'group_size': 1}) # randomness from softmax
+        tmp_eval_kwargs.update({'sample_n': 1, 'beam_size': sample_n, 'group_size': 1}) # randomness from softmax
         with torch.no_grad():
             model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
         for k in range(loader.batch_size):

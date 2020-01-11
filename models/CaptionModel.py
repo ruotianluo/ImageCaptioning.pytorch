@@ -133,7 +133,7 @@ class CaptionModel(nn.Module):
             for divm in range(group_size): 
                 if t >= divm and t <= self.seq_length + divm - 1:
                     # add diversity
-                    logprobsf = logprobs_table[divm].data.float()
+                    logprobsf = logprobs_table[divm].float()
                     # suppress previous word
                     if decoding_constraint and t-divm > 0:
                         logprobsf.scatter_(1, beam_seq_table[divm][t-divm-1].unsqueeze(1).cuda(), float('-inf'))

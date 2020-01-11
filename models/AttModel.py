@@ -168,13 +168,16 @@ class AttModel(CaptionModel):
 
     def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
+        sample_n = opt.get('sample_n', 10)
+        # when sample_n == beam_size then each beam is a sample.
+        assert sample_n == 1 or sample_n == beam_size, 'when beam search, sample_n == 1 or beam search'
         batch_size = fc_feats.size(0)
 
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
-        seq = torch.LongTensor(self.seq_length, batch_size).zero_()
-        seqLogprobs = torch.FloatTensor(self.seq_length, batch_size, self.vocab_size + 1)
+        seq = fc_feats.new_zeros((batch_size*sample_n, self.seq_length), dtype=torch.long)
+        seqLogprobs = fc_feats.new_zeros(batch_size*sample_n, self.seq_length, self.vocab_size + 1)
         # lets process every image independently for now, for simplicity
 
         self.done_beams = [[] for _ in range(batch_size)]
@@ -191,10 +194,15 @@ class AttModel(CaptionModel):
                 logprobs, state = self.get_logprobs_state(it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state)
 
             self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, opt=opt)
-            seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
-            seqLogprobs[:, k] = self.done_beams[k][0]['logps']
+            if sample_n == beam_size:
+                for _n in range(sample_n):
+                    seq[k*sample_n+_n, :] = self.done_beams[k][_n]['seq']
+                    seqLogprobs[k*sample_n+_n, :] = self.done_beams[k][_n]['logps']
+            else:
+                seq[k, :] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
+                seqLogprobs[k, :] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods
-        return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
+        return seq, seqLogprobs
 
     def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
 

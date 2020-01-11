@@ -3,7 +3,7 @@ learning_rate: 0.00005
 learning_rate_decay_start: -1
 self_critical_after: -1
 structure_after: 30
-structure_sample_n: 5
+train_sample_n: 5
 structure_loss_weight: 1
 structure_loss_type: new_self_critical
 max_epochs: 50
