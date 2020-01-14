@@ -1,5 +1,7 @@
 # Prepare data
 
+Note: every preprocessed file or preextracted features can be found in [link](https://drive.google.com/open?id=1eCdz62FAVCGogOuNhy87Nmlo5_I0sH2J).
+
 ## COCO
 
 ### Download COCO captions and preprocess them
@@ -30,6 +32,11 @@ $ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_di
 (Check the prepro scripts for more options, like other resnet models or other attention sizes.)
 
 **Warning**: the prepro script will fail with the default MSCOCO data because one of their images is corrupted. See [this issue](https://github.com/karpathy/neuraltalk2/issues/4) for the fix, it involves manually replacing one image in the dataset.
+
+
+#### Download preextracted features
+
+To skip the preprocessing, you can download and decompress `cocotalk_att.tar` and `cocotalk_fc.tar` from the link provided at the beginning.)
 
 ### Download Bottom-up features (Skip if you are using resnet features)
 
