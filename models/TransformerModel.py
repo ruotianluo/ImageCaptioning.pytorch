@@ -296,7 +296,7 @@ class TransformerModel(AttModel):
         att_feats, seq, att_masks, seq_mask = self._prepare_feature_forward(att_feats, att_masks)
         memory = self.model.encode(att_feats, att_masks)
 
-        return fc_feats[...,:1], att_feats[...,:1], memory, att_masks
+        return fc_feats[...,:0], att_feats[...,:0], memory, att_masks
 
     def _prepare_feature_forward(self, att_feats, att_masks=None, seq=None):
         att_feats, att_masks = self.clip_att(att_feats, att_masks)

@@ -57,14 +57,11 @@ Then:
 python script/make_bu_data.py --output_dir data/cocobu
 ```
 
-This will create `data/cocobu_fc`, `data/cocobu_att` and `data/cocobu_box`. If you want to use bottom-up feature, you can just follow the following steps and replace all cocotalk with cocobu.
+This will create `data/cocobu_fc`(not necessary), `data/cocobu_att` and `data/cocobu_box`. If you want to use bottom-up feature, you can just replace all `"cocotalk"` with `"cocobu"` in the training/test scripts.
 
 #### Download converted files
 
-bottomup-fc: [link](https://drive.google.com/file/d/1IpjCJ5LYC4kX2krxHcPgxAIipgA8uqTU/view?usp=sharing) (The fc features here are simply the average of the attention features)
-
 bottomup-att: [link](https://drive.google.com/file/d/1hun0tsel34aXO4CYyTRIvHJkcbZHwjrD/view?usp=sharing)
-
 
 ## Flickr30k.
 

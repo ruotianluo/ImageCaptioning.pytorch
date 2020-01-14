@@ -255,11 +255,15 @@ class Dataset(data.Dataset):
                 # sort the features by the size of boxes
                 att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))
         else:
-            att_feat = np.zeros((1,1,1), dtype='float32')
+            att_feat = np.zeros((0,0), dtype='float32')
         if self.use_fc:
-            fc_feat = self.fc_loader.get(str(self.info['images'][ix]['id']))
+            try:
+                fc_feat = self.fc_loader.get(str(self.info['images'][ix]['id']))
+            except:
+                # Use average of attention when there is no fc provided (For bottomup feature)
+                fc_feat = att_feat.mean(0)
         else:
-            fc_feat = np.zeros((1), dtype='float32')
+            fc_feat = np.zeros((0), dtype='float32')
         if hasattr(self, 'h5_label_file'):
             seq = self.get_captions(ix, self.seq_per_img)
         else:
