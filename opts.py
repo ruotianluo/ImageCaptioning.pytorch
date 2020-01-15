@@ -259,6 +259,8 @@ def add_eval_options(parser):
                     help='block repeated trigram.')
     parser.add_argument('--remove_bad_endings', type=int, default=0,
                     help='Remove bad endings')
+    parser.add_argument('--suppress_UNK', type=int, default=1,
+                    help='Not predicting UNK')
     # For evaluation on a folder of images:
     parser.add_argument('--image_folder', type=str, default='', 
                     help='If this is nonempty then will predict on the images in this folder path')

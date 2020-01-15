@@ -105,6 +105,7 @@ class CaptionModel(nn.Module):
         diversity_lambda = opt.get('diversity_lambda', 0.5)
         decoding_constraint = opt.get('decoding_constraint', 0)
         remove_bad_endings = opt.get('remove_bad_endings', 0)
+        suppress_UNK = opt.get('suppress_UNK', 0)
         length_penalty = utils.penalty_builder(opt.get('length_penalty', ''))
         bdash = beam_size // group_size # beam per group
 
@@ -140,7 +141,7 @@ class CaptionModel(nn.Module):
                     if remove_bad_endings and t-divm > 0:
                         logprobsf[torch.from_numpy(np.isin(beam_seq_table[divm][t-divm-1].cpu().numpy(), self.bad_endings_ix).astype('uint8')), 0] = float('-inf')
                     # suppress UNK tokens in the decoding
-                    if hasattr(self, 'vocab') and self.vocab[str(logprobsf.size(1)-1)] == 'UNK':
+                    if suppress_UNK and hasattr(self, 'vocab') and self.vocab[str(logprobsf.size(1)-1)] == 'UNK':
                         logprobsf[:,logprobsf.size(1)-1] = logprobsf[:, logprobsf.size(1)-1] - 1000  
                     # diversity is added here
                     # the function directly modifies the logprobsf values and hence, we need to return
