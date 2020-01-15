@@ -66,19 +66,6 @@ Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sd
 <td align="center"><a href="https://drive.google.com/open?id=1BkxLPL4SuQ_qFa-4fN96u23iTFWw-iXX">model&metrics</a></td>
 <td align="center"></td>
 </tr>
- <tr><td align="left"><a href="configs/transformer.yml">Transformer</a></td>
-<td align="center">1.113</td>
-<td align="center">0.2045</td>
-<td align="center"><a href="https://drive.google.com/open?id=10Q5GJ2jZFCexD71rY9gg886Aasuaup8O">model&metrics</a></td>
-<td align="center"></td>
-</tr>
- <tr><td align="left"><a href="configs/transformer_sc.yml">Transformer<br>+self_critical</a></td>
-<td align="center">1.266</td>
-<td align="center">0.2224</td>
-<td align="center"><a href="https://drive.google.com/open?id=12iKJJSIGrzFth_dJXqcXy-_IjAU0I3DC">model&metrics</a></td>
-<td align="center"></td>
-</tr>
-
  <tr><td align="left"><a href="configs/topdown.yml">topdown</a></td>
 <td align="center">1.099</td>
 <td align="center">0.1999</td>
@@ -98,9 +85,27 @@ Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sd
 <td align="center"></td>
 </tr>
  <tr><td align="left"><a href="configs/td_long_nsc.yml">Topdown<br>+Schedule long<br>+new_self_critical</a></td>
-<td align="center"><b>1.280</b></td>
+<td align="center">1.280</td>
 <td align="center">0.2200</td>
 <td align="center"><a href="https://drive.google.com/open?id=1bCDmf4JCM79f5Lqp6MAn1ap4b3NJ5Gis">model&metrics</a></td>
 <td align="center">Best of 5 models<br>schedule proposed by yangxuntu</td>
+</tr>
+ <tr><td align="left"><a href="configs/transformer.yml">Transformer</a></td>
+<td align="center">1.113</td>
+<td align="center">0.2045</td>
+<td align="center"><a href="https://drive.google.com/open?id=10Q5GJ2jZFCexD71rY9gg886Aasuaup8O">model&metrics</a></td>
+<td align="center"></td>
+</tr>
+ <tr><td align="left"><a href="configs/transformer_sc.yml">Transformer<br>+self_critical</a></td>
+<td align="center">1.266</td>
+<td align="center">0.2224</td>
+<td align="center"><a href="https://drive.google.com/open?id=12iKJJSIGrzFth_dJXqcXy-_IjAU0I3DC">model&metrics</a></td>
+<td align="center"></td>
+</tr>
+ <tr><td align="left"><a href="configs/transformer_nsc.yml">Transformer<br>+new_self_critical</a></td>
+<td align="center"><b>1.295</b></td>
+<td align="center">0.2277</td>
+<td align="center"><a href="https://drive.google.com/open?id=1sJDqetTVOnei6Prgvl_4vkvrYlKlc-ka">model&metrics</a></td>
+<td align="center"></td>
 </tr>
 </tbody></table>
