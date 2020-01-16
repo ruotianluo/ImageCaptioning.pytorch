@@ -220,7 +220,8 @@ def train(opt):
             infos['loader_state_dict'] = loader.state_dict()
             
             # make evaluation on validation set, and save model
-            if (iteration % opt.save_checkpoint_every == 0):
+            if (iteration % opt.save_checkpoint_every == 0 and not opt.save_every_epoch) or \
+                (epoch_done and opt.save_every_epoch):
                 # eval model
                 eval_kwargs = {'split': 'val',
                                 'dataset': opt.input_json}
@@ -257,7 +258,8 @@ def train(opt):
 
                 utils.save_checkpoint(opt, model, infos, optimizer, histories)
                 if opt.save_history_ckpt:
-                    utils.save_checkpoint(opt, model, infos, optimizer, append=str(iteration))
+                    utils.save_checkpoint(opt, model, infos, optimizer,
+                        append=str(epoch) if opt.save_every_epoch else str(iteration))
 
                 if best_flag:
                     utils.save_checkpoint(opt, model, infos, optimizer, append='best')
