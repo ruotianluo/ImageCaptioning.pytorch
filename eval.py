@@ -105,7 +105,7 @@ else:
                             'cnn_model': opt.cnn_model})
 # When eval using provided pretrained model, the vocab may be different from what you have in your cocotalk.json
 # So make sure to use the vocab in infos file.
-loader.ix_to_word = infos['vocab']
+loader.dataset.ix_to_word = infos['vocab']
 
 
 # Set sample options
