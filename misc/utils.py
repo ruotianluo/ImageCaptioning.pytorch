@@ -273,6 +273,7 @@ class LanguageModelCriterion(nn.Module):
         mask =  mask[:, :input.size(1)]
 
         output = -input.gather(2, target.unsqueeze(2)).squeeze(2) * mask
+        # Average over each token
         output = torch.sum(output) / torch.sum(mask)
 
         return output

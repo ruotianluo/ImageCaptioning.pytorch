@@ -97,9 +97,9 @@ crit = utils.LanguageModelCriterion()
 
 # Create the Data Loader instance
 if len(opt.image_folder) == 0:
-  loader = DataLoader(opt)
+    loader = DataLoader(opt)
 else:
-  loader = DataLoaderRaw({'folder_path': opt.image_folder, 
+    loader = DataLoaderRaw({'folder_path': opt.image_folder, 
                             'coco_json': opt.coco_json,
                             'batch_size': opt.batch_size,
                             'cnn_model': opt.cnn_model})
@@ -115,7 +115,7 @@ loss, split_predictions, lang_stats = eval_utils.eval_split(model, crit, loader,
 
 print('loss: ', loss)
 if lang_stats:
-  print(lang_stats)
+    print(lang_stats)
 
 if opt.dump_json == 1:
     # dump the json

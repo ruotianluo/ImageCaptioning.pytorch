@@ -177,6 +177,7 @@ def parse_opt():
     parser.add_argument('--train_beam_size', type=int, default=1,
                     help='')
 
+    # For diversity evaluation during training
     add_diversity_opts(parser)
 
 
