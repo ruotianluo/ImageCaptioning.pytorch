@@ -28,8 +28,8 @@ Collection: [link](https://drive.google.com/open?id=0B7fNdx_jAqhtcXp0aFlWSnJmb0k
 <td align="center">--caption_model newfc</td>
 </tr>
  <tr><td align="left"><a href="configs/fc_nsc.yml">FC<br>+new_self_critical</a></td>
-<td align="center">1.066</td>
-<td align="center">0.1856</td>
+<td align="center">1.053</td>
+<td align="center">0.1857</td>
 <td align="center"><a href="https://drive.google.com/open?id=1OsB_jLDorJnzKz6xsOfk1n493P3hwOP0">model&metrics</a></td>
 <td align="center">--caption_model newfc</td>
 </tr>
@@ -61,8 +61,8 @@ Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sd
 <td align="center"></td>
 </tr>
  <tr><td align="left"><a href="configs/a2i2_nsc.yml">Att2in<br>+new_self_critical</a></td>
-<td align="center">1.219</td>
-<td align="center">0.2099</td>
+<td align="center">1.195</td>
+<td align="center">0.2066</td>
 <td align="center"><a href="https://drive.google.com/open?id=1BkxLPL4SuQ_qFa-4fN96u23iTFWw-iXX">model&metrics</a></td>
 <td align="center"></td>
 </tr>
