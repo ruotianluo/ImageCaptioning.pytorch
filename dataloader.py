@@ -39,6 +39,9 @@ class HybridLoader:
             self.feat_file = torch.load(db_path)
             self.loader = lambda x: x
             print('HybridLoader: ext is ignored')
+        elif db_path.endswith('h5'):
+            self.db_type = 'h5'
+            self.loader = lambda x: np.array(x).astype('float32')
         else:
             self.db_type = 'dir'
     
@@ -51,6 +54,8 @@ class HybridLoader:
             f_input = six.BytesIO(byteflow)
         elif self.db_type == 'pth':
             f_input = self.feat_file[key]
+        elif self.db_type == 'h5':
+            f_input = h5py.File(self.db_path, 'r')[key]
         else:
             f_input = os.path.join(self.db_path, key + self.ext)
 
