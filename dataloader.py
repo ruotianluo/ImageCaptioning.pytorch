@@ -47,7 +47,7 @@ class HybridLoader:
         if self.db_type == 'lmdb':
             env = self.env
             with env.begin(write=False) as txn:
-                byteflow = txn.get(key)
+                byteflow = txn.get(key.encode())
             f_input = six.BytesIO(byteflow)
         elif self.db_type == 'pth':
             f_input = self.feat_file[key]
