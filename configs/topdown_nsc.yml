@@ -6,4 +6,4 @@ structure_after: 30
 train_sample_n: 5
 structure_loss_weight: 1
 structure_loss_type: new_self_critical
-max_epoch: 50
+max_epochs: 50

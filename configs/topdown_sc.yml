@@ -2,4 +2,4 @@ _BASE_: topdown.yml
 learning_rate: 0.00005
 learning_rate_decay_start: -1
 
-max_epoch: 50
+max_epochs: 50
