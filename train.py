@@ -177,7 +177,7 @@ def train(opt):
             loss = model_out['loss'].mean()
 
             loss.backward()
-            utils.clip_gradient(optimizer, opt.grad_clip)
+            getattr(torch.nn.utils, 'clip_grad_%s_' %(opt.grad_clip_mode))(model.parameters(), opt.grad_clip_value)
             optimizer.step()
             train_loss = loss.item()
             torch.cuda.synchronize()

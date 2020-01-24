@@ -318,10 +318,6 @@ def get_lr(optimizer):
     for group in optimizer.param_groups:
         return group['lr']
 
-def clip_gradient(optimizer, grad_clip):
-    for group in optimizer.param_groups:
-        for param in group['params']:
-            param.grad.data.clamp_(-grad_clip, grad_clip)
 
 def build_optimizer(params, opt):
     if opt.optim == 'rmsprop':

@@ -62,8 +62,10 @@ def parse_opt():
                     help='number of epochs')
     parser.add_argument('--batch_size', type=int, default=16,
                     help='minibatch size')
-    parser.add_argument('--grad_clip', type=float, default=0.1, #5.,
-                    help='clip gradients at this value')
+    parser.add_argument('--grad_clip_mode', type=str, default='value', #5.,
+                    help='value or norm')
+    parser.add_argument('--grad_clip_value', type=float, default=0.1, #5.,
+                    help='clip gradients at this value/max_norm')
     parser.add_argument('--drop_prob_lm', type=float, default=0.5,
                     help='strength of dropout in the Language Model RNN')
     parser.add_argument('--self_critical_after', type=int, default=-1,
