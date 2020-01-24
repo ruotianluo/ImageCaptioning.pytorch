@@ -123,6 +123,10 @@ def train(opt):
     # Start training
     try:
         while True:
+            # Stop if reaching max epochs
+            if epoch >= opt.max_epochs and opt.max_epochs != -1:
+                break
+
             if epoch_done:
                 if not opt.noamopt and not opt.reduce_on_plateau:
                     # Assign the learning rate
@@ -264,9 +268,6 @@ def train(opt):
                 if best_flag:
                     utils.save_checkpoint(opt, model, infos, optimizer, append='best')
 
-            # Stop if reaching max epochs
-            if epoch >= opt.max_epochs and opt.max_epochs != -1:
-                break
     except (RuntimeError, KeyboardInterrupt):
         print('Save ckpt on exception ...')
         utils.save_checkpoint(opt, model, infos, optimizer)
