@@ -50,7 +50,7 @@ def if_use_feat(caption_model):
         use_att, use_fc = False, True
     elif caption_model == 'language_model':
         use_att, use_fc = False, False
-    elif caption_model == 'topdown':
+    elif caption_model in ['updown', 'topdown']:
         use_fc, use_att = True, True
     else:
         use_att, use_fc = True, False

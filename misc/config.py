@@ -149,5 +149,5 @@ class CfgNode(_CfgNode):
 
 
 if __name__ == '__main__':
-    cfg = CfgNode.load_yaml_with_base('configs/topdown_long.yml')
+    cfg = CfgNode.load_yaml_with_base('configs/updown_long.yml')
     print(cfg)

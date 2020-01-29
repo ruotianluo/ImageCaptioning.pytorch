@@ -34,9 +34,9 @@ This "new self critical" is borrowed from "Variational inference for monte carlo
 
 In the original self critical, the baseline is the score of greedy decoding output. In new self critical, the baseline is the average score of the other samples (this requires the model to generate multiple samples for each image).
 
-To try self critical on topdown model, you can run
+To try self critical on updown model, you can run
 
-`python train.py --cfg configs/topdown_nsc.yml`
+`python train.py --cfg configs/updown_nsc.yml`
 
 This yml file can also provides you some hint what to change to use new self critical.
 

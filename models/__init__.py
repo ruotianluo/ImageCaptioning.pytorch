@@ -43,8 +43,8 @@ def setup(opt):
     elif opt.caption_model == 'adaattmo':
         model = AdaAttMOModel(opt)
     # Top-down attention model
-    elif opt.caption_model == 'topdown':
-        model = TopDownModel(opt)
+    elif opt.caption_model in ['topdown', 'updown']:
+        model = UpDownModel(opt)
     # StackAtt
     elif opt.caption_model == 'stackatt':
         model = StackAttModel(opt)

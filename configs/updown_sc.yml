@@ -1,4 +1,4 @@
-_BASE_: topdown.yml
+_BASE_: updown.yml
 learning_rate: 0.00005
 learning_rate_decay_start: -1
 

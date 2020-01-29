@@ -66,25 +66,25 @@ Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sd
 <td align="center"><a href="https://drive.google.com/open?id=1BkxLPL4SuQ_qFa-4fN96u23iTFWw-iXX">model&metrics</a></td>
 <td align="center"></td>
 </tr>
- <tr><td align="left"><a href="configs/topdown.yml">topdown</a></td>
+ <tr><td align="left"><a href="configs/updown.yml">UpDown</a></td>
 <td align="center">1.099</td>
 <td align="center">0.1999</td>
 <td align="center"><a href="https://drive.google.com/open?id=14w8YXrjxSAi5D4Adx8jgfg4geQ8XS8wH">model&metrics</a></td>
 <td align="center">My replication</td>
 </tr>
- <tr><td align="left"><a href="configs/topdown_sc.yml">topdown<br>+self_critical</a></td>
+ <tr><td align="left"><a href="configs/updown_sc.yml">UpDown<br>+self_critical</a></td>
 <td align="center">1.227</td>
 <td align="center">0.2145</td>
 <td align="center"><a href="https://drive.google.com/open?id=1QdCigVWdDKTbUe3_HQFEGkAsv9XIkKkE">model&metrics</a></td>
 <td align="center"></td>
 </tr>
- <tr><td align="left"><a href="configs/topdown_nsc.yml">topdown<br>+new_self_critical</a></td>
+ <tr><td align="left"><a href="configs/updown_nsc.yml">UpDown<br>+new_self_critical</a></td>
 <td align="center">1.239</td>
 <td align="center">0.2154</td>
 <td align="center"><a href="https://drive.google.com/open?id=1cgoywxAdzHtIF2C6zNnIA7G2wjol_ybf">model&metrics</a></td>
 <td align="center"></td>
 </tr>
- <tr><td align="left"><a href="configs/td_long_nsc.yml">Topdown<br>+Schedule long<br>+new_self_critical</a></td>
+ <tr><td align="left"><a href="configs/td_long_nsc.yml">UpDown<br>+Schedule long<br>+new_self_critical</a></td>
 <td align="center">1.280</td>
 <td align="center">0.2200</td>
 <td align="center"><a href="https://drive.google.com/open?id=1bCDmf4JCM79f5Lqp6MAn1ap4b3NJ5Gis">model&metrics</a></td>

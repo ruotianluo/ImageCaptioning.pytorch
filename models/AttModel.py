@@ -1,4 +1,4 @@
-# This file contains Att2in2, AdaAtt, AdaAttMO, TopDown model
+# This file contains Att2in2, AdaAtt, AdaAttMO, UpDown model
 
 # AdaAtt is from Knowing When to Look: Adaptive Attention via A Visual Sentinel for Image Captioning
 # https://arxiv.org/abs/1612.01887
@@ -9,7 +9,7 @@
 # In this file we only have Att2in2, which is a slightly different version of att2in,
 # in which the img feature embedding and word embedding is the same as what in adaatt.
 
-# TopDown is from Bottom-Up and Top-Down Attention for Image Captioning and VQA
+# UpDown is from Bottom-Up and Top-Down Attention for Image Captioning and VQA
 # https://arxiv.org/abs/1707.07998
 # However, it may not be identical to the author's architecture.
 
@@ -603,9 +603,9 @@ class AdaAttCore(nn.Module):
         atten_out = self.attention(h_out, p_out, att_feats, p_att_feats, att_masks)
         return atten_out, state
 
-class TopDownCore(nn.Module):
+class UpDownCore(nn.Module):
     def __init__(self, opt, use_maxout=False):
-        super(TopDownCore, self).__init__()
+        super(UpDownCore, self).__init__()
         self.drop_prob_lm = opt.drop_prob_lm
 
         self.att_lstm = nn.LSTMCell(opt.input_encoding_size + opt.rnn_size * 2, opt.rnn_size) # we, fc, h^2_t-1
@@ -856,11 +856,11 @@ class Att2all2Model(AttModel):
         delattr(self, 'fc_embed')
         self.fc_embed = lambda x : x
 
-class TopDownModel(AttModel):
+class UpDownModel(AttModel):
     def __init__(self, opt):
-        super(TopDownModel, self).__init__(opt)
+        super(UpDownModel, self).__init__(opt)
         self.num_layers = 2
-        self.core = TopDownCore(opt)
+        self.core = UpDownCore(opt)
 
 class StackAttModel(AttModel):
     def __init__(self, opt):

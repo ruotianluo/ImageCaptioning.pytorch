@@ -27,7 +27,7 @@ def parse_opt():
 
     # Model settings
     parser.add_argument('--caption_model', type=str, default="show_tell",
-                    help='show_tell, show_attend_tell, all_img, fc, att2in, att2in2, att2all2, adaatt, adaattmo, topdown, stackatt, denseatt, transformer')
+                    help='show_tell, show_attend_tell, all_img, fc, att2in, att2in2, att2all2, adaatt, adaattmo, updown, stackatt, denseatt, transformer')
     parser.add_argument('--rnn_size', type=int, default=512,
                     help='size of the rnn in number of hidden nodes in each layer')
     parser.add_argument('--num_layers', type=int, default=1,
@@ -309,10 +309,10 @@ if __name__ == '__main__':
     args = parse_opt()
     print(args)
     print()
-    sys.argv = [sys.argv[0], '--cfg', 'configs/topdown_long.yml']
+    sys.argv = [sys.argv[0], '--cfg', 'configs/updown_long.yml']
     args1 = parse_opt()
     print(dict(set(vars(args1).items()) - set(vars(args).items())))
     print()
-    sys.argv = [sys.argv[0], '--cfg', 'configs/topdown_long.yml', '--caption_model', 'att2in2']
+    sys.argv = [sys.argv[0], '--cfg', 'configs/updown_long.yml', '--caption_model', 'att2in2']
     args2 = parse_opt()
     print(dict(set(vars(args2).items()) - set(vars(args1).items())))
