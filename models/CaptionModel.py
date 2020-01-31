@@ -139,10 +139,10 @@ class CaptionModel(nn.Module):
         # Chunk elements in the args
         args = list(args)
         if self.__class__.__name__ == 'AttEnsemble':
-            args = [self.split_tensors(group_size, *args_) for args_ in args] # arg_name, model_name, group_name
+            args = [utils.split_tensors(group_size, args_) for args_ in args] # arg_name, model_name, group_name
             args = [[[args[j][i][k] for i in range(len(self.models))] for j in range(len(args))] for k in range(group_size)] # group_name, arg_name, model_name
         else:
-            args = self.split_tensors(group_size, *args) # For each arg, turn (Bbg)x... to (Bb)x(g)x...
+            args = utils.split_tensors(group_size, args) # For each arg, turn (Bbg)x... to (Bb)x(g)x...
             args = [[args[i][j] for i in range(len(args))] for j in range(group_size)]
 
         for t in range(self.seq_length + group_size - 1):
@@ -402,37 +402,6 @@ class CaptionModel(nn.Module):
             sampleLogprobs = logprobs.gather(1, it.unsqueeze(1)) # gather the logprobs at sampled positions
         return it, sampleLogprobs
 
-    @staticmethod
-    def repeat_tensor(n, x):
-        """
-        For a tensor of size Bx..., we repeat it n times, and make it Bnx...
-        """
-        if x is not None:
-            x = x.unsqueeze(1) # Bx1x...
-            x = x.expand(-1, n, *([-1]*len(x.shape[2:]))) # Bxnx...
-            x = x.reshape(x.shape[0]*n, *x.shape[2:]) # Bnx...
-        return x
-
-    @staticmethod
-    def repeat_tensors(n, *xs):
-        """
-        Repeat a list of tensors
-        """
-        return [CaptionModel.repeat_tensor(n, x) for x in xs]
-
-    @staticmethod
-    def split_tensor(n, x):
-        """
-        (B*n)*... -> [B*..., ..., B*...]
-        """
-        assert x.shape[0] % n == 0
-        if x is not None:
-            x = x.reshape(x.shape[0] // n, n, *x.shape[1:]).unbind(1)
-        return x
-
-    @staticmethod
-    def split_tensors(n, *xs):
-        return [CaptionModel.split_tensor(n, x) for x in xs]
 
     def decode_sequence(self, seq):
         return utils.decode_sequence(self.vocab, seq)

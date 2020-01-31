@@ -128,8 +128,8 @@ class AttModel(CaptionModel):
         # pp_att_feats is used for attention, we cache it in advance to reduce computation cost
 
         if seq_per_img > 1:
-            p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self.repeat_tensors(seq_per_img,
-                p_fc_feats, p_att_feats, pp_att_feats, p_att_masks
+            p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = utils.repeat_tensors(seq_per_img,
+                [p_fc_feats, p_att_feats, pp_att_feats, p_att_masks]
             )
 
         for i in range(seq.size(1) - 1):
@@ -184,8 +184,8 @@ class AttModel(CaptionModel):
         self.done_beams = [[] for _ in range(batch_size)]
         for k in range(batch_size):
             state = self.init_hidden(beam_size)
-            tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks = self.repeat_tensors(beam_size,
-                p_fc_feats[k:k+1], p_att_feats[k:k+1], pp_att_feats[k:k+1], p_att_masks[k:k+1] if att_masks is not None else None
+            tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks = utils.repeat_tensors(beam_size,
+                [p_fc_feats[k:k+1], p_att_feats[k:k+1], pp_att_feats[k:k+1], p_att_masks[k:k+1] if att_masks is not None else None]
             )
 
             for t in range(1):
@@ -229,8 +229,8 @@ class AttModel(CaptionModel):
         it = fc_feats.new_zeros([batch_size], dtype=torch.long)
         logprobs, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state)
 
-        p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self.repeat_tensors(beam_size,
-            p_fc_feats, p_att_feats, pp_att_feats, p_att_masks
+        p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = utils.repeat_tensors(beam_size,
+            [p_fc_feats, p_att_feats, pp_att_feats, p_att_masks]
         )
         self.done_beams = self.beam_search(state, logprobs, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, opt=opt)
         for k in range(batch_size):
@@ -268,8 +268,8 @@ class AttModel(CaptionModel):
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         if sample_n > 1:
-            p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self.repeat_tensors(sample_n,
-                p_fc_feats, p_att_feats, pp_att_feats, p_att_masks
+            p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = utils.repeat_tensors(sample_n,
+                [p_fc_feats, p_att_feats, pp_att_feats, p_att_masks]
             )
 
         trigrams = [] # will be a list of batch_size dictionaries
