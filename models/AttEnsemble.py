@@ -61,7 +61,7 @@ class AttEnsemble(AttModel):
     def _prepare_feature(self, *args):
         return tuple(zip(*[m._prepare_feature(*args) for m in self.models]))
 
-    def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
+    def _old_sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
@@ -83,7 +83,7 @@ class AttEnsemble(AttModel):
             it = fc_feats[0].data.new(beam_size).long().zero_()
             logprobs, state = self.get_logprobs_state(it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state)
 
-            self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, opt=opt)
+            self.done_beams[k] = self.old_beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, opt=opt)
             seq[:, k] = self.done_beams[k][0]['seq'] # the first beam has highest cumulative score
             seqLogprobs[:, k] = self.done_beams[k][0]['logps']
         # return the samples and their log likelihoods

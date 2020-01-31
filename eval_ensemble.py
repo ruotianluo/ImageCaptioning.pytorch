@@ -39,7 +39,7 @@ for id in opt.ids:
         app = '-'+app
     else:
         app = ''
-    model_infos.append(utils.pickle_load(open('log_%s/infos_%s%s.pkl' %(id, id, app))))
+    model_infos.append(utils.pickle_load(open('log_%s/infos_%s%s.pkl' %(id, id, app), 'rb')))
     model_paths.append('log_%s/model%s.pth' %(id,app))
 
 # Load one infos
