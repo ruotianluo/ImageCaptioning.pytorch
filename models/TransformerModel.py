@@ -236,7 +236,7 @@ class PositionalEncoding(nn.Module):
 
 class TransformerModel(AttModel):
 
-    def make_model(self, src_vocab, tgt_vocab, N=6, 
+    def make_model(self, src_vocab, tgt_vocab, N_enc=6, N_dec=6, 
                d_model=512, d_ff=2048, h=8, dropout=0.1):
         "Helper: Construct a model from hyperparameters."
         c = copy.deepcopy
@@ -244,9 +244,9 @@ class TransformerModel(AttModel):
         ff = PositionwiseFeedForward(d_model, d_ff, dropout)
         position = PositionalEncoding(d_model, dropout)
         model = EncoderDecoder(
-            Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
+            Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N_enc),
             Decoder(DecoderLayer(d_model, c(attn), c(attn), 
-                                 c(ff), dropout), N),
+                                 c(ff), dropout), N_dec),
             lambda x:x, # nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
             nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
             Generator(d_model, tgt_vocab))
@@ -262,15 +262,21 @@ class TransformerModel(AttModel):
         super(TransformerModel, self).__init__(opt)
         self.opt = opt
         # self.config = yaml.load(open(opt.config_file))
-        # d_model = self.input_encoding_size # 512
+        
+        self.N_enc = getattr(opt, 'N_enc', opt.num_layers)
+        self.N_dec = getattr(opt, 'N_dec', opt.num_layers)
+        self.d_model = getattr(opt, 'd_model', opt.input_encoding_size)
+        self.d_ff = getattr(opt, 'd_ff', opt.rnn_size)
+        self.h = getattr(opt, 'num_att_heads', 8)
+        self.dropout = getattr(opt, 'dropout', 0.1)
 
         delattr(self, 'att_embed')
         self.att_embed = nn.Sequential(*(
                                     ((nn.BatchNorm1d(self.att_feat_size),) if self.use_bn else ())+
-                                    (nn.Linear(self.att_feat_size, self.input_encoding_size),
+                                    (nn.Linear(self.att_feat_size, self.d_model),
                                     nn.ReLU(),
                                     nn.Dropout(self.drop_prob_lm))+
-                                    ((nn.BatchNorm1d(self.input_encoding_size),) if self.use_bn==2 else ())))
+                                    ((nn.BatchNorm1d(self.d_model),) if self.use_bn==2 else ())))
         
         delattr(self, 'embed')
         self.embed = lambda x : x
@@ -280,10 +286,15 @@ class TransformerModel(AttModel):
         del self.ctx2att
 
         tgt_vocab = self.vocab_size + 1
+
+
         self.model = self.make_model(0, tgt_vocab,
-            N=opt.num_layers,
-            d_model=opt.input_encoding_size,
-            d_ff=opt.rnn_size)
+            N_enc=self.N_enc,
+            N_dec=self.N_dec,
+            d_model=self.d_model,
+            d_ff=self.d_ff,
+            h=self.h,
+            dropout=self.dropout)
 
     def logit(self, x): # unsafe way
         return self.model.generator.proj(x)

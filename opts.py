@@ -197,10 +197,9 @@ def parse_opt():
         from misc.config import CfgNode
         cn = CfgNode.load_yaml_with_base(args.cfg)
         for k,v in cn.items():
-            if hasattr(args, k):
-                setattr(args, k, v)
-            else:
+            if not hasattr(args, k):
                 print('Warning: key %s not in args' %k)
+            setattr(args, k, v)
         args = parser.parse_args(namespace=args)
 
     # Check if args are valid

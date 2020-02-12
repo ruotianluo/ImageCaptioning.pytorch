@@ -13,10 +13,20 @@ learning_rate: 0.0005
 # N=num_layers
 # d_model=input_encoding_size
 # d_ff=rnn_size
-# h is always 8
+
+# will be ignored
 num_layers: 6
 input_encoding_size: 512
 rnn_size: 2048
+
+# Transformer config
+N_enc: 6
+N_dec: 6
+d_model: 512
+d_ff: 2048
+num_att_heads: 8
+dropout: 0.1
+
 
 learning_rate_decay_start: 0
 scheduled_sampling_start: -1 
