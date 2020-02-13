@@ -186,16 +186,29 @@ def parse_opt():
     # config
     parser.add_argument('--cfg', type=str, default=None,
                     help='configuration; similar to what is used in detectron')
+    parser.add_argument(
+        '--set_cfgs', dest='set_cfgs',
+        help='Set config keys. Key value sequence seperate by whitespace.'
+             'e.g. [key] [value] [key] [value]\n This has higher priority'
+             'than cfg file but lower than other args. (You can only overwrite'
+             'arguments that have alerady been defined in config file.)',
+        default=[], nargs='+')
     # How will config be used
     # 1) read cfg argument, and load the cfg file if it's not None
-    # 2) parse config argument
-    # 3) in the end, parse command line argument
+    # 2) Overwrite cfg argument with set_cfgs
+    # 3) parse config argument to args.
+    # 4) in the end, parse command line argument and overwrite args
 
     # step 1: read cfg_fn
     args = parser.parse_args()
-    if args.cfg is not None:
+    if args.cfg is not None or args.set_cfgs is not None:
         from misc.config import CfgNode
-        cn = CfgNode.load_yaml_with_base(args.cfg)
+        if args.cfg is not None:
+            cn = CfgNode(CfgNode.load_yaml_with_base(args.cfg))
+        else:
+            cn = CfgNode()
+        if args.set_cfgs is not None:
+            cn.merge_from_list(args.set_cfgs)
         for k,v in cn.items():
             if not hasattr(args, k):
                 print('Warning: key %s not in args' %k)
