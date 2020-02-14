@@ -228,6 +228,8 @@ class Dataset(data.Dataset):
         for ix, row in enumerate(mask_batch):
             row[:nonzeros[ix]] = 1
         data['masks'] = mask_batch
+        data['labels'] = data['labels'].reshape(len(batch), seq_per_img, -1)
+        data['masks'] = data['masks'].reshape(len(batch), seq_per_img, -1)
 
         data['gts'] = gts # all ground truth captions of each images
         data['bounds'] = {'it_pos_now': it_pos_now, # the it_pos_now of the last sample

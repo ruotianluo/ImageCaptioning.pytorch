@@ -268,6 +268,9 @@ class LanguageModelCriterion(nn.Module):
         super(LanguageModelCriterion, self).__init__()
 
     def forward(self, input, target, mask):
+        if target.ndim == 3:
+            target = target.reshape(-1, target.shape[2])
+            mask = mask.reshape(-1, mask.shape[2])
         # truncate to the same size
         target = target[:, :input.size(1)]
         mask =  mask[:, :input.size(1)]
@@ -290,6 +293,9 @@ class LabelSmoothing(nn.Module):
         self.true_dist = None
         
     def forward(self, input, target, mask):
+        if target.ndim == 3:
+            target = target.reshape(-1, target.shape[2])
+            mask = mask.reshape(-1, mask.shape[2])
         # truncate to the same size
         target = target[:, :input.size(1)]
         mask =  mask[:, :input.size(1)]

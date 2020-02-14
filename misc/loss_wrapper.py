@@ -21,7 +21,7 @@ class LossWrapper(torch.nn.Module):
         out = {}
         if struc_flag:
             if opt.structure_loss_weight < 1:
-                lm_loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
+                lm_loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks), labels[..., 1:], masks[..., 1:])
             else:
                 lm_loss = torch.tensor(0).type_as(fc_feats)
             if opt.structure_loss_weight > 0:
@@ -42,7 +42,7 @@ class LossWrapper(torch.nn.Module):
             out['struc_loss'] = struc_loss['loss']
             out['reward'] = struc_loss['reward']
         elif not sc_flag:
-            loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
+            loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks), labels[..., 1:], masks[..., 1:])
         else:
             self.model.eval()
             with torch.no_grad():

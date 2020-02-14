@@ -338,6 +338,8 @@ class TransformerModel(AttModel):
         return att_feats, seq, att_masks, seq_mask
 
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
+        if seq.ndim == 3:  # B * seq_per_img * seq_len
+            seq = seq.reshape(-1, seq.shape[2])
         att_feats, seq, att_masks, seq_mask = self._prepare_feature_forward(att_feats, att_masks, seq)
 
         out = self.model(att_feats, seq, att_masks, seq_mask)

@@ -118,6 +118,8 @@ class AttModel(CaptionModel):
 
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
         batch_size = fc_feats.size(0)
+        if seq.ndim == 3:  # B * seq_per_img * seq_len
+            seq = seq.reshape(-1, seq.shape[2])
         seq_per_img = seq.shape[0] // batch_size
         state = self.init_hidden(batch_size*seq_per_img)
 
