@@ -81,6 +81,9 @@ class DataLoaderRaw():
 
         self.iterator = 0
 
+        # Nasty
+        self.dataset = self  # to fix the bug in eval
+
     def get_batch(self, split, batch_size=None):
         batch_size = batch_size or self.batch_size
 

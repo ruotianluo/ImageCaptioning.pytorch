@@ -307,7 +307,7 @@ class DataLoader:
             data = next(self.iters[split])
         except StopIteration:
             self.iters[split] = iter(self.loaders[split])
-            data = next(dataiterator)
+            data = next(self.iters[split])
         return data
 
     def reset_iterator(self, split):
