@@ -179,6 +179,13 @@ def parse_opt():
     parser.add_argument('--train_beam_size', type=int, default=1,
                     help='')
 
+    # Used for self critical
+    parser.add_argument('--sc_sample_method', type=str, default='greedy',
+                    help='')
+    parser.add_argument('--sc_beam_size', type=int, default=1,
+                    help='')
+
+
     # For diversity evaluation during training
     add_diversity_opts(parser)
 

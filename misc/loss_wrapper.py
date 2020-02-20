@@ -46,7 +46,10 @@ class LossWrapper(torch.nn.Module):
         else:
             self.model.eval()
             with torch.no_grad():
-                greedy_res, _ = self.model(fc_feats, att_feats, att_masks, mode='sample')
+                greedy_res, _ = self.model(fc_feats, att_feats, att_masks,
+                    mode='sample',
+                    opt={'sample_method': opt.sc_sample_method,
+                         'beam_size': opt.sc_beam_size})
             self.model.train()
             gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks,
                     opt={'sample_method':opt.train_sample_method,
