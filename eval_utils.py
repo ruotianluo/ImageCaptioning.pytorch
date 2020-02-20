@@ -104,8 +104,8 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
     if len(preds_n) > 0:
         import eval_multi
         cache_path_n = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '_n.json')
-        spice_n = eval_multi.eval_spice_n(dataset, preds_n, model_id, split)
-        out.update(spice_n['overall'])
+        allspice = eval_multi.eval_allspice(dataset, preds_n, model_id, split)
+        out.update(allspice['overall'])
         div_stats = eval_multi.eval_div_stats(dataset, preds_n, model_id, split)
         out.update(div_stats['overall'])
         if eval_oracle:
@@ -116,7 +116,7 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
         self_cider = eval_multi.eval_self_cider(dataset, preds_n, model_id, split)
         out.update(self_cider['overall'])
         with open(cache_path_n, 'w') as outfile:
-            json.dump({'spice_n': spice_n, 'div_stats': div_stats, 'oracle': oracle, 'self_cider': self_cider}, outfile)
+            json.dump({'allspice': allspice, 'div_stats': div_stats, 'oracle': oracle, 'self_cider': self_cider}, outfile)
         
     out['bad_count_rate'] = sum([count_bad(_['caption']) for _ in preds_filt]) / float(len(preds_filt))
     outfile_path = os.path.join('eval_results/', model_id + '_' + split + '.json')

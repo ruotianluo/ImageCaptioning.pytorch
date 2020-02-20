@@ -33,7 +33,7 @@ except:
     print('Warning: requirements for eval_multi not satisfied')
 
 
-def eval_spice_n(dataset, preds_n, model_id, split):
+def eval_allspice(dataset, preds_n, model_id, split):
     coco = getCOCO(dataset)
     valids = coco.getImgIds()
     
@@ -47,26 +47,26 @@ def eval_spice_n(dataset, preds_n, model_id, split):
     cache_path_n = os.path.join('eval_results/', model_id + '_' + split + '_n.json')
     json.dump(preds_filt_n, open(cache_path_n, 'w')) # serialize to temporary json file. Sigh, COCO API...
 
-    # Eval Spice_n
+    # Eval AllSPICE
     cocoRes_n = coco.loadRes(cache_path_n)
-    cocoEvalSpice_n = COCOEvalCapSpice(coco, cocoRes_n)
-    cocoEvalSpice_n.params['image_id'] = cocoRes_n.getImgIds()
-    cocoEvalSpice_n.evaluate()
+    cocoEvalAllSPICE = COCOEvalCapSpice(coco, cocoRes_n)
+    cocoEvalAllSPICE.params['image_id'] = cocoRes_n.getImgIds()
+    cocoEvalAllSPICE.evaluate()
 
     out = {}
-    for metric, score in cocoEvalSpice_n.eval.items():
-        out[metric+'_n'] = score
+    for metric, score in cocoEvalAllSPICE.eval.items():
+        out['All'+metric] = score
 
-    imgToEvalSpice_n = cocoEvalSpice_n.imgToEval
+    imgToEvalAllSPICE = cocoEvalAllSPICE.imgToEval
     # collect SPICE_sub_score
-    for k in imgToEvalSpice_n.values()[0]['SPICE'].keys():
+    for k in imgToEvalAllSPICE.values()[0]['SPICE'].keys():
         if k != 'All':
-            out['SPICE_n_'+k] = np.array([v['SPICE'][k]['f'] for v in imgToEvalSpice_n.values()])
-            out['SPICE_n_'+k] = (out['SPICE_n_'+k][out['SPICE_n_'+k]==out['SPICE_n_'+k]]).mean()
+            out['AllSPICE_'+k] = np.array([v['SPICE'][k]['f'] for v in imgToEvalAllSPICE.values()])
+            out['AllSPICE_'+k] = (out['AllSPICE_'+k][out['AllSPICE_'+k]==out['AllSPICE_'+k]]).mean()
     for p in preds_filt_n:
         image_id, caption = p['image_id'], p['caption']
-        imgToEvalSpice_n[image_id]['caption'] = capsById[image_id]
-    return {'overall': out, 'imgToEvalSpice_n': imgToEvalSpice_n}
+        imgToEvalAllSPICE[image_id]['caption'] = capsById[image_id]
+    return {'overall': out, 'imgToEvalAllSPICE': imgToEvalAllSPICE}
 
 def eval_oracle(dataset, preds_n, model_id, split):
     cache_path = os.path.join('eval_results/', model_id + '_' + split + '_n.json')
