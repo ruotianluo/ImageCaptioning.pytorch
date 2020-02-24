@@ -240,7 +240,7 @@ class TransformerModel(AttModel):
                d_model=512, d_ff=2048, h=8, dropout=0.1):
         "Helper: Construct a model from hyperparameters."
         c = copy.deepcopy
-        attn = MultiHeadedAttention(h, d_model)
+        attn = MultiHeadedAttention(h, d_model, dropout)
         ff = PositionwiseFeedForward(d_model, d_ff, dropout)
         position = PositionalEncoding(d_model, dropout)
         model = EncoderDecoder(
