@@ -1,0 +1,17 @@
+#!/bin/sh
+
+id="transf_sf_npg_"$1
+ckpt_path="log_"$id
+
+if [ ! -d $ckpt_path ]; then
+  bash scripts/copy_model.sh transf $id
+fi
+
+start_from="--start_from "$ckpt_path
+
+python train.py --id $id --caption_model transformer --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5 --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --seq_per_img 5 --batch_size 10 --beam_size 1 --learning_rate 1e-5 --num_layers 6 --input_encoding_size 512 --rnn_size 2048 --checkpoint_path $ckpt_path $start_from --save_checkpoint_every 3000 --language_eval 1 --val_images_use 5000 --max_epochs 30 --structure_after 14 --structure_sample_n 1 --structure_loss_weight 1 --structure_loss_type new_policy_gradient --self_critical_reward_weight $1 --eval_oracle 0 --sample_n 5 --sample_n_method sample 
+
+#pid=$!
+#echo $pid
+#sleep 30
+#kill -2 ${pid}
