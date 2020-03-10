@@ -13,6 +13,7 @@ from .ShowTellModel import ShowTellModel
 from .FCModel import FCModel
 from .AttModel import *
 from .TransformerModel import TransformerModel
+from .M2Transformer import M2TransformerModel
 
 def setup(opt):
     if opt.caption_model in ['fc', 'show_tell']:
@@ -54,6 +55,8 @@ def setup(opt):
     # Transformer
     elif opt.caption_model == 'transformer':
         model = TransformerModel(opt)
+    elif opt.caption_model == 'm2transformer':
+        model = M2TransformerModel(opt)
     else:
         raise Exception("Caption model not supported: {}".format(opt.caption_model))
 
