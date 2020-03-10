@@ -142,7 +142,7 @@ class StructureLosses(nn.Module):
         
         scores = get_scores(data_gts, seq, self.opt)
         scores = torch.from_numpy(scores).type_as(input).view(-1, seq_per_img)
-        out['reward'] = scores.mean()
+        out['reward'] = scores #.mean()
         if self.opt.entropy_reward_weight > 0:
             entropy = - (F.softmax(input, dim=2) * F.log_softmax(input, dim=2)).sum(2).data
             entropy = (entropy * mask).sum(1) / mask.sum(1)

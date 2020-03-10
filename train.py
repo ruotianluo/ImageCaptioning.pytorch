@@ -214,6 +214,7 @@ def train(opt):
                     tb_summary_writer.add_scalar('lm_loss', model_out['lm_loss'].mean().item(), iteration)
                     tb_summary_writer.add_scalar('struc_loss', model_out['struc_loss'].mean().item(), iteration)
                     tb_summary_writer.add_scalar('reward', model_out['reward'].mean().item(), iteration)
+                    tb_summary_writer.add_scalar('reward_var', model_out['reward'].var(1).mean(), iteration)
 
                 histories['loss_history'][iteration] = train_loss if not sc_flag else model_out['reward'].mean()
                 histories['lr_history'][iteration] = opt.current_lr
