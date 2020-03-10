@@ -90,7 +90,7 @@ def train(opt):
     #  Build optimizer
     ##########################
     if opt.noamopt:
-        assert opt.caption_model in ['transformer', 'm2transformer'], 'noamopt can only work with transformer'
+        assert opt.caption_model in ['transformer', 'bert', 'm2transformer'], 'noamopt can only work with transformer'
         optimizer = utils.get_std_opt(model, factor=opt.noamopt_factor, warmup=opt.noamopt_warmup)
     elif opt.reduce_on_plateau:
         optimizer = utils.build_optimizer(model.parameters(), opt)

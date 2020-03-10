@@ -13,6 +13,7 @@ from .ShowTellModel import ShowTellModel
 from .FCModel import FCModel
 from .AttModel import *
 from .TransformerModel import TransformerModel
+from .BertCapModel import BertCapModel
 from .M2Transformer import M2TransformerModel
 
 def setup(opt):
@@ -55,6 +56,8 @@ def setup(opt):
     # Transformer
     elif opt.caption_model == 'transformer':
         model = TransformerModel(opt)
+    elif opt.caption_model == 'bert':
+        model = BertCapModel(opt)
     elif opt.caption_model == 'm2transformer':
         model = M2TransformerModel(opt)
     else:
