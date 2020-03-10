@@ -178,7 +178,7 @@ class CaptionModel(nn.Module):
 
                     # if time's up... or if end token is reached then copy beams
                     for b in range(batch_size):
-                        is_end = beam_seq_table[divm][b, :, t-divm] == 0
+                        is_end = beam_seq_table[divm][b, :, t-divm] == self.eos_idx
                         assert beam_seq_table[divm].shape[-1] == t-divm+1
                         if t == self.seq_length + divm - 1:
                             is_end.fill_(1)
@@ -339,7 +339,7 @@ class CaptionModel(nn.Module):
 
                     # if time's up... or if end token is reached then copy beams
                     for vix in range(bdash):
-                        if beam_seq_table[divm][t-divm,vix] == 0 or t == self.seq_length + divm - 1:
+                        if beam_seq_table[divm][t-divm,vix] == self.eos_idx or t == self.seq_length + divm - 1:
                             final_beam = {
                                 'seq': beam_seq_table[divm][:, vix].clone(), 
                                 'logps': beam_seq_logprobs_table[divm][:, vix].clone(),

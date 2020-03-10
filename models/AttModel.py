@@ -62,6 +62,10 @@ class AttModel(CaptionModel):
         self.att_feat_size = opt.att_feat_size
         self.att_hid_size = opt.att_hid_size
 
+        self.bos_idx = getattr(opt, 'bos_idx', 0)
+        self.eos_idx = getattr(opt, 'eos_idx', 0)
+        self.pad_idx = getattr(opt, 'pad_idx', 0)
+
         self.use_bn = getattr(opt, 'use_bn', 0)
 
         self.ss_prob = 0.0 # Schedule sampling probability
@@ -179,7 +183,7 @@ class AttModel(CaptionModel):
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
-        seq = fc_feats.new_zeros((batch_size*sample_n, self.seq_length), dtype=torch.long)
+        seq = fc_feats.new_full((batch_size*sample_n, self.seq_length), self.pad_idx, dtype=torch.long)
         seqLogprobs = fc_feats.new_zeros(batch_size*sample_n, self.seq_length, self.vocab_size + 1)
         # lets process every image independently for now, for simplicity
 
@@ -192,7 +196,7 @@ class AttModel(CaptionModel):
 
             for t in range(1):
                 if t == 0: # input <bos>
-                    it = fc_feats.new_zeros([beam_size], dtype=torch.long)
+                    it = fc_feats.new_full([beam_size], self.bos_idx, dtype=torch.long)
 
                 logprobs, state = self.get_logprobs_state(it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, tmp_att_masks, state)
 
@@ -219,7 +223,7 @@ class AttModel(CaptionModel):
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
-        seq = fc_feats.new_zeros((batch_size*sample_n, self.seq_length), dtype=torch.long)
+        seq = fc_feats.new_full((batch_size*sample_n, self.seq_length), self.pad_idx, dtype=torch.long)
         seqLogprobs = fc_feats.new_zeros(batch_size*sample_n, self.seq_length, self.vocab_size + 1)
         # lets process every image independently for now, for simplicity
 
@@ -228,7 +232,7 @@ class AttModel(CaptionModel):
         state = self.init_hidden(batch_size)
 
         # first step, feed bos
-        it = fc_feats.new_zeros([batch_size], dtype=torch.long)
+        it = fc_feats.new_full([batch_size], self.bos_idx, dtype=torch.long)
         logprobs, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state)
 
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = utils.repeat_tensors(beam_size,
@@ -276,11 +280,11 @@ class AttModel(CaptionModel):
 
         trigrams = [] # will be a list of batch_size dictionaries
         
-        seq = fc_feats.new_zeros((batch_size*sample_n, self.seq_length), dtype=torch.long)
+        seq = fc_feats.new_full((batch_size*sample_n, self.seq_length), self.pad_idx, dtype=torch.long)
         seqLogprobs = fc_feats.new_zeros(batch_size*sample_n, self.seq_length, self.vocab_size + 1)
         for t in range(self.seq_length + 1):
             if t == 0: # input <bos>
-                it = fc_feats.new_zeros(batch_size*sample_n, dtype=torch.long)
+                it = fc_feats.new_full([batch_size*sample_n], self.bos_idx, dtype=torch.long)
 
             logprobs, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state, output_logsoftmax=output_logsoftmax)
             
@@ -331,10 +335,11 @@ class AttModel(CaptionModel):
 
             # stop when all finished
             if t == 0:
-                unfinished = it > 0
+                unfinished = it != self.eos_idx
             else:
-                unfinished = unfinished * (it > 0)
-            it = it * unfinished.type_as(it)
+                it[~unfinished] = self.pad_idx # This allows eos_idx not being overwritten to 0
+                logprobs = logprobs * unfinished.unsqueeze(1).float()
+                unfinished = unfinished * (it != self.eos_idx)
             seq[:,t] = it
             seqLogprobs[:,t] = logprobs
             # quit loop if all sequences have finished
@@ -361,7 +366,7 @@ class AttModel(CaptionModel):
 
         trigrams_table = [[] for _ in range(group_size)] # will be a list of batch_size dictionaries
 
-        seq_table = [fc_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long) for _ in range(group_size)]
+        seq_table = [fc_feats.new_full((batch_size, self.seq_length), self.pad_idx, dtype=torch.long) for _ in range(group_size)]
         seqLogprobs_table = [fc_feats.new_zeros(batch_size, self.seq_length) for _ in range(group_size)]
         state_table = [self.init_hidden(batch_size) for _ in range(group_size)]
 
@@ -373,7 +378,7 @@ class AttModel(CaptionModel):
                 trigrams = trigrams_table[divm]
                 if t >= 0 and t <= self.seq_length-1:
                     if t == 0: # input <bos>
-                        it = fc_feats.new_zeros(batch_size, dtype=torch.long)
+                        it = fc_feats.new_full([batch_size], self.bos_idx, dtype=torch.long)
                     else:
                         it = seq[:, t-1] # changed
 
@@ -430,10 +435,11 @@ class AttModel(CaptionModel):
 
                     # stop when all finished
                     if t == 0:
-                        unfinished = it > 0
+                        unfinished = it != self.eos_idx
                     else:
-                        unfinished = (seq[:,t-1] > 0) & (it > 0) # changed
-                    it = it * unfinished.type_as(it)
+                        unfinished = seq[:,t-1] != self.pad_idx & seq[:,t-1] != self.eos_idx
+                        it[~unfinished] = self.pad_idx
+                        unfinished = unfinished & (it != self.eos_idx) # changed
                     seq[:,t] = it
                     seqLogprobs[:,t] = sampleLogprobs.view(-1)
 

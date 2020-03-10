@@ -321,7 +321,7 @@ class TransformerModel(AttModel):
         if seq is not None:
             # crop the last one
             seq = seq[:,:-1]
-            seq_mask = (seq.data > 0)
+            seq_mask = (seq.data != self.eos_idx) & (seq.data != self.pad_idx)
             seq_mask[:,0] = 1 # bos
 
             seq_mask = seq_mask.unsqueeze(-2)
