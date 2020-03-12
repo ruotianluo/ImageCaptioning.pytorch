@@ -8,11 +8,14 @@ from collections import OrderedDict
 import torch
 
 import sys
-sys.path.append("cider")
-from pyciderevalcap.ciderD.ciderD import CiderD
-from pyciderevalcap.cider.cider import Cider
-sys.path.append("coco-caption")
-from pycocoevalcap.bleu.bleu import Bleu
+try:
+    sys.path.append("cider")
+    from pyciderevalcap.ciderD.ciderD import CiderD
+    from pyciderevalcap.cider.cider import Cider
+    sys.path.append("coco-caption")
+    from pycocoevalcap.bleu.bleu import Bleu
+except:
+    print('cider or coco-caption missing')
 
 CiderD_scorer = None
 Cider_scorer = None
