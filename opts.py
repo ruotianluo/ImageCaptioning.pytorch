@@ -74,16 +74,7 @@ def parse_opt():
                     help='number of captions to sample for each image during training. Done for efficiency since CNN forward pass is expensive. E.g. coco has 5 sents/image')
 
     # Sample related
-    parser.add_argument('--beam_size', type=int, default=1,
-                    help='used when sample_method = greedy, indicates number of beams in beam search. Usually 2 or 3 works well. More is not better. Set this to 1 for faster runtime but a bit worse performance.')
-    parser.add_argument('--max_length', type=int, default=20,
-                    help='Maximum length during sampling')
-    parser.add_argument('--length_penalty', type=str, default='',
-                    help='wu_X or avg_X, X is the alpha')
-    parser.add_argument('--block_trigrams', type=int, default=0,
-                    help='block repeated trigram.')
-    parser.add_argument('--remove_bad_endings', type=int, default=0,
-                    help='Remove bad endings')
+    add_eval_sample_opts(parser)
 
     #Optimization: for the Language Model
     parser.add_argument('--optim', type=str, default='adam',
@@ -263,28 +254,8 @@ def add_eval_options(parser):
                     help='Write image paths along with predictions into vis json? (1=yes,0=no)')
 
     # Sampling options
-    parser.add_argument('--sample_method', type=str, default='greedy',
-                    help='greedy; sample; gumbel; top<int>, top<0-1>')
-    parser.add_argument('--beam_size', type=int, default=2,
-                    help='indicates number of beams in beam search. Usually 2 or 3 works well. More is not better. Set this to 1 for faster runtime but a bit worse performance.')
-    parser.add_argument('--max_length', type=int, default=20,
-                    help='Maximum length during sampling')
-    parser.add_argument('--length_penalty', type=str, default='',
-                    help='wu_X or avg_X, X is the alpha')
-    parser.add_argument('--group_size', type=int, default=1,
-                    help='used for diverse beam search. if group_size is 1, then it\'s normal beam search')
-    parser.add_argument('--diversity_lambda', type=float, default=0.5,
-                    help='used for diverse beam search. Usually from 0.2 to 0.8. Higher value of lambda produces a more diverse list')
-    parser.add_argument('--temperature', type=float, default=1.0,
-                    help='temperature when sampling from distributions (i.e. when sample_method = sample). Lower = "safer" predictions.')
-    parser.add_argument('--decoding_constraint', type=int, default=0,
-                    help='If 1, not allowing same word in a row')
-    parser.add_argument('--block_trigrams', type=int, default=0,
-                    help='block repeated trigram.')
-    parser.add_argument('--remove_bad_endings', type=int, default=0,
-                    help='Remove bad endings')
-    parser.add_argument('--suppress_UNK', type=int, default=1,
-                    help='Not predicting UNK')
+    add_eval_sample_opts(parser)
+
     # For evaluation on a folder of images:
     parser.add_argument('--image_folder', type=str, default='', 
                     help='If this is nonempty then will predict on the images in this folder path')
@@ -320,6 +291,32 @@ def add_diversity_opts(parser):
                     help='sample, bs, dbs, gumbel, topk, dgreedy, dsample, dtopk, dtopp')
     parser.add_argument('--eval_oracle', type=int, default=1, 
                     help='if we need to calculate loss.')
+
+
+# Sampling related options
+def add_eval_sample_opts(parser):
+    parser.add_argument('--sample_method', type=str, default='greedy',
+                    help='greedy; sample; gumbel; top<int>, top<0-1>')
+    parser.add_argument('--beam_size', type=int, default=1,
+                    help='used when sample_method = greedy, indicates number of beams in beam search. Usually 2 or 3 works well. More is not better. Set this to 1 for faster runtime but a bit worse performance.')
+    parser.add_argument('--max_length', type=int, default=20,
+                    help='Maximum length during sampling')
+    parser.add_argument('--length_penalty', type=str, default='',
+                    help='wu_X or avg_X, X is the alpha')
+    parser.add_argument('--group_size', type=int, default=1,
+                    help='used for diverse beam search. if group_size is 1, then it\'s normal beam search')
+    parser.add_argument('--diversity_lambda', type=float, default=0.5,
+                    help='used for diverse beam search. Usually from 0.2 to 0.8. Higher value of lambda produces a more diverse list')
+    parser.add_argument('--temperature', type=float, default=1.0,
+                    help='temperature when sampling from distributions (i.e. when sample_method = sample). Lower = "safer" predictions.')
+    parser.add_argument('--decoding_constraint', type=int, default=0,
+                    help='If 1, not allowing same word in a row')
+    parser.add_argument('--block_trigrams', type=int, default=0,
+                    help='block repeated trigram.')
+    parser.add_argument('--remove_bad_endings', type=int, default=0,
+                    help='Remove bad endings')
+    parser.add_argument('--suppress_UNK', type=int, default=1,
+                    help='Not predicting UNK')
 
 
 if __name__ == '__main__':
