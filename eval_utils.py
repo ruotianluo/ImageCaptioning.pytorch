@@ -127,7 +127,7 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
 
 def eval_split(model, crit, loader, eval_kwargs={}):
     verbose = eval_kwargs.get('verbose', True)
-    verbose_beam = eval_kwargs.get('verbose_beam', 1)
+    verbose_beam = eval_kwargs.get('verbose_beam', 0)
     verbose_loss = eval_kwargs.get('verbose_loss', 1)
     num_images = eval_kwargs.get('num_images', eval_kwargs.get('val_images_use', -1))
     split = eval_kwargs.get('split', 'val')
