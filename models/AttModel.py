@@ -127,7 +127,7 @@ class AttModel(CaptionModel):
         seq_per_img = seq.shape[0] // batch_size
         state = self.init_hidden(batch_size*seq_per_img)
 
-        outputs = fc_feats.new_zeros(batch_size*seq_per_img, seq.size(1) - 1, self.vocab_size+1)
+        outputs = fc_feats.new_zeros(batch_size*seq_per_img, seq.size(1), self.vocab_size+1)
 
         # Prepare the features
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = self._prepare_feature(fc_feats, att_feats, att_masks)
@@ -138,7 +138,7 @@ class AttModel(CaptionModel):
                 [p_fc_feats, p_att_feats, pp_att_feats, p_att_masks]
             )
 
-        for i in range(seq.size(1) - 1):
+        for i in range(seq.size(1)):
             if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
                 sample_prob = fc_feats.new(batch_size*seq_per_img).uniform_(0, 1)
                 sample_mask = sample_prob < self.ss_prob

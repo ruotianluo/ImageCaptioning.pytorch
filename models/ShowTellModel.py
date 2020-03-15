@@ -55,7 +55,7 @@ class ShowTellModel(CaptionModel):
         if seq_per_img > 1:
             fc_feats = utils.repeat_tensors(seq_per_img, fc_feats)
 
-        for i in range(seq.size(1)):
+        for i in range(seq.size(1) + 1):
             if i == 0:
                 xt = self.img_embed(fc_feats)
             else:
