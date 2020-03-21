@@ -59,7 +59,7 @@ def eval_allspice(dataset, preds_n, model_id, split):
 
     imgToEvalAllSPICE = cocoEvalAllSPICE.imgToEval
     # collect SPICE_sub_score
-    for k in imgToEvalAllSPICE.values()[0]['SPICE'].keys():
+    for k in list(imgToEvalAllSPICE.values())[0]['SPICE'].keys():
         if k != 'All':
             out['AllSPICE_'+k] = np.array([v['SPICE'][k]['f'] for v in imgToEvalAllSPICE.values()])
             out['AllSPICE_'+k] = (out['AllSPICE_'+k][out['AllSPICE_'+k]==out['AllSPICE_'+k]]).mean()
@@ -78,8 +78,8 @@ def eval_oracle(dataset, preds_n, model_id, split):
     for d in preds_n:
         capsById[d['image_id']] = capsById.get(d['image_id'], []) + [d]
     
-    sample_n = capsById[capsById.keys()[0]]
-    for i in range(len(capsById[capsById.keys()[0]])):
+    sample_n = capsById[list(capsById.keys())[0]]
+    for i in range(len(capsById[list(capsById.keys())[0]])):
         preds = [_[i] for _ in capsById.values()]
 
         json.dump(preds, open(cache_path, 'w')) # serialize to temporary json file. Sigh, COCO API...
@@ -109,7 +109,7 @@ def eval_oracle(dataset, preds_n, model_id, split):
             out['ImgToEval'][img_id]['oracle_'+metric] = max([_['scores'][metric] for _ in capsById[img_id]])
             out['ImgToEval'][img_id]['avg_'+metric] = sum([_['scores'][metric] for _ in capsById[img_id]]) / len(capsById[img_id])
         out['ImgToEval'][img_id]['captions'] = capsById[img_id]
-    for metric in out['ImgToEval'].values()[0].keys():
+    for metric in list(out['ImgToEval'].values())[0].keys():
         if metric == 'captions':
             continue
         tmp = np.array([_[metric] for _ in out['ImgToEval'].values()])
@@ -126,7 +126,7 @@ def eval_div_stats(dataset, preds_n, model_id, split):
         d['id'] = i
         capsById[d['image_id']] = capsById.get(d['image_id'], []) + [d]
 
-    n_caps_perimg = len(capsById[capsById.keys()[0]])
+    n_caps_perimg = len(capsById[list(capsById.keys())[0]])
     print(n_caps_perimg)
     _capsById = capsById # save the untokenized version
     capsById = tokenizer.tokenize(capsById)
