@@ -1,0 +1,5 @@
+_BASE_: aoa_sc.yml
+
+structure_after: -1
+structure_loss_weight: 1
+structure_loss_type: new_self_critical

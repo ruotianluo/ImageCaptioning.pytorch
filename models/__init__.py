@@ -15,6 +15,7 @@ from .AttModel import *
 from .TransformerModel import TransformerModel
 from .BertCapModel import BertCapModel
 from .M2Transformer import M2TransformerModel
+from .AoAModel import AoAModel
 
 def setup(opt):
     if opt.caption_model in ['fc', 'show_tell']:
@@ -56,6 +57,9 @@ def setup(opt):
     # Transformer
     elif opt.caption_model == 'transformer':
         model = TransformerModel(opt)
+    # AoANet
+    elif opt.caption_model == 'aoa':
+        model = AoAModel(opt)
     elif opt.caption_model == 'bert':
         model = BertCapModel(opt)
     elif opt.caption_model == 'm2transformer':
