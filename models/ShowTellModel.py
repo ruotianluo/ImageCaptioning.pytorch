@@ -125,7 +125,7 @@ class ShowTellModel(CaptionModel):
         sample_method = opt.get('sample_method', 'greedy')
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
-        if beam_size > 1:
+        if beam_size > 1 and sample_method in ['greedy', 'beam_search']:
             return self.sample_beam(fc_feats, att_feats, opt)
 
         batch_size = fc_feats.size(0)

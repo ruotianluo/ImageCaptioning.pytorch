@@ -259,7 +259,7 @@ class AttModel(CaptionModel):
         decoding_constraint = opt.get('decoding_constraint', 0)
         block_trigrams = opt.get('block_trigrams', 0)
         remove_bad_endings = opt.get('remove_bad_endings', 0)
-        if beam_size > 1:
+        if beam_size > 1 and sample_method in ['greedy', 'beam_search']:
             return self._sample_beam(fc_feats, att_feats, att_masks, opt)
         if group_size > 1:
             return self._diverse_sample(fc_feats, att_feats, att_masks, opt)
@@ -353,8 +353,6 @@ class AttModel(CaptionModel):
         decoding_constraint = opt.get('decoding_constraint', 0)
         block_trigrams = opt.get('block_trigrams', 0)
         remove_bad_endings = opt.get('remove_bad_endings', 0)
-        if beam_size > 1:
-            return self._sample_beam(fc_feats, att_feats, att_masks, opt)
 
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
