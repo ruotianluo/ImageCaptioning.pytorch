@@ -203,7 +203,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         if sample_n > 1:
             eval_split_n(model, n_predictions, loader, [fc_feats, att_feats, att_masks, data], eval_kwargs)
         
-        ix0 = data['bounds']['it_pos_now']
+        # ix0 = data['bounds']['it_pos_now']
         ix1 = data['bounds']['it_max']
         if num_images != -1:
             ix1 = min(ix1, num_images)
@@ -213,7 +213,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             predictions.pop()
 
         if verbose:
-            print('evaluating validation preformance... %d/%d (%f)' %(ix0 - 1, ix1, loss))
+            print('evaluating validation preformance... %d/%d (%f)' %(n, ix1, loss))
 
         if num_images >= 0 and n >= num_images:
             break
