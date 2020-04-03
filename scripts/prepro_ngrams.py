@@ -9,54 +9,18 @@ from six.moves import cPickle
 import misc.utils as utils
 from collections import defaultdict
 
-def precook(s, n=4, out=False):
-    """
-    Takes a string as input and returns an object that can be given to
-    either cook_refs or cook_test. This is optional: cook_refs and cook_test
-    can take string arguments as well.
-    :param s: string : sentence to be converted into ngrams
-    :param n: int    : number of ngrams for which representation is calculated
-    :return: term frequency vector for occuring ngrams
-    """
-    words = s.split()
-    counts = defaultdict(int)
-    for k in range(1,n+1):
-        for i in range(len(words)-k+1):
-            ngram = tuple(words[i:i+k])
-            counts[ngram] += 1
-    return counts
+import sys
+sys.path.append("cider")
+from pyciderevalcap.ciderD.ciderD_scorer import CiderScorer
 
-def cook_refs(refs, n=4): ## lhuang: oracle will call with "average"
-    '''Takes a list of reference sentences for a single segment
-    and returns an object that encapsulates everything that BLEU
-    needs to know about them.
-    :param refs: list of string : reference sentences for some image
-    :param n: int : number of ngrams for which (ngram) representation is calculated
-    :return: result (list of dict)
-    '''
-    return [precook(ref, n) for ref in refs]
 
-def create_crefs(refs):
-    crefs = []
+def get_doc_freq(refs, params):
+    tmp = CiderScorer(df_mode="corpus")
     for ref in refs:
-        # ref is a list of 5 captions
-        crefs.append(cook_refs(ref))
-    return crefs
+        tmp.cook_append(None, ref)
+    tmp.compute_doc_freq()
+    return tmp.document_frequency, len(tmp.crefs)
 
-def compute_doc_freq(crefs):
-    '''
-    Compute term frequency for reference data.
-    This will be used to compute idf (inverse document frequency later)
-    The term frequency is stored in the object
-    :return: None
-    '''
-    document_frequency = defaultdict(float)
-    for refs in crefs:
-        # refs, k ref captions of one image
-        for ngram in set([ngram for ref in refs for (ngram,count) in ref.items()]):
-            document_frequency[ngram] += 1
-            # maxcounts[ngram] = max(maxcounts.get(ngram,0), count)
-    return document_frequency
 
 def build_dict(imgs, wtoi, params):
     wtoi['<eos>'] = 0
@@ -84,9 +48,10 @@ def build_dict(imgs, wtoi, params):
             count_imgs += 1
     print('total imgs:', count_imgs)
 
-    ngram_words = compute_doc_freq(create_crefs(refs_words))
-    ngram_idxs = compute_doc_freq(create_crefs(refs_idxs))
-    return ngram_words, ngram_idxs, count_imgs
+    ngram_words, count_refs = get_doc_freq(refs_words, params)
+    ngram_idxs, count_refs = get_doc_freq(refs_idxs, params)
+    print('count_refs:', count_refs)
+    return ngram_words, ngram_idxs, count_refs
 
 def main(params):
 
@@ -119,7 +84,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # input json
-    parser.add_argument('--input_json', default='/home-nfs/rluo/rluo/nips/code/prepro/dataset_coco.json', help='input json file to process into hdf5')
+    parser.add_argument('--input_json', default='data/dataset_coco.json', help='input json file to process into hdf5')
     parser.add_argument('--dict_json', default='data/cocotalk.json', help='output json file')
     parser.add_argument('--output_pkl', default='data/coco-all', help='output pickle file')
     parser.add_argument('--split', default='all', help='test, val, train, all')
