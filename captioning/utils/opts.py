@@ -1,6 +1,19 @@
 from __future__ import print_function
 import argparse
-from . import misc as utils
+
+
+def if_use_feat(caption_model):
+    # Decide if load attention feature according to caption model
+    if caption_model in ['show_tell', 'all_img', 'fc', 'newfc']:
+        use_att, use_fc = False, True
+    elif caption_model == 'language_model':
+        use_att, use_fc = False, False
+    elif caption_model in ['updown', 'topdown']:
+        use_fc, use_att = True, True
+    else:
+        use_att, use_fc = True, False
+    return use_fc, use_att
+
 
 def parse_opt():
     parser = argparse.ArgumentParser()
@@ -232,7 +245,7 @@ def parse_opt():
     args.start_from = args.start_from or args.checkpoint_path
 
     # Deal with feature things before anything
-    args.use_fc, args.use_att = utils.if_use_feat(args.caption_model)
+    args.use_fc, args.use_att = if_use_feat(args.caption_model)
     if args.use_box: args.att_feat_size = args.att_feat_size + 5
 
     return args
