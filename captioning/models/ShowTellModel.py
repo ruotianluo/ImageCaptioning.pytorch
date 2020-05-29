@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import *
-from ..utils import misc as utils
+from . import utils
 
 from .CaptionModel import CaptionModel
 

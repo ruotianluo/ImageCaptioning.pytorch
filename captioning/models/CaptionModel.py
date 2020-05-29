@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import *
 from ..utils import misc as utils
+from . import utils as model_utils
 
 
 class CaptionModel(nn.Module):
@@ -138,7 +139,7 @@ class CaptionModel(nn.Module):
 
         # Chunk elements in the args
         args = list(args)
-        args = utils.split_tensors(group_size, args) # For each arg, turn (Bbg)x... to (Bb)x(g)x...
+        args = model_utils.split_tensors(group_size, args) # For each arg, turn (Bbg)x... to (Bb)x(g)x...
         if self.__class__.__name__ == 'AttEnsemble':
             args = [[[args[j][i][k] for i in range(len(self.models))] for j in range(len(args))] for k in range(group_size)] # group_name, arg_name, model_name
         else:

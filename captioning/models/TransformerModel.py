@@ -14,7 +14,7 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from ..utils import misc as utils
+from . import utils
 
 import copy
 import math
