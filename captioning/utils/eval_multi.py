@@ -13,10 +13,10 @@ import string
 import time
 import os
 import sys
-import misc.utils as utils
+from . import misc as utils
 from eval_utils import getCOCO
 
-from misc.div_utils import compute_div_n, compute_global_div_n
+from .div_utils import compute_div_n, compute_global_div_n
 
 import sys
 try:

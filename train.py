@@ -15,14 +15,14 @@ from six.moves import cPickle
 import traceback
 from collections import defaultdict
 
-import opts
-import models
-from dataloader import *
+import captioning.utils.opts as opts
+import captioning.models as models
+from captioning.data.dataloader import *
 import skimage.io
-import eval_utils
-import misc.utils as utils
-from misc.rewards import init_scorer, get_self_critical_reward
-from misc.loss_wrapper import LossWrapper
+import captioning.utils.eval_utils as eval_utils
+import captioning.utils.misc as utils
+from captioning.utils.rewards import init_scorer, get_self_critical_reward
+from captioning.utils.loss_wrapper import LossWrapper
 
 
 def add_summary_value(writer, key, value, iteration):

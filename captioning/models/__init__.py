@@ -6,7 +6,6 @@ import os
 import copy
 
 import numpy as np
-import misc.utils as utils
 import torch
 
 from .ShowTellModel import ShowTellModel

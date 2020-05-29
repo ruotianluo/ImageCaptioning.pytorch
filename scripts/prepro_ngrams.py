@@ -6,7 +6,7 @@ import os
 import json
 import argparse
 from six.moves import cPickle
-import misc.utils as utils
+import captioning.utils.misc as utils
 from collections import defaultdict
 
 import sys

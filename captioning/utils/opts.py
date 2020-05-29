@@ -1,6 +1,6 @@
 from __future__ import print_function
 import argparse
-import misc.utils as utils
+from . import misc as utils
 
 def parse_opt():
     parser = argparse.ArgumentParser()
@@ -200,7 +200,7 @@ def parse_opt():
     # step 1: read cfg_fn
     args = parser.parse_args()
     if args.cfg is not None or args.set_cfgs is not None:
-        from misc.config import CfgNode
+        from .config import CfgNode
         if args.cfg is not None:
             cn = CfgNode(CfgNode.load_yaml_with_base(args.cfg))
         else:

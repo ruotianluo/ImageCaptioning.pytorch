@@ -1,6 +1,6 @@
 import torch
-import misc.utils as utils
-from misc.rewards import init_scorer, get_self_critical_reward
+from . import misc as utils
+from .rewards import init_scorer, get_self_critical_reward
 
 class LossWrapper(torch.nn.Module):
     def __init__(self, model, opt):

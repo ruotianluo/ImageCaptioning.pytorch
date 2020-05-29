@@ -10,7 +10,6 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import misc.utils as utils
 
 from .AttModel import pack_wrapper, AttModel, Attention
 from .TransformerModel import LayerNorm, attention, clones, SublayerConnection, PositionwiseFeedForward

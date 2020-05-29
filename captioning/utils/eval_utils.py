@@ -14,7 +14,7 @@ import string
 import time
 import os
 import sys
-import misc.utils as utils
+from . import misc as utils
 
 # load coco-caption if available
 try:
@@ -102,7 +102,7 @@ def language_eval(dataset, preds, preds_n, eval_kwargs, split):
         imgToEval[image_id]['caption'] = caption
 
     if len(preds_n) > 0:
-        import eval_multi
+        from . import eval_multi
         cache_path_n = os.path.join('eval_results/', '.cache_'+ model_id + '_' + split + '_n.json')
         allspice = eval_multi.eval_allspice(dataset, preds_n, model_id, split)
         out.update(allspice['overall'])
