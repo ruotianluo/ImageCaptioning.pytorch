@@ -22,7 +22,7 @@ import skimage.io
 import captioning.utils.eval_utils as eval_utils
 import captioning.utils.misc as utils
 from captioning.utils.rewards import init_scorer, get_self_critical_reward
-from captioning.utils.loss_wrapper import LossWrapper
+from captioning.modules.loss_wrapper import LossWrapper
 
 
 def add_summary_value(writer, key, value, iteration):

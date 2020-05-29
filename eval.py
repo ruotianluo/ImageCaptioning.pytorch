@@ -16,6 +16,7 @@ from captioning.data.dataloaderraw import *
 import captioning.utils.eval_utils as eval_utils
 import argparse
 import captioning.utils.misc as utils
+import captioning.modules.losses as losses
 import torch
 
 # Input arguments and options
@@ -93,7 +94,7 @@ del opt.vocab
 model.load_state_dict(torch.load(opt.model))
 model.cuda()
 model.eval()
-crit = utils.LanguageModelCriterion()
+crit = losses.LanguageModelCriterion()
 
 # Create the Data Loader instance
 if len(opt.image_folder) == 0:

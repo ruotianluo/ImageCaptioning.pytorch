@@ -9,7 +9,6 @@ import numpy as np
 import torch.optim as optim
 import os
 
-from .rewards import get_scores, get_self_cider_scores
 import torch.nn.functional as F
 
 import six

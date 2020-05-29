@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from ..utils.rewards import get_scores, get_self_cider_scores
 
 class RewardCriterion(nn.Module):
     def __init__(self):

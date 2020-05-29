@@ -1,6 +1,6 @@
 import torch
-from . import misc as utils
-from .rewards import init_scorer, get_self_critical_reward
+from . import losses
+from ..utils.rewards import init_scorer, get_self_critical_reward
 
 class LossWrapper(torch.nn.Module):
     def __init__(self, model, opt):
@@ -8,11 +8,11 @@ class LossWrapper(torch.nn.Module):
         self.opt = opt
         self.model = model
         if opt.label_smoothing > 0:
-            self.crit = utils.LabelSmoothing(smoothing=opt.label_smoothing)
+            self.crit = losses.LabelSmoothing(smoothing=opt.label_smoothing)
         else:
-            self.crit = utils.LanguageModelCriterion()
-        self.rl_crit = utils.RewardCriterion()
-        self.struc_crit = utils.StructureLosses(opt)
+            self.crit = losses.LanguageModelCriterion()
+        self.rl_crit = losses.RewardCriterion()
+        self.struc_crit = losses.StructureLosses(opt)
 
     def forward(self, fc_feats, att_feats, labels, masks, att_masks, gts, gt_indices,
                 sc_flag, struc_flag):
