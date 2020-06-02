@@ -31,9 +31,7 @@ def parse_opt():
     parser.add_argument('--start_from', type=str, default=None,
                     help="""continue training from saved model at this path. Path must contain files saved by previous training process: 
                         'infos.pkl'         : configuration;
-                        'checkpoint'        : paths to model file(s) (created by tf).
-                                              Note: this file contains absolute paths, be careful when moving files around;
-                        'model.ckpt-*'      : file(s) with model definition (created by tf)
+                        'model.pth'         : weights
                     """)
     parser.add_argument('--cached_tokens', type=str, default='coco-train-idxs',
                     help='Cached token file for calculating cider score during self critical training.')
