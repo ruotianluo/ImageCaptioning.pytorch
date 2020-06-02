@@ -89,7 +89,7 @@ def parse_opt():
 
     #Optimization: for the Language Model
     parser.add_argument('--optim', type=str, default='adam',
-                    help='what update to use? rmsprop|sgd|sgdmom|adagrad|adam')
+                    help='what update to use? rmsprop|sgd|sgdmom|adagrad|adam|adamw')
     parser.add_argument('--learning_rate', type=float, default=4e-4,
                     help='learning rate')
     parser.add_argument('--learning_rate_decay_start', type=int, default=-1, 

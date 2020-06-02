@@ -91,7 +91,7 @@ def train(opt):
     ##########################
     if opt.noamopt:
         assert opt.caption_model in ['transformer', 'bert', 'm2transformer'], 'noamopt can only work with transformer'
-        optimizer = utils.get_std_opt(model, factor=opt.noamopt_factor, warmup=opt.noamopt_warmup)
+        optimizer = utils.get_std_opt(model, optim_func=opt.optim, factor=opt.noamopt_factor, warmup=opt.noamopt_warmup)
     elif opt.reduce_on_plateau:
         optimizer = utils.build_optimizer(model.parameters(), opt)
         optimizer = utils.ReduceLROnPlateau(optimizer, factor=0.5, patience=3)

@@ -109,6 +109,8 @@ def build_optimizer(params, opt):
         return optim.SGD(params, opt.learning_rate, opt.optim_alpha, weight_decay=opt.weight_decay, nesterov=True)
     elif opt.optim == 'adam':
         return optim.Adam(params, opt.learning_rate, (opt.optim_alpha, opt.optim_beta), opt.optim_epsilon, weight_decay=opt.weight_decay)
+    elif opt.optim == 'adamw':
+        return optim.AdamW(params, opt.learning_rate, (opt.optim_alpha, opt.optim_beta), opt.optim_epsilon, weight_decay=opt.weight_decay)
     else:
         raise Exception("bad option opt.optim: {}".format(opt.optim))
     
@@ -213,8 +215,10 @@ class ReduceLROnPlateau(object):
     def __getattr__(self, name):
         return getattr(self.optimizer, name)
         
-def get_std_opt(model, factor=1, warmup=2000):
+def get_std_opt(model, optim_func='adam', factor=1, warmup=2000):
     # return NoamOpt(model.tgt_embed[0].d_model, 2, 4000,
     #         torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
+    optim_func = dict(adam=torch.optim.Adam,
+                      adamw=torch.optim.AdamW)[optim_func]
     return NoamOpt(model.d_model, factor, warmup,
-            torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
+            optim_func(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
