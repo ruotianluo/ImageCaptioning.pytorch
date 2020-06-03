@@ -121,6 +121,9 @@ def parse_opt():
                     help='')
 
 
+    parser.add_argument('--use_warmup', action='store_true',
+                    help='warm up the learing rate?')
+
     parser.add_argument('--scheduled_sampling_start', type=int, default=-1, 
                     help='at what iteration to start decay gt probability')
     parser.add_argument('--scheduled_sampling_increase_every', type=int, default=5, 

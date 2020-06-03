@@ -160,6 +160,9 @@ def train(opt):
                 epoch_done = False
                     
             start = time.time()
+            if opt.use_warmup and (iteration < opt.noamopt_warmup):
+                opt.current_lr = opt.learning_rate * (iteration+1) / opt.noamopt_warmup
+                utils.set_lr(optimizer, opt.current_lr)
             # Load data from train split (0)
             data = loader.get_batch('train')
             print('Read data:', time.time() - start)
