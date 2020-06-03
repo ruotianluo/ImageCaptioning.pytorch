@@ -117,6 +117,9 @@ def parse_opt():
                     help='')
     parser.add_argument('--reduce_on_plateau', action='store_true',
                     help='')
+    parser.add_argument('--cached_transformer', action='store_true',
+                    help='')
+
 
     parser.add_argument('--scheduled_sampling_start', type=int, default=-1, 
                     help='at what iteration to start decay gt probability')
