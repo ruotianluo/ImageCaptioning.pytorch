@@ -21,14 +21,19 @@ class HybridLoader:
     If db_path is a director, then use normal file loading
     If lmdb, then load from lmdb
     The loading method depend on extention.
+
+    in_memory: if in_memory is True, we save all the features in memory
+               For individual np(y|z)s, we don't need to do that because the system will do this for us.
+               Should be useful for lmdb or h5.
+               (Copied this idea from vilbert)
     """
-    def __init__(self, db_path, ext):
+    def __init__(self, db_path, ext, in_memory=False):
         self.db_path = db_path
         self.ext = ext
         if self.ext == '.npy':
-            self.loader = lambda x: np.load(x)
+            self.loader = lambda x: np.load(six.BytesIO(x))
         else:
-            self.loader = lambda x: np.load(x)['feat']
+            self.loader = lambda x: np.load(six.BytesIO(x))['feat']
         if db_path.endswith('.lmdb'):
             self.db_type = 'lmdb'
             self.env = lmdb.open(db_path, subdir=os.path.isdir(db_path),
@@ -44,20 +49,31 @@ class HybridLoader:
             self.loader = lambda x: np.array(x).astype('float32')
         else:
             self.db_type = 'dir'
+
+        self.in_memory = in_memory
+        if self.in_memory:
+            self.features = {}
     
     def get(self, key):
 
-        if self.db_type == 'lmdb':
+        if self.in_memory and key in self.features:
+            # We save f_input because we want to save the
+            # compressed bytes to save memory
+            f_input = self.features[key]
+        elif self.db_type == 'lmdb':
             env = self.env
             with env.begin(write=False) as txn:
                 byteflow = txn.get(key.encode())
-            f_input = six.BytesIO(byteflow)
+            f_input = byteflow
         elif self.db_type == 'pth':
             f_input = self.feat_file[key]
         elif self.db_type == 'h5':
             f_input = h5py.File(self.db_path, 'r')[key]
         else:
-            f_input = os.path.join(self.db_path, key + self.ext)
+            f_input = open(os.path.join(self.db_path, key + self.ext), 'rb').read()
+
+        if self.in_memory and key not in self.features:
+            self.features[key] = f_input
 
         # load image
         feat = self.loader(f_input)
@@ -113,9 +129,10 @@ class Dataset(data.Dataset):
         else:
             self.seq_length = 1
 
-        self.fc_loader = HybridLoader(self.opt.input_fc_dir, '.npy')
-        self.att_loader = HybridLoader(self.opt.input_att_dir, '.npz')
-        self.box_loader = HybridLoader(self.opt.input_box_dir, '.npy')
+        self.data_in_memory = getattr(opt, 'data_in_memory', False)
+        self.fc_loader = HybridLoader(self.opt.input_fc_dir, '.npy', in_memory=self.data_in_memory)
+        self.att_loader = HybridLoader(self.opt.input_att_dir, '.npz', in_memory=self.data_in_memory)
+        self.box_loader = HybridLoader(self.opt.input_box_dir, '.npy', in_memory=self.data_in_memory)
 
         self.num_images = len(self.info['images']) # self.label_start_ix.shape[0]
         print('read %d image features' %(self.num_images))
