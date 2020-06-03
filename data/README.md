@@ -63,6 +63,13 @@ This will create `data/cocobu_fc`(not necessary), `data/cocobu_att` and `data/co
 
 bottomup-att: [link](https://drive.google.com/file/d/1hun0tsel34aXO4CYyTRIvHJkcbZHwjrD/view?usp=sharing)
 
+### Vilbert 12 in 1 features.
+In vilbert-12-in-1, the image features used is similar to the original bottom-up feature but with a model with renext152 backbone.
+
+Here is the link of the converted lmdb(More compressed than the original one provided by jiasen):
+
+[https://drive.google.com/file/d/1Gjo9Xs7qrjah2TQs0-joEWi8HabCkuQp/view?usp=sharing](https://drive.google.com/file/d/1Gjo9Xs7qrjah2TQs0-joEWi8HabCkuQp/view?usp=sharing)
+
 ## Flickr30k.
 
 It's similar.
