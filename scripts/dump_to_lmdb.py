@@ -42,7 +42,7 @@ class FolderLMDB(data.Dataset):
     def __getitem__(self, index):
         env = self.env
         with env.begin(write=False) as txn:
-            byteflow = txn.get(self.keys[index])
+            byteflow = txn.get(self.keys[index].encode())
 
         # load image
         imgbuf = byteflow
@@ -117,7 +117,7 @@ class Folder(data.Dataset):
         if fn_list:
             samples = [os.path.join(root, str(_)+extension) for _ in fn_list]
         else:
-            samples = make_dataset(self.root, extention)
+            samples = make_dataset(self.root, extension)
 
         self.loader = loader
         self.extension = extension
@@ -161,14 +161,16 @@ def folder2lmdb(dpath, fn_list, write_frequency=5000):
 
     txn = db.begin(write=True)
 
-    tsvfile = open(args.output_file, 'ab')
+    tsvfile = open(args.output_file, 'a')
     writer = csv.DictWriter(tsvfile, delimiter='\t', fieldnames=FIELDNAMES)
-    names = [] 
+    names = []
+    all_keys = []
     for idx, data in enumerate(tqdm.tqdm(data_loader)):
         # print(type(data), data)
         name, byte, npz = data[0]
         if npz is not None:
-            txn.put(name, byte)
+            txn.put(name.encode(), byte)
+            all_keys.append(name)
         names.append({'image_id': name, 'status': str(npz is not None)})
         if idx % write_frequency == 0:
             print("[%d/%d]" % (idx, len(data_loader)))
@@ -181,7 +183,8 @@ def folder2lmdb(dpath, fn_list, write_frequency=5000):
             names = []
             tsvfile.flush()
             print('writing finished')
-
+    # write all keys
+    txn.put("keys".encode(), pickle.dumps(all_keys))
     # finish iterating through dataset
     txn.commit()
     for name in names:
