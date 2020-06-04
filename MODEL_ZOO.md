@@ -1,6 +1,6 @@
 # Models
 
-Results are on karpathy test split, beam size 5. Without notice, the numbers shown are not selected. The scores are just used to verify if you are getting things right. If the scores you get is close to the number I give (it could be higher or lower), then it's ok.
+Results are on karpathy test split, beam size 5. The evaluated models are the checkpoint with the highest CIDEr on validation set. Without notice, the numbers shown are not selected. The scores are just used to verify if you are getting things right. If the scores you get is close to the number I give (it could be higher or lower), then it's ok.
 
 # Trained with Resnet101 feature:
 
@@ -66,46 +66,74 @@ Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sd
 <td align="center"><a href="https://drive.google.com/open?id=1BkxLPL4SuQ_qFa-4fN96u23iTFWw-iXX">model&metrics</a></td>
 <td align="center"></td>
 </tr>
- <tr><td align="left"><a href="configs/updown.yml">UpDown</a></td>
+ <tr><td align="left"><a href="configs/updown/updown.yml">UpDown</a></td>
 <td align="center">1.099</td>
 <td align="center">0.1999</td>
 <td align="center"><a href="https://drive.google.com/open?id=14w8YXrjxSAi5D4Adx8jgfg4geQ8XS8wH">model&metrics</a></td>
 <td align="center">My replication</td>
 </tr>
- <tr><td align="left"><a href="configs/updown_sc.yml">UpDown<br>+self_critical</a></td>
+ <tr><td align="left"><a href="configs/updown/updown_sc.yml">UpDown<br>+self_critical</a></td>
 <td align="center">1.227</td>
 <td align="center">0.2145</td>
 <td align="center"><a href="https://drive.google.com/open?id=1QdCigVWdDKTbUe3_HQFEGkAsv9XIkKkE">model&metrics</a></td>
 <td align="center"></td>
 </tr>
- <tr><td align="left"><a href="configs/updown_nsc.yml">UpDown<br>+new_self_critical</a></td>
+ <tr><td align="left"><a href="configs/updown/updown_nsc.yml">UpDown<br>+new_self_critical</a></td>
 <td align="center">1.239</td>
 <td align="center">0.2154</td>
 <td align="center"><a href="https://drive.google.com/open?id=1cgoywxAdzHtIF2C6zNnIA7G2wjol_ybf">model&metrics</a></td>
 <td align="center"></td>
 </tr>
- <tr><td align="left"><a href="configs/td_long_nsc.yml">UpDown<br>+Schedule long<br>+new_self_critical</a></td>
+ <tr><td align="left"><a href="configs/updown/ud_long_nsc.yml">UpDown<br>+Schedule long<br>+new_self_critical</a></td>
 <td align="center">1.280</td>
 <td align="center">0.2200</td>
 <td align="center"><a href="https://drive.google.com/open?id=1bCDmf4JCM79f5Lqp6MAn1ap4b3NJ5Gis">model&metrics</a></td>
 <td align="center">Best of 5 models<br>schedule proposed by yangxuntu</td>
 </tr>
- <tr><td align="left"><a href="configs/transformer.yml">Transformer</a></td>
-<td align="center">1.113</td>
-<td align="center">0.2045</td>
+ <tr><td align="left"><a href="configs/transformer/transformer.yml">Transformer</a></td>
+<td align="center">1.1259</td>
+<td align="center">0.2063</td>
 <td align="center"><a href="https://drive.google.com/open?id=10Q5GJ2jZFCexD71rY9gg886Aasuaup8O">model&metrics</a></td>
 <td align="center"></td>
 </tr>
- <tr><td align="left"><a href="configs/transformer_sc.yml">Transformer<br>+self_critical</a></td>
-<td align="center">1.266</td>
-<td align="center">0.2224</td>
+ <tr><td align="left"><a href="configs/transformer/transformer_scl.yml">Transformer<br>+self_critical</a></td>
+<td align="center">1.277</td>
+<td align="center">0.2249</td>
 <td align="center"><a href="https://drive.google.com/open?id=12iKJJSIGrzFth_dJXqcXy-_IjAU0I3DC">model&metrics</a></td>
-<td align="center"></td>
+<td align="center">This could be higher in my opinion. I chose the checkpoint with the highest CIDEr on val set, so it's possible some other checkpoint may perform better. Just let you know.</td>
 </tr>
- <tr><td align="left"><a href="configs/transformer_nsc.yml">Transformer<br>+new_self_critical</a></td>
-<td align="center"><b>1.295</b></td>
-<td align="center">0.2277</td>
+ <tr><td align="left"><a href="configs/transformer/transformer_nscl.yml">Transformer<br>+new_self_critical</a></td>
+<td align="center"><b>1.303</b></td>
+<td align="center">0.2289</td>
 <td align="center"><a href="https://drive.google.com/open?id=1sJDqetTVOnei6Prgvl_4vkvrYlKlc-ka">model&metrics</a></td>
 <td align="center"></td>
 </tr>
+</tbody></table>
+
+
+# Trained with vilbert-12-in-1 feature:
+
+Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sdwODng)
+
+<table><tbody>
+<!-- START TABLE -->
+<!-- TABLE HEADER -->
+<th valign="bottom">Name</th>
+<th valign="bottom">CIDEr</th>
+<th valign="bottom">SPICE</th>
+<th valign="bottom">Download</th>
+<th valign="bottom">Note</th>
+<!-- TABLE BODY -->
+ <tr><td align="left"><a href="configs/transformer.yml">Transformer</a></td>
+<td align="center">1.158</td>
+<td align="center">0.2114</td>
+<td align="center"><a href="https://drive.google.com/drive/folders/18tFqIgC1dc8KrRt71mY_CXaOM5Sr6b3k?usp=sharing">model&metrics</a></td>
+<td align="center">The config needs to be changed to use the vilbert feature.</td>
+</tr>
+ <!-- <tr><td align="left"><a href="configs/transformer_nsc.yml">Transformer<br>+new_self_critical</a></td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"><a href="">model&metrics</a></td>
+<td align="center"></td>
+</tr> -->
 </tbody></table>
