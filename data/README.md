@@ -16,7 +16,11 @@ $ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_j
 
 `prepro_labels.py` will map all words that occur <= 5 times to a special `UNK` token, and create a vocabulary for all the remaining words. The image information and vocabulary are dumped into `data/cocotalk.json` and discretized caption data are dumped into `data/cocotalk_label.h5`.
 
-### Download COCO dataset and pre-extract the image features (Skip if you are using bottom-up feature)
+### Image features option 1: Resnet features
+
+#### Download COCO dataset and pre-extract the image features(if you want to extract your self)
+
+Download pretrained resnet models. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
 
 Download the coco images from [link](http://mscoco.org/dataset/#download). We need 2014 training images and 2014 val. images. You should put the `train2014/` and `val2014/` in the same directory, denoted as `$IMAGE_ROOT`.
 
@@ -33,12 +37,11 @@ $ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_di
 
 **Warning**: the prepro script will fail with the default MSCOCO data because one of their images is corrupted. See [this issue](https://github.com/karpathy/neuraltalk2/issues/4) for the fix, it involves manually replacing one image in the dataset.
 
-
 #### Download preextracted features
 
 To skip the preprocessing, you can download and decompress `cocotalk_att.tar` and `cocotalk_fc.tar` from the link provided at the beginning.)
 
-### Download Bottom-up features (Skip if you are using resnet features)
+### Image features option 2: Bottom-up features (current standard)
 
 #### Convert from peteanderson80's original file
 Download pre-extracted features from [link](https://github.com/peteanderson80/bottom-up-attention). You can either download adaptive one or fixed one.
@@ -63,7 +66,7 @@ This will create `data/cocobu_fc`(not necessary), `data/cocobu_att` and `data/co
 
 bottomup-att: [link](https://drive.google.com/file/d/1hun0tsel34aXO4CYyTRIvHJkcbZHwjrD/view?usp=sharing)
 
-### Vilbert 12 in 1 features.
+### Image features option 3:  Vilbert 12 in 1 features.
 In vilbert-12-in-1, the image features used is similar to the original bottom-up feature but with a model with renext152 backbone.
 
 Here is the link of the converted lmdb(More compressed than the original one provided by jiasen):

@@ -1,28 +1,22 @@
-# Self-critical Sequence Training for Image Captioning (+ misc.)
+# An Image Captioning codebase
 
-This repository includes the unofficial implementation [Self-critical Sequence Training for Image Captioning](https://arxiv.org/abs/1612.00563) and [Bottom-Up and Top-Down Attention for Image Captioning and Visual Question Answering](https://arxiv.org/abs/1707.07998).
+This is a codebase for image captioning research.
 
-The author of SCST helped me a lot when I tried to replicate the result. Great thanks. The att2in2 model can achieve more than 1.20 Cider score on Karpathy's test split (with self-critical training, bottom-up feature, large rnn hidden size, without ensemble)
-
-This is based on my [ImageCaptioning.pytorch](https://github.com/ruotianluo/ImageCaptioning.pytorch) repository. The modifications is:
-- Self critical training.
-- Bottom up feature support from [ref](https://arxiv.org/abs/1707.07998). (Evaluation on arbitrary images is not supported.)
-- Ensemble
+It supports:
+- Self critical training from [Self-critical Sequence Training for Image Captioning](https://arxiv.org/abs/1612.00563)
+- Bottom up feature from [ref](https://arxiv.org/abs/1707.07998).
+- Test time ensemble
 - Multi-GPU training
-- Add transformer (merged from [Transformer_captioning](https://github.com/ruotianluo/Transformer_Captioning))
+- Transformer captioning model.
+
+A simple demo colab notebook is available [here](https://colab.research.google.com/github/ruotianluo/ImageCaptioning.pytorch/blob/colab/notebooks/captioning_demo.ipynb)
 
 ## Requirements
-Python 2 or 3 (My [coco-caption](https://github.com/ruotianluo/coco-caption) supports python 3)
-
-PyTorch 1.3 (along with torchvision)
-
-cider (already been added as a submodule)
-
-coco-caption (already been added as a submodule) (**Remember to follow initialization steps in coco-caption/README.md**)
-
-yacs
-
-(**Skip if you are using bottom-up feature**): If you want to use resnet to extract image features, you need to download pretrained resnet model for both training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
+- Python 3
+- PyTorch 1.3+ (along with torchvision)
+- cider (already been added as a submodule)
+- coco-caption (already been added as a submodule) (**Remember to follow initialization steps in coco-caption/README.md**)
+- yacs
 
 ## Pretrained models
 
