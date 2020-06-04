@@ -1,0 +1,8 @@
+_BASE_: transformer.yml
+reduce_on_plateau: false
+noamopt: false
+learning_rate: 0.000005
+learning_rate_decay_start: -1
+
+self_critical_after: 15
+max_epochs: 40
