@@ -117,6 +117,10 @@ def parse_opt():
                     help='')
     parser.add_argument('--reduce_on_plateau', action='store_true',
                     help='')
+    parser.add_argument('--reduce_on_plateau_factor', type=float, default=0.5,
+                    help='')
+    parser.add_argument('--reduce_on_plateau_patience', type=int, default=3,
+                    help='')
     parser.add_argument('--cached_transformer', action='store_true',
                     help='')
 

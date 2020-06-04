@@ -94,7 +94,9 @@ def train(opt):
         optimizer = utils.get_std_opt(model, optim_func=opt.optim, factor=opt.noamopt_factor, warmup=opt.noamopt_warmup)
     elif opt.reduce_on_plateau:
         optimizer = utils.build_optimizer(model.parameters(), opt)
-        optimizer = utils.ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
+        optimizer = utils.ReduceLROnPlateau(optimizer,
+                                            factor=opt.reduce_on_plateau_factor,
+                                            patience=opt.reduce_on_plateau_patience)
     else:
         optimizer = utils.build_optimizer(model.parameters(), opt)
     # Load the optimizer
