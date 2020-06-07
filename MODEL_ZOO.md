@@ -113,7 +113,7 @@ Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sd
 
 # Trained with vilbert-12-in-1 feature:
 
-Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sdwODng)
+Collection: [link](https://drive.google.com/drive/folders/1QdqRGUoPoQChOq65ecIaSl1yXOosSQm3?usp=sharing)
 
 <table><tbody>
 <!-- START TABLE -->
