@@ -96,6 +96,12 @@ Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sd
 <td align="center"><a href="https://drive.google.com/open?id=10Q5GJ2jZFCexD71rY9gg886Aasuaup8O">model&metrics</a></td>
 <td align="center"></td>
 </tr>
+<tr><td align="left"><a href="configs/transformer/transformer_step.yml">Transformer(warmup+step decay)</a></td>
+<td align="center">1.1496</td>
+<td align="center">0.2093</td>
+<td align="center"><a href="https://drive.google.com/drive/folders/1Qog9yvpGWdHanFXFITjyrWXMzre3ek3e?usp=sharing">model&metrics</a></td>
+<td align="center">Although this schedule is better, the final self critical results are similar.</td>
+</tr>
  <tr><td align="left"><a href="configs/transformer/transformer_scl.yml">Transformer<br>+self_critical</a></td>
 <td align="center">1.277</td>
 <td align="center">0.2249</td>

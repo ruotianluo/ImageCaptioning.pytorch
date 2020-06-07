@@ -1,0 +1,8 @@
+_BASE_: transformer.yml
+# from https://arxiv.org/pdf/2003.08897.pdf
+noamopt: false
+use_warmup: true
+noamopt_warmup: 33000
+learning_rate: 0.0003
+learning_rate_decay_rate: 0.5
+learning_rate_decay_start: 3
