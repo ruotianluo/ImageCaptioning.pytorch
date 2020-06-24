@@ -22,7 +22,7 @@ A simple demo colab notebook is available [here](https://colab.research.google.c
 
 Checkout [MODEL_ZOO.md](MODEL_ZOO.md).
 
-If you want to do evaluation only, you can then follow [this section](#generate-image-captions) after downloading the pretrained models (and also the pretrained resnet101 or precomputed bottomup features).
+If you want to do evaluation only, you can then follow [this section](#generate-image-captions) after downloading the pretrained models (and also the pretrained resnet101 or precomputed bottomup features, see [data/README.md](data/README.md)).
 
 ## Train your own network on COCO/Flickr30k
 
