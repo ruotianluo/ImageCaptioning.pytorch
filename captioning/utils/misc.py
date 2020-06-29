@@ -172,6 +172,17 @@ class NoamOpt(object):
     def __getattr__(self, name):
         return getattr(self.optimizer, name)
 
+    def state_dict(self):
+        state_dict = self.optimizer.state_dict()
+        state_dict['_step'] = self._step
+        return state_dict
+
+    def load_state_dict(self, state_dict):
+        if '_step' in state_dict:
+            self._step = state_dict['_step']
+            del state_dict['_step']
+        self.optimizer.load_state_dict(state_dict)
+
 class ReduceLROnPlateau(object):
     "Optim wrapper that implements rate."
     def __init__(self, optimizer, mode='min', factor=0.1, patience=10, verbose=False, threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=0, eps=1e-08):
