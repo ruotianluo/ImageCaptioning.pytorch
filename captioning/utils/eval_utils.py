@@ -153,24 +153,17 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         data = loader.get_batch(split)
         n = n + len(data['infos'])
 
-        if data.get('labels', None) is not None and verbose_loss:
+        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
+        tmp = [_.cuda() if _ is not None else _ for _ in tmp]
+        fc_feats, att_feats, labels, masks, att_masks = tmp
+        if labels is not None and verbose_loss:
             # forward the model to get loss
-            tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
-            tmp = [_.cuda() if _ is not None else _ for _ in tmp]
-            fc_feats, att_feats, labels, masks, att_masks = tmp
-
             with torch.no_grad():
                 loss = crit(model(fc_feats, att_feats, labels[..., :-1], att_masks), labels[..., 1:], masks[..., 1:]).item()
             loss_sum = loss_sum + loss
             loss_evals = loss_evals + 1
 
         # forward the model to also get generated samples for each image
-        # Only leave one feature for each image, in case duplicate sample
-        tmp = [data['fc_feats'], 
-            data['att_feats'],
-            data['att_masks']]
-        tmp = [_.cuda() if _ is not None else _ for _ in tmp]
-        fc_feats, att_feats, att_masks = tmp
         with torch.no_grad():
             tmp_eval_kwargs = eval_kwargs.copy()
             tmp_eval_kwargs.update({'sample_n': 1})
