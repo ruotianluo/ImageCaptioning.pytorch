@@ -182,9 +182,9 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         # Print beam search
         if beam_size > 1 and verbose_beam:
             for i in range(fc_feats.shape[0]):
-                print('\n'.join([utils.decode_sequence(loader.get_vocab(), _['seq'].unsqueeze(0))[0] for _ in model.done_beams[i]]))
+                print('\n'.join([utils.decode_sequence(model.vocab, _['seq'].unsqueeze(0))[0] for _ in model.done_beams[i]]))
                 print('--' * 10)
-        sents = utils.decode_sequence(loader.get_vocab(), seq)
+        sents = utils.decode_sequence(model.vocab, seq)
 
         for k, sent in enumerate(sents):
             entry = {'image_id': data['infos'][k]['id'], 'caption': sent, 'perplexity': perplexity[k].item(), 'entropy': entropy[k].item()}
@@ -201,7 +201,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
                 print('image %s: %s' %(entry['image_id'], entry['caption']))
 
         if sample_n > 1:
-            eval_split_n(model, n_predictions, loader, [fc_feats, att_feats, att_masks, data], eval_kwargs)
+            eval_split_n(model, n_predictions, [fc_feats, att_feats, att_masks, data], eval_kwargs)
         
         # ix0 = data['bounds']['it_pos_now']
         ix1 = data['bounds']['it_max']
@@ -233,7 +233,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
 
 # Only run when sample_n > 0
-def eval_split_n(model, n_predictions, loader, input_data, eval_kwargs={}):
+def eval_split_n(model, n_predictions, input_data, eval_kwargs={}):
     verbose = eval_kwargs.get('verbose', True)
     beam_size = eval_kwargs.get('beam_size', 1)
     sample_n = eval_kwargs.get('sample_n', 1)
@@ -247,8 +247,8 @@ def eval_split_n(model, n_predictions, loader, input_data, eval_kwargs={}):
         tmp_eval_kwargs.update({'sample_n': 1, 'beam_size': sample_n, 'group_size': 1}) # randomness from softmax
         with torch.no_grad():
             model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
-        for k in range(loader.batch_size):
-            _sents = utils.decode_sequence(loader.get_vocab(), torch.stack([model.done_beams[k][_]['seq'] for _ in range(sample_n)]))
+        for k in range(fc_feats.shape[0]):
+            _sents = utils.decode_sequence(model.vocab, torch.stack([model.done_beams[k][_]['seq'] for _ in range(sample_n)]))
             for sent in _sents:
                 entry = {'image_id': data['infos'][k]['id'], 'caption': sent}
                 n_predictions.append(entry)
@@ -259,7 +259,7 @@ def eval_split_n(model, n_predictions, loader, input_data, eval_kwargs={}):
         tmp_eval_kwargs.update({'sample_n': sample_n, 'sample_method': sample_n_method, 'beam_size': 1}) # randomness from sample
         with torch.no_grad():
             _seq, _sampleLogprobs = model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
-        _sents = utils.decode_sequence(loader.get_vocab(), _seq)
+        _sents = utils.decode_sequence(model.vocab, _seq)
         _perplexity = - _sampleLogprobs.gather(2, _seq.unsqueeze(2)).squeeze(2).sum(1) / ((_seq>0).float().sum(1)+1)
         for k, sent in enumerate(_sents):
             entry = {'image_id': data['infos'][k // sample_n]['id'], 'caption': sent, 'perplexity': _perplexity[k].item()}
@@ -270,7 +270,7 @@ def eval_split_n(model, n_predictions, loader, input_data, eval_kwargs={}):
         with torch.no_grad():
             model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
         for k in range(loader.batch_size):
-            _sents = utils.decode_sequence(loader.get_vocab(), torch.stack([model.done_beams[k][_]['seq'] for _ in range(0, sample_n*beam_size, beam_size)]))
+            _sents = utils.decode_sequence(model.vocab, torch.stack([model.done_beams[k][_]['seq'] for _ in range(0, sample_n*beam_size, beam_size)]))
             for sent in _sents:
                 entry = {'image_id': data['infos'][k]['id'], 'caption': sent}
                 n_predictions.append(entry)
@@ -278,10 +278,10 @@ def eval_split_n(model, n_predictions, loader, input_data, eval_kwargs={}):
         tmp_eval_kwargs.update({'sample_method': sample_n_method[1:], 'group_size': sample_n, 'beam_size':1}) # randomness from softmax
         with torch.no_grad():
             _seq, _sampleLogprobs = model(fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
-        _sents = utils.decode_sequence(loader.get_vocab(), _seq)
+        _sents = utils.decode_sequence(model.vocab, _seq)
         for k, sent in enumerate(_sents):
             entry = {'image_id': data['infos'][k // sample_n]['id'], 'caption': sent}
             n_predictions.append(entry)
     if verbose:
-        for entry in sorted(n_predictions[-loader.batch_size * sample_n:], key=lambda x: x['image_id']):
+        for entry in sorted(n_predictions[-fc_feats.shape[0] * sample_n:], key=lambda x: x['image_id']):
             print('image %s: %s' %(entry['image_id'], entry['caption']))
