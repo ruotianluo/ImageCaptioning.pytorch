@@ -43,6 +43,21 @@ def pickle_dump(obj, f):
         return cPickle.dump(obj, f)
 
 
+# modified from https://github.com/facebookresearch/detectron2/blob/master/detectron2/utils/comm.py
+def serialize_to_tensor(data):
+    device = torch.device("cpu")
+
+    buffer = cPickle.dumps(data)
+    storage = torch.ByteStorage.from_buffer(buffer)
+    tensor = torch.ByteTensor(storage).to(device=device)
+    return tensor
+
+
+def deserialize(tensor):
+    buffer = tensor.cpu().numpy().tobytes()
+    return cPickle.loads(buffer)
+
+
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
 def decode_sequence(ix_to_word, seq):
     N, D = seq.size()
