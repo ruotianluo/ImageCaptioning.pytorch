@@ -53,3 +53,18 @@ When sampling, set `sample_n` to be greater than 0.
 ## Batch normalization
 
 ## Box feature
+
+## Training with pytorch lightning
+To run it, you need to install pytorch-lightning, as well as detectron2(for its utility functions).
+
+The benefit of pytorch-lightning is I don't need to take care of the distributed data parallel details. (Although I know how to do this, but it seems lightning is really convenient. Nevertheless I hate the idea that LightningModule is a nn.Module.)
+
+Training script (in fact it's almost identical):
+```
+python tools/train_pl.py --id trans --cfg configs/transformer.yml
+```
+
+Test script:
+```
+EVALUATE=1 python tools/train_pl.py --id trans --cfg configs/transformer.yml
+```
