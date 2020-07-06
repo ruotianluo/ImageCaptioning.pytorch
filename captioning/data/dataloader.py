@@ -33,7 +33,10 @@ class HybridLoader:
         if self.ext == '.npy':
             self.loader = lambda x: np.load(six.BytesIO(x))
         else:
-            self.loader = lambda x: np.load(six.BytesIO(x))['feat']
+            def load_npz(x):
+                x = np.load(six.BytesIO(x))
+                return x['feat'] if 'feat' in x else x['z']  # normally it should be 'feat', but under cocotest_bu, the key is saved to be 'z' mistakenly.
+            self.loader = load_npz
         if db_path.endswith('.lmdb'):
             self.db_type = 'lmdb'
             self.env = lmdb.open(db_path, subdir=os.path.isdir(db_path),
@@ -386,6 +389,8 @@ class MySampler(data.sampler.Sampler):
                 wrapped = True
             else:
                 raise StopIteration()
+        if len(self._index_list) == 0: # overflow when 0 samples
+            return None
         elem = (self._index_list[self.iter_counter], self.iter_counter+1, wrapped)
         self.iter_counter += 1
         return elem
