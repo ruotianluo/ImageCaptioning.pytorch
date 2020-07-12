@@ -409,7 +409,7 @@ checkpoint_callback = ModelCheckpoint(
 
 print("""
 val_image_use,
-save_checkpoitn_veryå
+save_checkpoint_very
 save_every_epoch,
 save_history-ckpt will be ignored.
 """)
@@ -450,19 +450,6 @@ trainer = pl.Trainer(
 )
 
 if os.getenv('EVALUATE', '0') == '1':
-    lit.load_state_dict(torch.load(resume_from)['state_dict'])
-    # Because ddp cant work with test
-    trainer = pl.Trainer(
-        default_root_dir=opt.checkpoint_path,
-        resume_from_checkpoint=resume_from,
-        distributed_backend='dp',
-        gpus=torch.cuda.device_count(),
-        checkpoint_callback=checkpoint_callback,
-        profiler=True,
-        # limit_train_batches=500,
-        # progress_bar_refresh_rate=0,
-        # fast_dev_run=True,
-    )
     trainer.test(lit)
 else:
     trainer.fit(lit)
