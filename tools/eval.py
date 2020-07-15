@@ -32,6 +32,8 @@ parser.add_argument('--only_lang_eval', type=int, default=0,
                 help='lang eval on saved results')
 parser.add_argument('--force', type=int, default=0,
                 help='force to evaluate no matter if there are results available')
+parser.add_argument('--device', type=str, default='cuda',
+                help='cpu or cuda')
 opts.add_eval_options(parser)
 opts.add_diversity_opts(parser)
 opt = parser.parse_args()
@@ -91,8 +93,8 @@ if not opt.force:
 opt.vocab = vocab
 model = models.setup(opt)
 del opt.vocab
-model.load_state_dict(torch.load(opt.model))
-model.cuda()
+model.load_state_dict(torch.load(opt.model, map_location='cpu'))
+model.to(opt.device)
 model.eval()
 crit = losses.LanguageModelCriterion()
 

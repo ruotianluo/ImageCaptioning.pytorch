@@ -197,8 +197,8 @@ class CaptionModel(nn.Module):
 
                     # move the current group one step forward in time
                     
-                    it = beam_seq_table[divm][:, :, t-divm].reshape(-1)
-                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(it.cuda(), *(args[divm] + [state_table[divm]]))
+                    it = beam_seq_table[divm][:, :, t-divm].reshape(-1).to(logprobs.device)
+                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(it, *(args[divm] + [state_table[divm]]))
                     logprobs_table[divm] = F.log_softmax(logprobs_table[divm] / temperature, dim=-1)
 
         # all beams are sorted by their log-probabilities
@@ -312,7 +312,7 @@ class CaptionModel(nn.Module):
                     logprobsf = logprobs_table[divm].float()
                     # suppress previous word
                     if decoding_constraint and t-divm > 0:
-                        logprobsf.scatter_(1, beam_seq_table[divm][t-divm-1].unsqueeze(1).cuda(), float('-inf'))
+                        logprobsf.scatter_(1, beam_seq_table[divm][t-divm-1].unsqueeze(1).to(logprobsf.device), float('-inf'))
                     if remove_bad_endings and t-divm > 0:
                         logprobsf[torch.from_numpy(np.isin(beam_seq_table[divm][t-divm-1].cpu().numpy(), self.bad_endings_ix)), 0] = float('-inf')
                     # suppress UNK tokens in the decoding
@@ -354,8 +354,8 @@ class CaptionModel(nn.Module):
 
                     # move the current group one step forward in time
                     
-                    it = beam_seq_table[divm][t-divm]
-                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(it.cuda(), *(args[divm] + [state_table[divm]]))
+                    it = beam_seq_table[divm][t-divm].to(logprobsf.device)
+                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(it, *(args[divm] + [state_table[divm]]))
                     logprobs_table[divm] = F.log_softmax(logprobs_table[divm] / temperature, dim=-1)
 
         # all beams are sorted by their log-probabilities
@@ -370,7 +370,7 @@ class CaptionModel(nn.Module):
         elif sample_method == 'gumbel': # gumbel softmax
             # ref: https://gist.github.com/yzh119/fd2146d2aeb329d067568a493b20172f
             def sample_gumbel(shape, eps=1e-20):
-                U = torch.rand(shape).cuda()
+                U = torch.rand(shape).to(logprobs.device)
                 return -torch.log(-torch.log(U + eps) + eps)
             def gumbel_softmax_sample(logits, temperature):
                 y = logits + sample_gumbel(logits.size())

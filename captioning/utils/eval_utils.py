@@ -137,6 +137,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
     sample_n = eval_kwargs.get('sample_n', 1)
     remove_bad_endings = eval_kwargs.get('remove_bad_endings', 0)
     os.environ["REMOVE_BAD_ENDINGS"] = str(remove_bad_endings) # Use this nasty way to make other code clean since it's a global configuration
+    device = eval_kwargs.get('device', 'cuda')
 
     # Make sure in the evaluation mode
     model.eval()
@@ -154,7 +155,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         n = n + len(data['infos'])
 
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
-        tmp = [_.cuda() if _ is not None else _ for _ in tmp]
+        tmp = [_.to(device) if _ is not None else _ for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
         if labels is not None and verbose_loss:
             # forward the model to get loss
