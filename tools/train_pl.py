@@ -36,7 +36,7 @@ class LitModel(pl.LightningModule):
 
         # Build model
         opt.vocab = self.dataset.get_vocab()
-        model = models.setup(opt).cuda()
+        model = models.setup(opt)
         print(model)
         del opt.vocab
 
