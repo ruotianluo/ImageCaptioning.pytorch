@@ -11,7 +11,7 @@ class RewardCriterion(nn.Module):
         
         input = input.reshape(-1)
         reward = reward.reshape(-1)
-        mask = (seq>0).float()
+        mask = (seq>0).to(input)
         mask = torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1).reshape(-1)
         output = - input * reward * mask
         output = torch.sum(output) / torch.sum(mask)
@@ -38,7 +38,7 @@ class StructureLosses(nn.Module):
 
         assert seq_per_img == self.opt.train_sample_n, seq_per_img
 
-        mask = (seq>0).float()
+        mask = (seq>0).to(input)
         mask = torch.cat([mask.new_full((mask.size(0), 1), 1), mask[:, :-1]], 1)
         
         scores = get_scores(data_gts, seq, self.opt)
@@ -174,7 +174,7 @@ class LanguageModelCriterion(nn.Module):
             mask = mask.reshape(-1, mask.shape[2])
         # truncate to the same size
         target = target[:, :input.size(1)]
-        mask =  mask[:, :input.size(1)].float()
+        mask = mask[:, :input.size(1)].to(input)
 
         output = -input.gather(2, target.unsqueeze(2)).squeeze(2) * mask
         # Average over each token
@@ -203,7 +203,7 @@ class LabelSmoothing(nn.Module):
 
         input = input.reshape(-1, input.size(-1))
         target = target.reshape(-1)
-        mask = mask.reshape(-1).float()
+        mask = mask.reshape(-1).to(input)
 
         # assert x.size(1) == self.size
         self.size = input.size(1)

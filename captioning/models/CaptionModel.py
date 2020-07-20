@@ -309,7 +309,7 @@ class CaptionModel(nn.Module):
             for divm in range(group_size): 
                 if t >= divm and t <= self.seq_length + divm - 1:
                     # add diversity
-                    logprobsf = logprobs_table[divm].float()
+                    logprobsf = logprobs_table[divm]
                     # suppress previous word
                     if decoding_constraint and t-divm > 0:
                         logprobsf.scatter_(1, beam_seq_table[divm][t-divm-1].unsqueeze(1).to(logprobsf.device), float('-inf'))
@@ -389,7 +389,7 @@ class CaptionModel(nn.Module):
                     _cumsum = sorted_probs.cumsum(1)
                     mask = _cumsum < top_num
                     mask = torch.cat([torch.ones_like(mask[:,:1]), mask[:,:-1]], 1)
-                    sorted_probs = sorted_probs * mask.float()
+                    sorted_probs = sorted_probs * mask.to(sorted_probs)
                     sorted_probs = sorted_probs / sorted_probs.sum(1, keepdim=True)
                     logprobs.scatter_(1, sorted_indices, sorted_probs.log())
                 else:

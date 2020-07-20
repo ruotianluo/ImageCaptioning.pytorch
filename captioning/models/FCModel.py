@@ -194,7 +194,7 @@ class FCModel(CaptionModel):
                 if t == 1:
                     unfinished = it > 0
                 else:
-                    unfinished = unfinished * (it > 0)
+                    unfinished = unfinished & (it > 0)
                 it = it * unfinished.type_as(it)
                 seq[:,t-1] = it #seq[t] the input of t+2 time step
                 seqLogprobs[:,t-1] = sampleLogprobs.view(-1)

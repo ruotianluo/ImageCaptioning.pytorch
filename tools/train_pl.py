@@ -162,10 +162,10 @@ class LitModel(pl.LightningModule):
                 fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
             seq = seq.data
             entropy = - (F.softmax(seq_logprobs, dim=2) *
-                         seq_logprobs).sum(2).sum(1) / ((seq > 0).float().sum(1)+1)
+                         seq_logprobs).sum(2).sum(1) / ((seq > 0).to(seq_logprobs).sum(1)+1)
             perplexity = - \
                 seq_logprobs.gather(2, seq.unsqueeze(2)).squeeze(
-                    2).sum(1) / ((seq > 0).float().sum(1)+1)
+                    2).sum(1) / ((seq > 0).to(seq_logprobs).sum(1)+1)
 
             # Print beam search
             if beam_size > 1 and verbose_beam:

@@ -338,8 +338,8 @@ class AttModel(CaptionModel):
                 unfinished = it != self.eos_idx
             else:
                 it[~unfinished] = self.pad_idx # This allows eos_idx not being overwritten to 0
-                logprobs = logprobs * unfinished.unsqueeze(1).float()
-                unfinished = unfinished * (it != self.eos_idx)
+                logprobs = logprobs * unfinished.unsqueeze(1).to(logprobs)
+                unfinished = unfinished & (it != self.eos_idx)
             seq[:,t] = it
             seqLogprobs[:,t] = logprobs
             # quit loop if all sequences have finished
@@ -737,7 +737,7 @@ class Attention(nn.Module):
         
         weight = F.softmax(dot, dim=1)                             # batch * att_size
         if att_masks is not None:
-            weight = weight * att_masks.view(-1, att_size).float()
+            weight = weight * att_masks.view(-1, att_size).to(weight)
             weight = weight / weight.sum(1, keepdim=True) # normalize to 1
         att_feats_ = att_feats.view(-1, att_size, att_feats.size(-1)) # batch * att_size * att_feat_size
         att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1) # batch * att_feat_size
