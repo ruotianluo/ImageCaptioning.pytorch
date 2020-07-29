@@ -84,6 +84,7 @@ def train(opt):
     lw_model = LossWrapper(model, opt)
     # Wrap with dataparallel
     dp_model = torch.nn.DataParallel(model)
+    dp_model.vocab = getattr(model, 'vocab', None)  # nasty
     dp_lw_model = torch.nn.DataParallel(lw_model)
 
     ##########################
