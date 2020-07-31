@@ -96,7 +96,9 @@ class AttModel(CaptionModel):
         self.bad_endings_ix = [int(k) for k,v in self.vocab.items() if v in bad_endings]
 
     def init_hidden(self, bsz):
-        weight = next(self.parameters())
+        weight = self.logit.weight \
+                 if hasattr(self.logit, "weight") \
+                 else self.logit[0].weight
         return (weight.new_zeros(self.num_layers, bsz, self.rnn_size),
                 weight.new_zeros(self.num_layers, bsz, self.rnn_size))
 

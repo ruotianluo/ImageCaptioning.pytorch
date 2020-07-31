@@ -69,7 +69,7 @@ class FCModel(CaptionModel):
         self.logit.weight.data.uniform_(-initrange, initrange)
 
     def init_hidden(self, bsz):
-        weight = next(self.parameters())
+        weight = self.logit.weight
         if self.rnn_type == 'lstm':
             return (weight.new_zeros(self.num_layers, bsz, self.rnn_size),
                     weight.new_zeros(self.num_layers, bsz, self.rnn_size))
