@@ -14,6 +14,7 @@ from .AttModel import *
 from .TransformerModel import TransformerModel
 from .cachedTransformer import TransformerModel as cachedTransformer
 from .BertCapModel import BertCapModel
+from .BartCapModel import BartCapModel
 from .M2Transformer import M2TransformerModel
 from .AoAModel import AoAModel
 
@@ -65,6 +66,8 @@ def setup(opt):
         model = AoAModel(opt)
     elif opt.caption_model == 'bert':
         model = BertCapModel(opt)
+    elif opt.caption_model == 'bart':
+        model = BartCapModel(opt)
     elif opt.caption_model == 'm2transformer':
         model = M2TransformerModel(opt)
     else:
