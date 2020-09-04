@@ -18,6 +18,13 @@ A simple demo colab notebook is available [here](https://colab.research.google.c
 - coco-caption (already been added as a submodule) (**Remember to follow initialization steps in coco-caption/README.md**)
 - yacs
 
+## Install
+
+If you have difficulty running the training scripts in `tools`. You can try installing this repo as a python package:
+```
+python -m pip install -e .
+```
+
 ## Pretrained models
 
 Checkout [MODEL_ZOO.md](MODEL_ZOO.md).
