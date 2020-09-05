@@ -4,7 +4,8 @@ from __future__ import print_function
 
 import json
 import h5py
-import lmdb
+from lmdbdict import lmdbdict
+from lmdbdict.methods import DUMPS_FUNC, LOADS_FUNC
 import os
 import numpy as np
 import numpy.random as npr
@@ -36,11 +37,9 @@ class HybridLoader:
             self.loader = lambda x: np.load(six.BytesIO(x))['feat']
         if db_path.endswith('.lmdb'):
             self.db_type = 'lmdb'
-            env = lmdb.open(db_path, subdir=os.path.isdir(db_path),
-                                readonly=True, lock=False,
-                                readahead=False, meminit=False,
-                                map_size=1099511627776 * 2,)
-            self.db_txn = env.begin(write=False)
+            self.lmdb = lmdbdict(db_path, unsafe=True)
+            self.lmdb._key_dumps = DUMPS_FUNC['ascii']
+            self.lmdb._value_loads = LOADS_FUNC['identity']
         elif db_path.endswith('.pth'): # Assume a key,value dictionary
             self.db_type = 'pth'
             self.feat_file = torch.load(db_path)
@@ -55,21 +54,6 @@ class HybridLoader:
         self.in_memory = in_memory
         if self.in_memory:
             self.features = {}
-    
-    def __getstate__(self):
-        state = self.__dict__
-        if self.db_type == 'lmdb':
-            state["db_txn"] = None
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__ = state
-        if self.db_type == 'lmdb':
-            env = lmdb.open(self.db_path, subdir=os.path.isdir(self.db_path),
-                                readonly=True, lock=False,
-                                readahead=False, meminit=False,
-                                map_size=1099511627776 * 2,)
-            self.db_txn = env.begin(write=False)
 
     def get(self, key):
 
@@ -78,9 +62,7 @@ class HybridLoader:
             # compressed bytes to save memory
             f_input = self.features[key]
         elif self.db_type == 'lmdb':
-            env = self.env
-            byteflow = self.db_txn.get(key.encode())
-            f_input = byteflow
+            f_input = self.lmdb[key]
         elif self.db_type == 'pth':
             f_input = self.feat_file[key]
         elif self.db_type == 'h5':
@@ -309,11 +291,3 @@ class CaptionDataset(data.Dataset):
 
     def __len__(self):
         return len(self.info['images'])
-
-
-if __name__ == '__main__':
-    from captioning.utils.misc import pickle_load
-    x = pickle_load(open('log_trans/infos_trans.pkl', 'rb'))
-    dataset = Dataset(x['opt'])
-    ds = torch.utils.data.Subset(dataset, dataset.split_ix['train'])
-    import pudb;pu.db

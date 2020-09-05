@@ -17,6 +17,7 @@ A simple demo colab notebook is available [here](https://colab.research.google.c
 - cider (already been added as a submodule)
 - coco-caption (already been added as a submodule) (**Remember to follow initialization steps in coco-caption/README.md**)
 - yacs
+- lmdbdict
 
 ## Install
 

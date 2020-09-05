@@ -12,7 +12,8 @@ from PIL import Image
 import six
 import string
 
-import lmdb
+from lmdbdict import lmdbdict
+from lmdbdict.methods import DUMPS_FUNC, LOADS_FUNC
 import pickle
 import tqdm
 import numpy as np
@@ -30,9 +31,9 @@ FIELDNAMES = ['image_id', 'status']
 class FolderLMDB(data.Dataset):
     def __init__(self, db_path, fn_list=None):
         self.db_path = db_path
-        self.env = lmdb.open(db_path, subdir=osp.isdir(db_path),
-                             readonly=True, lock=False,
-                             readahead=False, meminit=False)
+        self.lmdb = lmdbdict(db_path, unsafe=True)
+        self.lmdb._key_dumps = DUMPS_FUNC['ascii']
+        self.lmdb._value_loads = LOADS_FUNC['identity']
         if fn_list is not None:
             self.length = len(fn_list)
             self.keys = fn_list
@@ -40,9 +41,7 @@ class FolderLMDB(data.Dataset):
             raise Error
 
     def __getitem__(self, index):
-        env = self.env
-        with env.begin(write=False) as txn:
-            byteflow = txn.get(self.keys[index].encode())
+        byteflow = self.lmdb[self.keys[index]]
 
         # load image
         imgbuf = byteflow
@@ -155,11 +154,7 @@ def folder2lmdb(dpath, fn_list, write_frequency=5000):
     isdir = os.path.isdir(lmdb_path)
 
     print("Generate LMDB to %s" % lmdb_path)
-    db = lmdb.open(lmdb_path, subdir=isdir,
-                   map_size=1099511627776 * 2, readonly=False, 
-                   meminit=False, map_async=True)
-
-    txn = db.begin(write=True)
+    db = lmdbdict(lmdb_path, mode='w', key_method='ascii', value_method='identity')
 
     tsvfile = open(args.output_file, 'a')
     writer = csv.DictWriter(tsvfile, delimiter='\t', fieldnames=FIELDNAMES)
@@ -169,14 +164,13 @@ def folder2lmdb(dpath, fn_list, write_frequency=5000):
         # print(type(data), data)
         name, byte, npz = data[0]
         if npz is not None:
-            txn.put(name.encode(), byte)
+            db[name] = byte
             all_keys.append(name)
         names.append({'image_id': name, 'status': str(npz is not None)})
         if idx % write_frequency == 0:
             print("[%d/%d]" % (idx, len(data_loader)))
             print('writing')
-            txn.commit()
-            txn = db.begin(write=True)
+            db.flush()
             # write in tsv
             for name in names:
                 writer.writerow(name)
@@ -184,17 +178,17 @@ def folder2lmdb(dpath, fn_list, write_frequency=5000):
             tsvfile.flush()
             print('writing finished')
     # write all keys
-    txn.put("keys".encode(), pickle.dumps(all_keys))
-    # finish iterating through dataset
-    txn.commit()
+    # txn.put("keys".encode(), pickle.dumps(all_keys))
+    # # finish iterating through dataset
+    # txn.commit()
     for name in names:
         writer.writerow(name)
     tsvfile.flush()
     tsvfile.close()
 
     print("Flushing database ...")
-    db.sync()
-    db.close()
+    db.flush()
+    del db
 
 def parse_args():
     """

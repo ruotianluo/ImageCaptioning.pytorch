@@ -4,7 +4,8 @@ from __future__ import print_function
 
 import json
 import h5py
-import lmdb
+from lmdbdict import lmdbdict
+from lmdbdict.methods import DUMPS_FUNC, LOADS_FUNC
 import os
 import numpy as np
 import numpy.random as npr
@@ -39,9 +40,9 @@ class HybridLoader:
             self.loader = load_npz
         if db_path.endswith('.lmdb'):
             self.db_type = 'lmdb'
-            self.env = lmdb.open(db_path, subdir=os.path.isdir(db_path),
-                                readonly=True, lock=False,
-                                readahead=False, meminit=False)
+            self.lmdb = lmdbdict(db_path, unsafe=True)
+            self.lmdb._key_dumps = DUMPS_FUNC['ascii']
+            self.lmdb._value_loads = LOADS_FUNC['identity']
         elif db_path.endswith('.pth'): # Assume a key,value dictionary
             self.db_type = 'pth'
             self.feat_file = torch.load(db_path)
@@ -64,10 +65,7 @@ class HybridLoader:
             # compressed bytes to save memory
             f_input = self.features[key]
         elif self.db_type == 'lmdb':
-            env = self.env
-            with env.begin(write=False) as txn:
-                byteflow = txn.get(key.encode())
-            f_input = byteflow
+            f_input = self.lmdb[key]
         elif self.db_type == 'pth':
             f_input = self.feat_file[key]
         elif self.db_type == 'h5':
