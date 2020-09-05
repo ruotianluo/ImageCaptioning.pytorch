@@ -10,6 +10,7 @@ import os
 import numpy as np
 import numpy.random as npr
 import random
+from functools import partial
 
 import torch
 import torch.utils.data as data
@@ -318,7 +319,7 @@ class DataLoader:
                                                   sampler=sampler,
                                                   pin_memory=True,
                                                   num_workers=4, # 4 is usually enough
-                                                  collate_fn=lambda x: self.dataset.collate_func(x, split),
+                                                  collate_fn=partial(self.dataset.collate_func, split=split),
                                                   drop_last=False)
             self.iters[split] = iter(self.loaders[split])
 
