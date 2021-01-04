@@ -439,7 +439,7 @@ class AttModel(CaptionModel):
                     if t == 0:
                         unfinished = it != self.eos_idx
                     else:
-                        unfinished = seq[:,t-1] != self.pad_idx & seq[:,t-1] != self.eos_idx
+                        unfinished = (seq[:,t-1] != self.pad_idx) & (seq[:,t-1] != self.eos_idx)
                         it[~unfinished] = self.pad_idx
                         unfinished = unfinished & (it != self.eos_idx) # changed
                     seq[:,t] = it
