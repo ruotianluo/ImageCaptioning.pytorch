@@ -15,13 +15,15 @@ class LossWrapper(torch.nn.Module):
         self.struc_crit = losses.StructureLosses(opt)
 
     def forward(self, fc_feats, att_feats, labels, masks, att_masks, gts, gt_indices,
-                sc_flag, struc_flag):
+                sc_flag, struc_flag, drop_worst_flag):
         opt = self.opt
         
         out = {}
+
+        reduction = 'none' if drop_worst_flag else 'mean'
         if struc_flag:
             if opt.structure_loss_weight < 1:
-                lm_loss = self.crit(self.model(fc_feats, att_feats, labels[..., :-1], att_masks), labels[..., 1:], masks[..., 1:])
+                lm_loss = self.crit(self.model(fc_feats, att_feats, labels[..., :-1], att_masks), labels[..., 1:], masks[..., 1:], reduction=reduction)
             else:
                 lm_loss = torch.tensor(0).type_as(fc_feats)
             if opt.structure_loss_weight > 0:
@@ -33,7 +35,7 @@ class LossWrapper(torch.nn.Module):
                         'sample_n': opt.train_sample_n},
                     mode='sample')
                 gts = [gts[_] for _ in gt_indices.tolist()]
-                struc_loss = self.struc_crit(sample_logprobs, gen_result, gts)
+                struc_loss = self.struc_crit(sample_logprobs, gen_result, gts, reduction=reduction)
             else:
                 struc_loss = {'loss': torch.tensor(0).type_as(fc_feats),
                               'reward': torch.tensor(0).type_as(fc_feats)}
@@ -42,7 +44,7 @@ class LossWrapper(torch.nn.Module):
             out['struc_loss'] = struc_loss['loss']
             out['reward'] = struc_loss['reward']
         elif not sc_flag:
-            loss = self.crit(self.model(fc_feats, att_feats, labels[..., :-1], att_masks), labels[..., 1:], masks[..., 1:])
+            loss = self.crit(self.model(fc_feats, att_feats, labels[..., :-1], att_masks), labels[..., 1:], masks[..., 1:], reduction=reduction)
         else:
             self.model.eval()
             with torch.no_grad():
@@ -59,7 +61,7 @@ class LossWrapper(torch.nn.Module):
             gts = [gts[_] for _ in gt_indices.tolist()]
             reward = get_self_critical_reward(greedy_res, gts, gen_result, self.opt)
             reward = torch.from_numpy(reward).to(sample_logprobs)
-            loss = self.rl_crit(sample_logprobs, gen_result.data, reward)
+            loss = self.rl_crit(sample_logprobs, gen_result.data, reward, reduction=reduction)
             out['reward'] = reward[:,0].mean()
         out['loss'] = loss
         return out

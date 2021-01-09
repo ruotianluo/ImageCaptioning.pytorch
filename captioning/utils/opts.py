@@ -199,6 +199,12 @@ def parse_opt():
     parser.add_argument('--sc_beam_size', type=int, default=1,
                     help='')
 
+    # drop_worst applied in google conceptual challenge.
+    parser.add_argument('--drop_worst_after', type=float, default=-1,
+                    help='')
+    parser.add_argument('--drop_worst_rate', type=float, default=0,
+                    help='')
+
 
     # For diversity evaluation during training
     add_diversity_opts(parser)
