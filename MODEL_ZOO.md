@@ -35,7 +35,7 @@ Collection: [link](https://drive.google.com/open?id=0B7fNdx_jAqhtcXp0aFlWSnJmb0k
 </tr>
 </tbody></table>
 
-# Trained with Bottomup feature:
+# Trained with Bottomup feature (10-100 features per image, not 36 features per image):
 
 Collection: [link](https://drive.google.com/open?id=1-RNak8qLUR5LqfItY6OenbRl8sdwODng)
 
