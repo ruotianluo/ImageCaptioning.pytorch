@@ -89,7 +89,7 @@ class LitModel(pl.LightningModule):
         return self.val_dataloader('test')
 
     def training_step(self, data, batch_idx):
-        sc_flag, struc_flag = self.sc_flag, self.struc_flag
+        sc_flag, struc_flag, drop_worst_flag = self.sc_flag, self.struc_flag, self.drop_worst_flag
 
         tmp = [data['fc_feats'], data['att_feats'],
                data['labels'], data['masks'], data['att_masks']]
@@ -97,8 +97,12 @@ class LitModel(pl.LightningModule):
         if int(os.getenv('M2_cider', '0')) != 0:
             data['gts'] = data['rawgts']
         model_out = self.lw_model(fc_feats, att_feats, labels, masks, att_masks,
-                                  data['gts'], torch.arange(0, len(data['gts'])), sc_flag, struc_flag)
-        loss = model_out['loss']
+                                  data['gts'], torch.arange(0, len(data['gts'])), sc_flag, struc_flag, drop_worst_flag)
+        if not drop_worst_flag:
+            loss = model_out.pop('loss').mean()
+        else:
+            loss = model_out.pop('loss')
+            loss = torch.topk(loss, k=int(loss.shape[0] * (1-self.opt.drop_worst_rate)), largest=False)[0].mean()
 
         data_time = self.trainer.profiler.recorded_durations["get_train_batch"][-1]
         data_time = torch.tensor(data_time)
@@ -383,8 +387,15 @@ class OnEpochStartCallback(pl.Callback):
         else:
             struc_flag = False
 
+        # drop_worst flag
+        if opt.drop_worst_after != -1 and epoch >= opt.drop_worst_after:
+            drop_worst_flag = True
+        else:
+            drop_worst_flag = False
+
         pl_module.struc_flag = struc_flag
         pl_module.sc_flag = sc_flag
+        pl_module.drop_worst_flag = drop_worst_flag
 
 
 class ModelCheckpoint(pl.callbacks.ModelCheckpoint):
