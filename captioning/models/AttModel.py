@@ -65,6 +65,7 @@ class AttModel(CaptionModel):
         self.bos_idx = getattr(opt, 'bos_idx', 0)
         self.eos_idx = getattr(opt, 'eos_idx', 0)
         self.pad_idx = getattr(opt, 'pad_idx', 0)
+        self.unk_idx = getattr(opt, 'unk_idx', None)
 
         self.use_bn = getattr(opt, 'use_bn', 0)
 

@@ -157,7 +157,9 @@ class CaptionModel(nn.Module):
                         logprobs[torch.from_numpy(np.isin(beam_seq_table[divm][:, :, t-divm-1].cpu().numpy(), self.bad_endings_ix)).reshape(-1), 0] = float('-inf')
                     # suppress UNK tokens in the decoding
                     if suppress_UNK and hasattr(self, 'vocab') and self.vocab[str(logprobs.size(1)-1)] == 'UNK':
-                        logprobs[:,logprobs.size(1)-1] = logprobs[:, logprobs.size(1)-1] - 1000  
+                        logprobs[:,logprobs.size(1)-1] = logprobs[:, logprobs.size(1)-1] - 1000
+                    elif self.unk_idx is not None:
+                        logprobs[:, self.unk_idx] -= 1000
                     # diversity is added here
                     # the function directly modifies the logprobs values and hence, we need to return
                     # the unaugmented ones for sorting the candidates in the end. # for historical
@@ -318,6 +320,8 @@ class CaptionModel(nn.Module):
                     # suppress UNK tokens in the decoding
                     if suppress_UNK and hasattr(self, 'vocab') and self.vocab[str(logprobsf.size(1)-1)] == 'UNK':
                         logprobsf[:,logprobsf.size(1)-1] = logprobsf[:, logprobsf.size(1)-1] - 1000  
+                    elif self.unk_idx is not None:
+                        logprobsf[:, self.unk_idx] -= 1000 
                     # diversity is added here
                     # the function directly modifies the logprobsf values and hence, we need to return
                     # the unaugmented ones for sorting the candidates in the end. # for historical
