@@ -158,48 +158,48 @@ class LitModel(pl.LightningModule):
             loss = crit(model(fc_feats, att_feats,
                               labels[..., :-1], att_masks), labels[..., 1:], masks[..., 1:])
 
-            # forward the model to also get generated samples for each image
-            # Only leave one feature for each image, in case duplicate sample
-            tmp_eval_kwargs = eval_kwargs.copy()
-            tmp_eval_kwargs.update({'sample_n': 1})
-            seq, seq_logprobs = model(
-                fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
-            seq = seq.data
-            entropy = - (F.softmax(seq_logprobs, dim=2) *
-                         seq_logprobs).sum(2).sum(1) / ((seq > 0).to(seq_logprobs).sum(1)+1)
-            perplexity = - \
-                seq_logprobs.gather(2, seq.unsqueeze(2)).squeeze(
-                    2).sum(1) / ((seq > 0).to(seq_logprobs).sum(1)+1)
+        # forward the model to also get generated samples for each image
+        # Only leave one feature for each image, in case duplicate sample
+        tmp_eval_kwargs = eval_kwargs.copy()
+        tmp_eval_kwargs.update({'sample_n': 1})
+        seq, seq_logprobs = model(
+            fc_feats, att_feats, att_masks, opt=tmp_eval_kwargs, mode='sample')
+        seq = seq.data
+        entropy = - (F.softmax(seq_logprobs, dim=2) *
+                        seq_logprobs).sum(2).sum(1) / ((seq > 0).to(seq_logprobs).sum(1)+1)
+        perplexity = - \
+            seq_logprobs.gather(2, seq.unsqueeze(2)).squeeze(
+                2).sum(1) / ((seq > 0).to(seq_logprobs).sum(1)+1)
 
-            # Print beam search
-            if beam_size > 1 and verbose_beam:
-                for i in range(fc_feats.shape[0]):
-                    print('\n'.join([utils.decode_sequence(model.vocab, _[
-                          'seq'].unsqueeze(0))[0] for _ in model.done_beams[i]]))
-                    print('--' * 10)
-            sents = utils.decode_sequence(model.vocab, seq)
+        # Print beam search
+        if beam_size > 1 and verbose_beam:
+            for i in range(fc_feats.shape[0]):
+                print('\n'.join([utils.decode_sequence(model.vocab, _[
+                        'seq'].unsqueeze(0))[0] for _ in model.done_beams[i]]))
+                print('--' * 10)
+        sents = utils.decode_sequence(model.vocab, seq)
 
-            for k, sent in enumerate(sents):
-                entry = {'image_id': data['infos'][k]['id'], 'caption': sent,
-                         'perplexity': perplexity[k].item(), 'entropy': entropy[k].item()}
-                if eval_kwargs.get('dump_path', 0) == 1:
-                    entry['file_name'] = data['infos'][k]['file_path']
-                predictions.append(entry)
-                if eval_kwargs.get('dump_images', 0) == 1:
-                    # dump the raw image to vis/ folder
-                    cmd = 'cp "' + os.path.join(eval_kwargs['image_root'], data['infos'][k]['file_path']) + \
-                        '" vis/imgs/img' + \
-                        str(len(predictions)) + '.jpg'  # bit gross
-                    print(cmd)
-                    os.system(cmd)
+        for k, sent in enumerate(sents):
+            entry = {'image_id': data['infos'][k]['id'], 'caption': sent,
+                        'perplexity': perplexity[k].item(), 'entropy': entropy[k].item()}
+            if eval_kwargs.get('dump_path', 0) == 1:
+                entry['file_name'] = data['infos'][k]['file_path']
+            predictions.append(entry)
+            if eval_kwargs.get('dump_images', 0) == 1:
+                # dump the raw image to vis/ folder
+                cmd = 'cp "' + os.path.join(eval_kwargs['image_root'], data['infos'][k]['file_path']) + \
+                    '" vis/imgs/img' + \
+                    str(len(predictions)) + '.jpg'  # bit gross
+                print(cmd)
+                os.system(cmd)
 
-                if verbose:
-                    print('image %s: %s' %
-                          (entry['image_id'], entry['caption']))
+            if verbose:
+                print('image %s: %s' %
+                        (entry['image_id'], entry['caption']))
 
-            if sample_n > 1:
-                eval_utils.eval_split_n(model, n_predictions, [
-                                        fc_feats, att_feats, att_masks, data], eval_kwargs)
+        if sample_n > 1:
+            eval_utils.eval_split_n(model, n_predictions, [
+                                    fc_feats, att_feats, att_masks, data], eval_kwargs)
 
         output = {
             'val_loss': loss,
