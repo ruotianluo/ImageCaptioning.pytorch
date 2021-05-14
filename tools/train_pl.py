@@ -149,12 +149,12 @@ class LitModel(pl.LightningModule):
         n_predictions = []
 
         loss = torch.tensor(0)
+
+        tmp = [data['fc_feats'], data['att_feats'],
+                data['labels'], data['masks'], data['att_masks']]
+        fc_feats, att_feats, labels, masks, att_masks = tmp
         if data.get('labels', None) is not None and verbose_loss:
             # forward the model to get loss
-            tmp = [data['fc_feats'], data['att_feats'],
-                   data['labels'], data['masks'], data['att_masks']]
-            fc_feats, att_feats, labels, masks, att_masks = tmp
-
             loss = crit(model(fc_feats, att_feats,
                               labels[..., :-1], att_masks), labels[..., 1:], masks[..., 1:])
 
