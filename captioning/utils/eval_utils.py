@@ -21,8 +21,8 @@ try:
     sys.path.append("coco-caption")
     from pycocotools.coco import COCO
     from pycocoevalcap.eval import COCOEvalCap
-except:
-    print('Warning: coco-caption not available')
+except Exception as e:
+    print('Warning: coco-caption not available. Error meesage:', e)
 
 bad_endings = ['a','an','the','in','for','at','of','with','before','after','on','upon','near','to','is','are','am']
 bad_endings += ['the']

@@ -13,11 +13,12 @@ A simple demo colab notebook is available [here](https://colab.research.google.c
 
 ## Requirements
 - Python 3
-- PyTorch 1.3+ (along with torchvision)
+- PyTorch 1.3+ (along with torchvision) (Test with 1.13)
 - cider (already been added as a submodule)
 - coco-caption (already been added as a submodule) (**Remember to follow initialization steps in coco-caption/README.md**)
 - yacs
 - lmdbdict
+- Optional: pytorch-lightning (Tested with 1.9.2)
 
 ## Install
 

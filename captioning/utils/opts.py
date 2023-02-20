@@ -176,7 +176,7 @@ def parse_opt():
     parser.add_argument('--structure_loss_weight', type=float, default=1,
                     help='')
     parser.add_argument('--structure_after', type=int, default=-1,
-                    help='T')
+                    help='')
     parser.add_argument('--structure_loss_type', type=str, default='seqnll',
                     help='')
     parser.add_argument('--struc_use_logsoftmax', action='store_true', help='')

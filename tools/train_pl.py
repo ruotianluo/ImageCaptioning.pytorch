@@ -105,7 +105,8 @@ class LitModel(pl.LightningModule):
             loss = torch.topk(loss, k=int(loss.shape[0] * (1-self.opt.drop_worst_rate)), largest=False)[0].mean()
 
         # Prepare for logging info
-        data_time = self.trainer.profiler.recorded_durations["get_train_batch"][-1]
+        data_time = self.trainer.profiler.recorded_durations[
+            "[TrainingEpochLoop].train_dataloader_next"][-1]
         data_time = torch.tensor(data_time)
 
         logger_logs = model_out.copy()
@@ -269,7 +270,7 @@ class LitModel(pl.LightningModule):
         out = self.split_epoch_end(outputs, 'val')
         out['val_loss'] = out.pop('loss')
         for k,v in out.items():
-            self.log(k, v)
+            self.log(k, v, sync_dist=True)
         return out
 
     def test_epoch_end(self, outputs):
@@ -278,9 +279,9 @@ class LitModel(pl.LightningModule):
         out = {'test_'+k if 'test' not in k else k: v
                for k, v in out.items()}
         for k,v in out.items():
-            self.log(k, v)
+            self.log(k, v, sync_dist=True)
         return out
- 
+
     def configure_optimizers(self):
         opt = self.opt
         model = self.model
@@ -410,7 +411,7 @@ class ModelCheckpoint(pl.callbacks.ModelCheckpoint):
     def on_keyboard_interrupt(self, trainer, pl_module):
         # Save model when keyboard interrupt
         filepath = os.path.join(self.dirpath, pl_module.opt.id+'_interrupt.ckpt')
-        self._save_model(trainer, filepath=filepath)
+        self._save_checkpoint(trainer, filepath=filepath)
 
 
 opt = opts.parse_opt()
@@ -463,14 +464,14 @@ trainer = pl.Trainer(
         checkpoint_callback,
     ],
     default_root_dir=opt.checkpoint_path,
-    resume_from_checkpoint=resume_from,
-    accelerator='ddp',
+    accelerator='gpu',
+    strategy='ddp',
+    devices=torch.cuda.device_count(),
     check_val_every_n_epoch=1,
     max_epochs=opt.max_epochs,
     gradient_clip_algorithm=opt.grad_clip_mode,
     gradient_clip_val=opt.grad_clip_value,
-    gpus=torch.cuda.device_count(),
-    log_gpu_memory='min_max',
+    #log_gpu_memory='min_max',
     log_every_n_steps=opt.losses_log_every,
     profiler='simple',
     num_sanity_val_steps=0,
@@ -484,4 +485,4 @@ if os.getenv('EVALUATE', '0') == '1':
         torch.load(resume_from, map_location='cpu')['state_dict'], strict=False)
     trainer.test(lit)
 else:
-    trainer.fit(lit)
+    trainer.fit(lit, ckpt_path=resume_from)

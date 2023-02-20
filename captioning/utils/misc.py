@@ -200,11 +200,24 @@ class NoamOpt(torch.optim.Optimizer):
 
 class ReduceLROnPlateau(torch.optim.Optimizer):
     "Optim wrapper that implements rate."
-    def __init__(self, optimizer, mode='min', factor=0.1, patience=10, verbose=False, threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=0, eps=1e-08):
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode, factor, patience, verbose, threshold, threshold_mode, cooldown, min_lr, eps)
+
+    def __init__(self,
+                 optimizer,
+                 mode='min',
+                 factor=0.1,
+                 patience=10,
+                 threshold=0.0001,
+                 threshold_mode='rel',
+                 cooldown=0,
+                 min_lr=0,
+                 eps=1e-08,
+                 verbose=False):
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode, factor, patience, threshold, threshold_mode,
+            cooldown, min_lr, eps, verbose)
         self.optimizer = optimizer
         self.current_lr = get_lr(optimizer)
-        
+
     def step(self, *args, **kwargs):
         "Update parameters and rate"
         self.optimizer.step(*args, **kwargs)
@@ -229,7 +242,7 @@ class ReduceLROnPlateau(torch.optim.Optimizer):
             self.scheduler.load_state_dict(state_dict['scheduler_state_dict'])
             self.optimizer.load_state_dict(state_dict['optimizer_state_dict'])
             # current_lr is actually useless in this case
-    
+
     def rate(self, step = None):
         "Implement `lrate` above"
         if step is None:
@@ -240,7 +253,7 @@ class ReduceLROnPlateau(torch.optim.Optimizer):
 
     def __getattr__(self, name):
         return getattr(self.optimizer, name)
-        
+
 def get_std_opt(model, optim_func='adam', factor=1, warmup=2000):
     # return NoamOpt(model.tgt_embed[0].d_model, 2, 4000,
     #         torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
