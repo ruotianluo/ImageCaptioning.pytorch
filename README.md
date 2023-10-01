@@ -18,7 +18,7 @@ A simple demo colab notebook is available [here](https://colab.research.google.c
 - coco-caption (already been added as a submodule) (**Remember to follow initialization steps in coco-caption/README.md**)
 - yacs
 - lmdbdict
-- Optional: pytorch-lightning (Tested with 1.9.2)
+- Optional: pytorch-lightning (Tested with 2.0)
 
 ## Install
 

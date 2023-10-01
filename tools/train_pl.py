@@ -49,6 +49,8 @@ class LitModel(pl.LightningModule):
         self.struc_flag = None
         self.sc_flag = None
 
+        self.validation_step_outputs = []
+
     def forward(self, *args, **kwargs):
         """
         I hate this design. Never pretend it as a nn.Module
@@ -105,9 +107,9 @@ class LitModel(pl.LightningModule):
             loss = torch.topk(loss, k=int(loss.shape[0] * (1-self.opt.drop_worst_rate)), largest=False)[0].mean()
 
         # Prepare for logging info
-        data_time = self.trainer.profiler.recorded_durations[
-            "[TrainingEpochLoop].train_dataloader_next"][-1]
-        data_time = torch.tensor(data_time)
+        # data_time = self.trainer.profiler.recorded_durations[
+        #     "[TrainingEpochLoop].train_dataloader_next"][-1]
+        data_time = torch.tensor(0)
 
         logger_logs = model_out.copy()
         if struc_flag or sc_flag:
@@ -206,6 +208,7 @@ class LitModel(pl.LightningModule):
             'predictions': predictions,
             'n_predictions': n_predictions,
         }
+        self.validation_step_outputs.append(output)
         return output
 
     def test_step(self, *args, **kwargs):
@@ -266,11 +269,13 @@ class LitModel(pl.LightningModule):
 
         return out
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
+        outputs = self.validation_step_outputs
         out = self.split_epoch_end(outputs, 'val')
         out['val_loss'] = out.pop('loss')
         for k,v in out.items():
             self.log(k, v, sync_dist=True)
+        self.validation_step_outputs.clear()
         return out
 
     def test_epoch_end(self, outputs):
