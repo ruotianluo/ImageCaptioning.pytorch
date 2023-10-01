@@ -13,6 +13,7 @@ class LossWrapper(torch.nn.Module):
             self.crit = losses.LanguageModelCriterion()
         self.rl_crit = losses.RewardCriterion()
         self.struc_crit = losses.StructureLosses(opt)
+        self.ppo_crit = losses.PPOLoss(opt, model)
 
     def forward(self, fc_feats, att_feats, labels, masks, att_masks, gts, gt_indices,
                 sc_flag, struc_flag, drop_worst_flag):
@@ -35,7 +36,10 @@ class LossWrapper(torch.nn.Module):
                         'sample_n': opt.train_sample_n},
                     mode='sample')
                 gts = [gts[_] for _ in gt_indices.tolist()]
-                struc_loss = self.struc_crit(sample_logprobs, gen_result, gts, reduction=reduction)
+                if opt.use_ppo:
+                    struc_loss = self.ppo_crit(sample_logprobs, gen_result, gts, fc_feats, att_feats, att_masks, reduction=reduction)
+                else:
+                    struc_loss = self.struc_crit(sample_logprobs, gen_result, gts, reduction=reduction)
             else:
                 struc_loss = {'loss': torch.tensor(0).type_as(fc_feats),
                               'reward': torch.tensor(0).type_as(fc_feats)}
@@ -43,6 +47,10 @@ class LossWrapper(torch.nn.Module):
             out['lm_loss'] = lm_loss
             out['struc_loss'] = struc_loss['loss']
             out['reward'] = struc_loss['reward']
+            if opt.use_ppo:
+                out['pg_loss'] = struc_loss['pg_loss']
+                out['kl_loss'] = struc_loss['kl_loss']
+                out['clipfrac'] = struc_loss['clipfrac']
         elif not sc_flag:
             loss = self.crit(self.model(fc_feats, att_feats, labels[..., :-1], att_masks), labels[..., 1:], masks[..., 1:], reduction=reduction)
         else:

@@ -184,6 +184,16 @@ def parse_opt():
                     help='Entropy reward, seems very interesting')
     parser.add_argument('--self_cider_reward_weight', type=float, default=0,
                     help='self cider reward')
+    
+    # PPO loss
+    parser.add_argument('--use_ppo', type=int, default=0,
+                    help='if use ppo. when using ppo, we reuse things like structure_loss_weight and structure_after.')
+    parser.add_argument('--ppo_old_model_path', type=str, default=None,
+                        help='The old model used to calculate PPO loss.')
+    parser.add_argument('--ppo_cliprange', type=float, default=0.2,
+                        help='cliprange for PPO. 0.2 is used by InstructGPT')
+    parser.add_argument('--ppo_kl_coef', type=float, default=0.02,
+                        help='kl reward cooef for PPO. 0.02 is used by InstructGPT')
 
     # Used for self critical or structure. Used when sampling is need during training
     parser.add_argument('--train_sample_n', type=int, default=16,

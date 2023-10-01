@@ -128,7 +128,7 @@ def build_optimizer(params, opt):
         return optim.AdamW(params, opt.learning_rate, (opt.optim_alpha, opt.optim_beta), opt.optim_epsilon, weight_decay=opt.weight_decay)
     else:
         raise Exception("bad option opt.optim: {}".format(opt.optim))
-    
+
 
 def penalty_builder(penalty_config):
     if penalty_config == '':
@@ -166,7 +166,7 @@ class NoamOpt(torch.optim.Optimizer):
         self.factor = factor
         self.model_size = model_size
         self._rate = 0
-        
+
     def step(self, *args, **kwargs):
         "Update parameters and rate"
         self._step += 1
@@ -175,7 +175,7 @@ class NoamOpt(torch.optim.Optimizer):
             p['lr'] = rate
         self._rate = rate
         self.optimizer.step(*args, **kwargs)
-        
+
     def rate(self, step = None):
         "Implement `lrate` above"
         if step is None:

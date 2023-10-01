@@ -1,6 +1,18 @@
+import copy
+import logging
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from ..utils.rewards import get_scores, get_self_cider_scores
+
+
+def masked_mean(tensor, mask, dim=None, keepdim=False):
+    assert tensor.shape == mask.shape, 'tensor and mask must have the same shape'
+    if dim is None:
+        return torch.sum(tensor * mask) / torch.sum(mask)
+    else:
+        return torch.sum(tensor * mask, dim=dim, keepdim=keepdim) / torch.sum(
+            mask, dim=dim, keepdim=keepdim)
 
 
 class RewardCriterion(nn.Module):
@@ -10,13 +22,13 @@ class RewardCriterion(nn.Module):
     def forward(self, input, seq, reward, reduction='mean'):
         N,L = input.shape[:2]
         input = input.gather(2, seq.unsqueeze(2)).squeeze(2)
-        
+
         input = input.reshape(-1)
         reward = reward.reshape(-1)
         mask = (seq>0).to(input)
         mask = torch.cat([mask.new(mask.size(0), 1).fill_(1), mask[:, :-1]], 1).reshape(-1)
         output = - input * reward * mask
-        
+
         if reduction == 'none':
             output = output.view(N,L).sum(1) / mask.view(N,L).sum(1)
         elif reduction == 'mean':
@@ -47,7 +59,7 @@ class StructureLosses(nn.Module):
 
         mask = (seq>0).to(input)
         mask = torch.cat([mask.new_full((mask.size(0), 1), 1), mask[:, :-1]], 1)
-        
+
         scores = get_scores(data_gts, seq, self.opt)
         scores = torch.from_numpy(scores).type_as(input).view(-1, seq_per_img)
         out['reward'] = scores #.mean()
@@ -58,7 +70,7 @@ class StructureLosses(nn.Module):
             scores = scores + self.opt.entropy_reward_weight * entropy.view(-1, seq_per_img)
         # rescale cost to [0,1]
         costs = - scores
-        if self.loss_type == 'risk' or self.loss_type == 'softmax_margin': 
+        if self.loss_type == 'risk' or self.loss_type == 'softmax_margin':
             costs = costs - costs.min(1, keepdim=True)[0]
             costs = costs / costs.max(1, keepdim=True)[0]
         # in principle
@@ -89,7 +101,7 @@ class StructureLosses(nn.Module):
             # avg_scores = input
             # probs = F.softmax(avg_scores.exp_())
             # loss = (probs * costs.type_as(probs)).sum() / input.size(0)
-            # print(output.item(), loss.item())            
+            # print(output.item(), loss.item())
 
         elif self.loss_type == 'max_margin':
             # input is logits
@@ -112,7 +124,7 @@ class StructureLosses(nn.Module):
             # avg_scores = avg_scores.gather(1, target_and_offender_index)
             # target_index = avg_scores.new_zeros(avg_scores.size(0), dtype=torch.long)
             # loss = F.multi_margin_loss(avg_scores, target_index, size_average=True, margin=0)
-            # print(loss.item() * 2, output.item()) 
+            # print(loss.item() * 2, output.item())
 
         elif self.loss_type == 'multi_margin':
             # input is logits
@@ -210,7 +222,7 @@ class LabelSmoothing(nn.Module):
         self.smoothing = smoothing
         # self.size = size
         self.true_dist = None
-        
+
     def forward(self, input, target, mask, reduction='mean'):
         N,L = input.shape[:2]
         # truncate to the same size
@@ -232,10 +244,102 @@ class LabelSmoothing(nn.Module):
         # mask = torch.nonzero(target.data == self.padding_idx)
         # self.true_dist = true_dist
         output = self.criterion(input, true_dist).sum(1) * mask
-        
+
         if reduction == 'none':
             output = output.view(N,L).sum(1) / mask.view(N,L).sum(1)
         elif reduction == 'mean':
             output = torch.sum(output) / torch.sum(mask)
 
         return output
+
+class PPOLoss(nn.Module):
+    def __init__(self, opt, model: nn.Module):
+        super(PPOLoss, self).__init__()
+        self.opt = opt
+        self.cliprange = getattr(opt, 'ppo_cliprange', 0.2)
+        self.kl_coef = getattr(opt, 'ppo_kl_coef', 0.02)
+
+        if opt.use_ppo == 1:
+            assert opt.ppo_old_model_path is not None, 'Must provide old model path for PPO'
+            self.old_model = copy.deepcopy(model)
+            logging.warning(
+                'Make sure you are using the same model for PPO loss and the vocab must be the same.'
+            )
+            state_dict = torch.load(opt.ppo_old_model_path)
+            if 'pytorch-lightning_version' in state_dict:
+                # It is a lightning checkpoint.
+                state_dict = state_dict['state_dict']
+                del state_dict['_vocab']
+                del state_dict['_opt']
+            self.old_model.load_state_dict(state_dict)
+            # Set old model to eval mode and disable gradient.
+            self.old_model.eval()
+            for p in self.old_model.parameters():
+                p.requires_grad = False
+
+    def forward(self, input, seq, data_gts, fc_feats, att_feats, att_masks, reduction='mean'):
+        """
+        Input is either logits or log softmax
+        """
+        out = {}
+
+        batch_size = input.size(0)# batch_size = sample_size * seq_per_img
+        seq_per_img = batch_size // len(data_gts)
+
+        assert seq_per_img == self.opt.train_sample_n, seq_per_img
+
+        mask = (seq>0).to(input)
+        mask = torch.cat([mask.new_full((mask.size(0), 1), 1), mask[:, :-1]], 1)
+
+        scores = get_scores(data_gts, seq, self.opt)
+        scores = torch.from_numpy(scores).type_as(input).view(-1, seq_per_img)
+        out['reward'] = scores #.mean()
+
+        # NSC type reward/advantage.
+        baseline = (scores.sum(1, keepdim=True) - scores) / (scores.shape[1] - 1)
+        scores = scores - baseline
+
+        # Gather input: BxTxD -> BxT
+        word_logprob = input.gather(2, seq.unsqueeze(2)).squeeze(2)
+        logprobs = input
+
+        # Prepend bos.
+        model_input_seq = torch.cat([seq.new_full((seq.size(0), 1), 0), seq[:, :-1]], 1)
+
+        with torch.no_grad():
+            self.old_model.eval()
+            logprobs_old = self.old_model(fc_feats, att_feats, model_input_seq, att_masks)
+        word_logprob_old = logprobs_old.gather(2, seq.unsqueeze(2)).squeeze(2)
+
+        ratio = torch.exp(word_logprob - word_logprob_old)
+
+        # B x seq_per_img -> B*seq_per_img x 1
+        scores = scores.view(-1, 1)
+
+        pg_losses = -scores * ratio
+        pg_losses2 = -scores * torch.clamp(ratio, 1.0 - self.cliprange, 1.0 + self.cliprange)
+
+        # follow https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/ppo2/model.py#L77.
+
+        pg_loss = torch.max(pg_losses, pg_losses2)
+        # the openai baseline deos not have kl loss.
+        # In instruct gpt, it seems to be KL(RL|SFT), while in PPO, it is KL(SFT|RL).
+        # we just guess then.
+        # https://github.com/openai/summarize-from-feedback , no training code....
+        # From summarize feedback, the reward is sequence level.
+        # The lucdirian is word level it seems, anyway, it also has entropy what so ever, pretty weird.
+        # The instructgpt does not say, using PPO clip in eq 2, but in appendix they say how they use clip.
+        # The original PPO does not use both clip and kl, they are seprate two ways, but here it seems they use them together.
+
+        # N,L
+        kl_loss = F.kl_div(logprobs, logprobs_old, reduction='none', log_target=True).sum(-1)
+        out['pg_loss'] = masked_mean(pg_loss, mask)
+        out['kl_loss'] = masked_mean(kl_loss, mask)
+        out['clipfrac'] = masked_mean(((ratio - 1.0).abs() > self.cliprange).float(), mask)
+        if reduction == 'none':
+            loss = pg_loss + self.kl_coef * kl_loss
+            out['loss'] = masked_mean(loss, mask, 1)
+        elif reduction == 'mean':
+            loss = out['pg_loss'] + self.kl_coef * out['kl_loss']
+            out['loss'] = loss
+        return out

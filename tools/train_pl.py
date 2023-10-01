@@ -116,6 +116,12 @@ class LitModel(pl.LightningModule):
             logger_logs['reward'] = model_out['reward'].mean()
             logger_logs['reward_var'] = model_out['reward'].var(1).mean()
 
+        if 'pg_loss' in model_out:
+            # Log ppo losses.
+            logger_logs['ppo_pg_loss'] = model_out['pg_loss']
+            logger_logs['ppo_kl_loss'] = model_out['kl_loss']
+            logger_logs['ppo_clipfrac'] = model_out['clipfrac']
+
         logger_logs['scheduled_sampling_prob'] = torch.tensor(
             self.model.ss_prob)
         logger_logs['training_loss'] = loss
