@@ -186,6 +186,18 @@ class StructureLosses(nn.Module):
             elif reduction == 'mean':
                 output = torch.sum(output) / torch.sum(mask)
 
+        elif self.loss_type == 'best_of_n':
+            """
+            Supervised by the highest prediction.
+            """
+            # Convert scores to 0,1 tensor where 1 where score is the highest.
+            scores = (scores == scores.max(1, keepdim=True)[0]).float()
+            output = - input * mask * scores.view(-1, 1)
+            if reduction == 'none':
+                output = output.sum(1) / mask.sum(1)
+            elif reduction == 'mean':
+                output = torch.sum(output) / torch.sum(mask)
+
         out['loss'] = output
         return out
 
